@@ -6,13 +6,14 @@ module ClickHouseDriver.Helpers (
 
 import           ClickHouseDriver.Types 
 import qualified Data.Aeson                as JP
-import qualified Data.Attoparsec.Lazy      as AP
-import qualified Data.Attoparsec.Lazy      as DAL
+import           Data.Attoparsec.Lazy      (parse)
+import           Data.Attoparsec.Lazy      (Result(..))
 import qualified Data.ByteString           as BS
-import qualified Data.ByteString.Lazy      as LBS
+import           Data.ByteString.Lazy      (ByteString)
 import           Data.Hashable
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.Text                 as T
+import           Data.Text                 (pack)
 import           Data.Text.Internal.Lazy   (Text)
 import           Data.Text.Lazy.Encoding
 import           Data.Typeable
@@ -20,15 +21,15 @@ import           Data.Vector               (toList)
 
 
 -- | Trim JSON data
-extract :: LBS.ByteString->QueryResult
+extract :: ByteString->QueryResult
 extract val = do
-    let res = (AP.parse JP.json (val))
+    let res = (parse JP.json (val))
     case res of
-        DAL.Fail e1 e2 e3-> Err e1
-        DAL.Done txt datas->OK $ getData res where
-            getData :: DAL.Result JP.Value->[HM.HashMap T.Text JP.Value]
-            getData (DAL.Done _ (JP.Object x)) = do
-                let values = HM.lookup (T.pack "data") x
+        Fail e1 e2 e3-> Left e1
+        Done txt datas->Right $ getData res where
+            getData :: Result JP.Value->[HM.HashMap T.Text JP.Value]
+            getData (Done _ (JP.Object x)) = do
+                let values = HM.lookup (pack "data") x
                     values' = fmap (\(JP.Array arr)->toList arr) values
                     values'' = case values' of
                             Nothing  -> []

@@ -18,9 +18,7 @@ module ClickHouseDriver.Query (
     getCsvM,
     settings,
     defaultEnv,
-    runQuery,
-    ClickHouseConnection (..),
-    QueryResult (..),
+    runQuery
 ) where
 
 

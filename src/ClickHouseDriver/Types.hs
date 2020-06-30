@@ -6,14 +6,14 @@ module ClickHouseDriver.Types (
     Haxl
 ) where
 
-import qualified Data.Aeson                as JP
-import qualified Data.ByteString.Lazy      as LBS
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.Text                 as T
+import           Data.Aeson                (Value)
+import           Data.ByteString.Lazy      (ByteString)
+import           Data.HashMap.Strict       (HashMap)
+import           Data.Text                 (Text)
 import           Haxl.Core
 
-data QueryResult = Err LBS.ByteString | OK [HM.HashMap T.Text JP.Value]
-                    deriving Show
+type QueryResult = Either ByteString [HashMap Text Value] --Err LBS.ByteString | OK [HM.HashMap T.Text JP.Value]
+                    --deriving Show
 
 data ClickHouseConnection = ClickHouseConnectionSettings {
      ciHost     :: {-# UNPACK #-}  !String
