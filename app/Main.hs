@@ -1,20 +1,12 @@
 module Main where
 
-import           ClickHouseDriver.HttpConnection as CC
-import           ClickHouseDriver.Query
+import           ClickHouseDriver
 import           Control.Monad.ST
 import           Haxl.Core
 import           Haxl.Core.Monad
 import           Data.Text
 import           Network.HTTP.Client
 
-
-main2 :: IO ()
-main2 = do
-    manager <- newManager defaultManagerSettings
-    env <- initEnv (stateSet (httpState manager) stateEmpty) ()
-    res <- runHaxl env (getURL "http://default:12345612341@localhost:8123/ping")
-    print res
 
 main :: IO()
 main = do

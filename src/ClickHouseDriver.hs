@@ -1,8 +1,9 @@
-module ClickHouseDriver
-    ( module ClickHouseDriver.HttpConnection,
+module ClickHouseDriver( 
+      module ClickHouseDriver.Types,
       module ClickHouseDriver.Query
     ) where
 
 
-import ClickHouseDriver.HttpConnection
+import ClickHouseDriver.Types
 import ClickHouseDriver.Query
+
