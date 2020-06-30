@@ -61,8 +61,7 @@ query3 = describe "format in JSON" $ do
     env <- runIO $ defaultEnv deSetting
     res <- runIO $ runQuery env (getJSON "SELECT * FROM default.test_table")
     let check = case res of
-            OK (x:xs) -> C8.pack $ show (HM.lookup "id" x)
+            Right (x:xs) -> C8.pack $ show (HM.lookup "id" x)
             _         -> C8.pack "error"
     it "returns query result in JSON" $ do
         check `shouldBe` C8.pack "Just (String \"0000000001\")"
-
