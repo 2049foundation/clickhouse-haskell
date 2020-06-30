@@ -1,0 +1,76 @@
+name:                clickhouse-haskell
+version:             0.1.0.0
+github:              "githubuser/clickhouse-haskell"
+license:             BSD3
+author:              "Shi You"
+maintainer:          "youshi@emqx.io"
+copyright:           "2020 Author name here"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/clickhouse-haskell#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- array
+- network
+- containers
+- bytestring
+- network-simple
+- vector
+- ghc-prim
+- network-uri
+- http-client-tls 
+- http-client
+- http-types
+- scanner
+- cassava
+- text
+- parsec
+- csv
+- lazy-csv
+- regex-tdfa
+- aeson
+- attoparsec
+- hashmap 
+- call-stack
+- hspec
+- exceptions
+- transformers
+- binary
+- unordered-containers
+- haxl
+- hashable
+library:
+  source-dirs: src
+
+executables:
+  clickhouse-haskell-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - clickhouse-haskell
+
+tests:
+  clickhouse-haskell-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - clickhouse-haskell
