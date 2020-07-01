@@ -17,7 +17,7 @@ module ClickHouseDriver.Query (
     getJsonM,
     getCsvM,
     settings,
-    defaultEnv,
+    setupEnv,
     runQuery
 ) where
 
@@ -79,7 +79,6 @@ instance DataSource u ClickHouseQuery where
 instance StateKey ClickHouseQuery where
     data State ClickHouseQuery = Settings ClickHouseConnection
 
-
 settings :: ClickHouseConnection -> Haxl.Core.State ClickHouseQuery
 settings = Settings
 
@@ -101,9 +100,8 @@ fetchData settings fetches = do
     either (putFailure var) (putSuccess var) (e :: Either SomeException LBS.ByteString)
 
 -- | Default environment
-defaultEnv :: ClickHouseConnection -> IO (Env () w)
-defaultEnv csetting = initEnv (stateSet (settings csetting) stateEmpty) ()
-
+setupEnv :: ClickHouseConnection -> IO (Env () w)
+setupEnv csetting = initEnv (stateSet (settings csetting) stateEmpty) ()
 
 -- | Fetch data from ClickHouse client in the text format.
 getByteString :: String->GenHaxl u w LBS.ByteString
