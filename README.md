@@ -1,2 +1,3 @@
-# clickhouse-haskell-
+# clickhouse-haskell
+
 Haskell driver for ClickHouse
