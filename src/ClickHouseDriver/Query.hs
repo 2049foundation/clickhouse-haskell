@@ -67,7 +67,7 @@ instance Hashable (ClickHouseQuery a) where
     hashWithSalt salt (FetchCSV cmd)        = hashWithSalt salt cmd
 
 instance DataSourceName ClickHouseQuery where
-    dataSourceName _ = "ClickHouseDataSource"
+    dataSourceName _ = "ClickhouseDataSource"
 
 instance DataSource u ClickHouseQuery where
     fetch (Settings settings) _flags _usrenv = SyncFetch $ \blockedFetches->do
@@ -92,10 +92,9 @@ fetchData settings fetches = do
             BlockedFetch (FetchCSV query) var -> (repl (query ++ " FORMAT CSV"), var)
             BlockedFetch (FetchByteString query) var -> (query, var)
     e <- Control.Exception.try $ do
-        manager <- newManager defaultManagerSettings
         let url = genUrl settings queryType
         req <- parseRequest url
-        ans <- responseBody <$> httpLbs req manager
+        ans <- responseBody <$> httpLbs req (ciManager settings)
         return ans
     either (putFailure var) (putSuccess var) (e :: Either SomeException LBS.ByteString)
 

@@ -50,3 +50,5 @@ genUrl ClickHouseConnectionSettings{ciHost=host,ciPassword=pw,ciPort=port,ciUser
     let basic = "http://" ++ usr ++ ":" ++ pw ++"@"++ host ++ ":" ++ (show port) ++ "/?query="
         res = basic ++ (repl cmd) in
     res
+
+genUrl (DirectUrl url) cmd = url ++ repl cmd 

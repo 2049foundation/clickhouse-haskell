@@ -29,12 +29,7 @@ tests = TestList [TestLabel "query1" query1]
 -}
 
 
-deSetting = ClickHouseConnectionSettings {
-            ciHost = "localhost",
-            ciPassword = "12345612341",
-            ciPort = 8123,
-            ciUsername = "default"
-        }
+defaultsetups = defaultConnection
 
 spec :: Spec
 spec = parallel $ do
@@ -44,6 +39,7 @@ spec = parallel $ do
 
 query1 :: Spec
 query1 = describe "show databases" $ do
+    deSetting <- runIO $ defaultsetups
     env <- runIO $ setupEnv deSetting
     res <- runIO $ runQuery env (getByteString "SHOW DATABASES")
     it "returns query result in text format" $ do
@@ -51,6 +47,7 @@ query1 = describe "show databases" $ do
 
 query2 :: Spec
 query2 = describe "format in text" $ do
+    deSetting <- runIO $ defaultsetups
     env <- runIO $ setupEnv deSetting
     res <- runIO $ runQuery env (getByteString "SELECT * FROM default.test_table")
     it "returns query result in text format" $ do
@@ -58,6 +55,7 @@ query2 = describe "format in text" $ do
 
 query3 :: Spec
 query3 = describe "format in JSON" $ do
+    deSetting <- runIO $ defaultsetups
     env <- runIO $ setupEnv deSetting
     res <- runIO $ runQuery env (getJSON "SELECT * FROM default.test_table")
     let check = case res of
