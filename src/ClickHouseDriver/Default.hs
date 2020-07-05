@@ -1,29 +1,32 @@
 module ClickHouseDriver.Default(
-    username,
-    dhost,
-    password,
-    dport,
-    defaultConnection
+    usr,
+    hst,
+    pw,
+    prt,
+    defaultHttpConnection
 ) where 
 
 import ClickHouseDriver.Types
 import Network.HTTP.Client
+import Data.ByteString.Internal
 
-{-default settings-}
-username = "default"
-dhost = "localhost"
-password = ""
-dport = 8123
+{-default HTTP settings-}
+usr = "default"
+hst = "localhost"
+pw = ""
+prt = 8123
 
 
-
-defaultConnection :: IO (ClickHouseConnection)
-defaultConnection = do
+defaultHttpConnection :: IO (ClickHouseConnection)
+defaultHttpConnection = do
     mng <- newManager defaultManagerSettings
-    return ClickHouseConnectionSettings {
-     ciHost = dhost
-    ,ciPassword = password
-    ,ciPort = dport
-    ,ciUsername = username
-    ,ciManager  = mng
+    return HttpConnection {
+     httpHost = hst
+    ,httpPassword = pw
+    ,httpPort = prt
+    ,httpUsername = usr
+    ,httpManager  = mng
   }
+
+defaultTCPConnection :: IO (ClickHouseConnection)
+defaultTCPConnection = undefined
