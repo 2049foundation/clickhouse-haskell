@@ -31,6 +31,7 @@ library
       ClickHouseDriver.Helpers
       ClickHouseDriver.Query
       ClickHouseDriver.Types
+      ClickHouseDriver.Default
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
@@ -49,7 +50,6 @@ library
     , call-stack
     , cassava
     , containers
-    , csv
     , exceptions
     , ghc-prim
     , hashmap
@@ -58,7 +58,6 @@ library
     , http-client
     , http-client-tls
     , http-types
-    , lazy-csv
     , network
     , network-simple
     , network-uri
@@ -69,6 +68,7 @@ library
     , transformers
     , unordered-containers
     , vector
+    , network-simple
   default-language: Haskell2010
 
 executable clickhouse-haskell-exe
