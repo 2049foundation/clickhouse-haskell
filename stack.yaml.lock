@@ -5,22 +5,19 @@
 
 packages:
 - completed:
-    cabal-file:
-      size: 3904
-      sha256: 8f555258f2ff21cc073df2667a3fa2a2db88b175d8d32776aa497080737c1c03
     name: haxl
     version: 2.3.0.0
     git: https://github.com/facebook/Haxl.git
     pantry-tree:
-      size: 4155
-      sha256: b9e70a434836dd8e07800b837ef6fc89cadbac3de93e702d3e69e3985f069e91
-    commit: e978f29f648ffaf3ba1574e654f9c4b7e92c7f92
+      size: 4156
+      sha256: b2f4446f091d970763a09d97882cd06725187882205f91e8f95cced966eece89
+    commit: 4c91bb9c9760c6f5776125300b46a54ae5ceb3c5
   original:
     git: https://github.com/facebook/Haxl.git
-    commit: e978f29f648ffaf3ba1574e654f9c4b7e92c7f92
+    commit: 4c91bb9c9760c6f5776125300b46a54ae5ceb3c5
 snapshots:
 - completed:
-    size: 524154
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/20.yaml
-    sha256: 2f5099f69ddb6abfe64400fe1e6a604e8e628f55e6837211cd70a81eb0a8fa4d
-  original: lts-14.20
+    size: 496111
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/14.yaml
+    sha256: c442d702d66b8c129b3473a32c609050aabf1dc2f8e8502402c143271a8fb141
+  original: lts-15.14

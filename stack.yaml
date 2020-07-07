@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-14.20
+resolver: lts-15.14
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -36,7 +36,7 @@ packages:
 #
 extra-deps:
 - git: https://github.com/facebook/Haxl.git
-  commit: e978f29f648ffaf3ba1574e654f9c4b7e92c7f92
+  commit: 4c91bb9c9760c6f5776125300b46a54ae5ceb3c5
 # - acme-missiles-0.3
 # - git: https://github.com/commercialhaskell/stack.git
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
