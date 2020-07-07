@@ -7,7 +7,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
-
+{-# LANGUAGE ApplicativeDo              #-}
 module ClickHouseDriver.Query (
     settings,
     setupEnv,
