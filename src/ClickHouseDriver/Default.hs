@@ -4,11 +4,11 @@ module ClickHouseDriver.Default(
     pw,
     prt,
     defaultHttpConnection
-) where 
+) where
 
-import ClickHouseDriver.Types
-import Network.HTTP.Client
-import Data.ByteString.Internal
+import           ClickHouseDriver.Types
+import           Data.ByteString.Internal
+import           Network.HTTP.Client
 
 {-default HTTP settings-}
 usr = "default"

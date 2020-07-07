@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo              #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
@@ -7,7 +8,6 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
-{-# LANGUAGE ApplicativeDo              #-}
 module ClickHouseDriver.Query (
     settings,
     setupEnv,
@@ -27,26 +27,26 @@ import           Control.Exception
 import qualified Data.Aeson                as JP
 import qualified Data.Attoparsec.Lazy      as AP
 import qualified Data.Attoparsec.Lazy      as DAL
-import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.ByteString           as BS
+import qualified Data.ByteString.Lazy      as LBS
 import           Data.Hashable
 import qualified Data.HashMap.Strict       as HM
-import           Data.Text.Internal.Lazy   (Text)
 import qualified Data.Text                 as T
 import           Data.Text.Encoding
+import           Data.Text.Internal.Lazy   (Text)
 import           Data.Typeable
 import           Haxl.Core
 import           Network.HTTP.Client       (Manager, defaultManagerSettings,
                                             httpLbs, newManager, parseRequest,
                                             responseBody)
 import           Network.HTTP.Types.Status (statusCode)
+import           Network.Simple.TCP
+import           Network.Socket            (SockAddr, Socket)
 import           Text.Parsec
 import           Text.Printf
-import           Network.Socket            (SockAddr, Socket)
-import           Network.Simple.TCP
 
 {-Implementation in Haxl-}
--- 
+--
 data ClickHouseQuery a where
     FetchByteString :: String -> ClickHouseQuery (Maybe BS.ByteString)
     FetchJSON       :: String -> ClickHouseQuery (Maybe BS.ByteString)
@@ -85,7 +85,7 @@ fetchData settings fetches = do
     e <- Control.Exception.try $ do
         case settings of
             HttpConnection _ _ _ _ mng->do
-                let url = genUrl settings queryType              
+                let url = genUrl settings queryType
                 req <- parseRequest url
                 ans <- responseBody <$> httpLbs req mng
                 return $ Just $ toStrict ans
@@ -95,7 +95,7 @@ fetchData settings fetches = do
                 send sock prot
                 res <- recv sock 1000
                 return res
-    either (putFailure var) (putSuccess var) 
+    either (putFailure var) (putSuccess var)
      (e :: Either SomeException (Maybe BS.ByteString))
 
 -- | Fetch data from ClickHouse client in the text format.
