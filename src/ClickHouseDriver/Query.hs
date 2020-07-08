@@ -102,12 +102,12 @@ fetchData settings fetches = do
   e <- Control.Exception.try $ do
     case settings of
       HttpConnection _ _ _ _ mng -> do
-        let url = genUrl settings queryType
+        let url = genURL settings queryType
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ toStrict ans
       TCPConnection host port _ _ -> do
-        let prot = genUrl settings queryType
+        let prot = genTCP settings queryType
         (sock, sockaddr) <- connectSock host port
         send sock prot
         recv' <- recv sock 1000

@@ -5,7 +5,8 @@ module ClickHouseDriver.Helpers
   ( extract,
     repl,
     toStrict,
-    UrlType (..),
+    genURL,
+    genTCP
   )
 where
 
@@ -65,20 +66,11 @@ toStrict lb = BI.unsafeCreate len $ go lb
         BI.memcpy ptr (p `plusPtr` s) (fromIntegral l)
         go r (ptr `plusPtr` l)
 
-genURL :: ClickHouseConnection -> Cmd -> String
+genURL :: ClickHouseConnection->Cmd->String
 genURL HttpConnection {httpHost = host, httpPassword = pw, httpPort = port, httpUsername = usr} cmd =
-  let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
-      res = basic ++ (repl cmd)
-   in res
+    let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
+        res = basic ++ (repl cmd)
+    in res
 
-class UrlType a where
-  genUrl :: ClickHouseConnection -> Cmd -> a
-  genTcp :: ClickHouseConnection -> Cmd -> a
-
--- TODO implement
-instance UrlType String where
-  genUrl = genURL
-
--- TODO implement
-instance UrlType C8.ByteString where
-  genUrl http cmd = C8.pack $ genURL http cmd
+genTCP :: ClickHouseConnection->Cmd->B.ByteString
+genTCP = undefined
