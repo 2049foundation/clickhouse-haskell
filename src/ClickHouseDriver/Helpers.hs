@@ -31,26 +31,22 @@ import Foreign.Ptr
 
 -- | Trim JSON data
 extract :: C8.ByteString -> JSONResult
-extract val = do
-  let res = (parse JP.json (val))
-  case res of
-    Fail e1 e2 e3 -> Left e1
-    Done txt datas -> Right $ getData res
-      where
-        getData :: Result JP.Value -> [HM.HashMap T.Text JP.Value]
-        getData (Done _ (JP.Object x)) = do
-          let values = HM.lookup (pack "data") x
-              values' = fmap (\(JP.Array arr) -> toList arr) values
-              values'' = case values' of
-                Nothing -> []
-                Just arr -> arr
-              values''' = fmap (\(JP.Object x) -> x) values''
-           in values'''
-        getData _ = []
+extract val = getData $ parse JP.json val
+  where
+    getData (Fail e _ _)           = Left e
+    getData (Done _ (JP.Object x)) = Right $ getData' x
+
+    getData' = map getObject . maybeArrToList . HM.lookup (pack "data")
+
+    maybeArrToList Nothing = []
+    maybeArrToList (Just x) = toList . getArray $ x
+
+    getArray (JP.Array arr) = arr
+    getObject (JP.Object x) = x
 
 -- | replace spaces with "%20"
 repl :: String -> String
-repl [] = []
+repl "" = ""
 repl (' ' : cs) = "%20" ++ repl cs
 repl (x : xs) = x : repl xs
 
