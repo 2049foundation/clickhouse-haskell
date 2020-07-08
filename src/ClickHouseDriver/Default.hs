@@ -1,8 +1,8 @@
 module ClickHouseDriver.Default
-  ( usr,
-    hst,
-    pw,
-    prt,
+  ( username,
+    hostname,
+    password,
+    portnumber,
     defaultHttpConnection,
   )
 where
@@ -12,23 +12,23 @@ import Data.ByteString.Internal
 import Network.HTTP.Client
 
 {-default HTTP settings-}
-usr = "default"
+username = "default"
 
-hst = "localhost"
+hostname = "localhost"
 
-pw = ""
+password = "12345612341"
 
-prt = 8123
+portnumber = 8123
 
 defaultHttpConnection :: IO (ClickHouseConnection)
 defaultHttpConnection = do
   mng <- newManager defaultManagerSettings
   return
     HttpConnection
-      { httpHost = hst,
-        httpPassword = pw,
-        httpPort = prt,
-        httpUsername = usr,
+      { httpHost = hostname,
+        httpPassword = password,
+        httpPort = portnumber,
+        httpUsername = username,
         httpManager = mng
       }
 

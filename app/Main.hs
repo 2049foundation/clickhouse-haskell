@@ -15,10 +15,9 @@ main :: IO()
 main = do
     deSettings <- defaultHttpConnection
     env <- setupEnv deSettings
-    res3 <- runQuery env (getTextM ["SHOW DATABASES", "SHOW DATABASES"])
-    res4 <- runQuery env (getTextM $ Just "SHOW DATABASES")
+    res4 <- runQuery env (getJSON "SHOW DATABASES")
     print "Text: "
-    print res3
+    print res4
 
 
 

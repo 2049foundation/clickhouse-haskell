@@ -8,7 +8,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-
+{-# LANGUAGE BlockArguments #-}
 module ClickHouseDriver.Query
   ( settings,
     setupEnv,
@@ -50,14 +50,15 @@ import Network.Simple.TCP
 import Network.Socket (SockAddr, Socket)
 import Text.Parsec
 import Text.Printf
+import Data.Maybe
 
 {-Implementation in Haxl-}
 --
 data ClickHouseQuery a where
-  FetchByteString :: String -> ClickHouseQuery (Maybe BS.ByteString)
-  FetchJSON :: String -> ClickHouseQuery (Maybe BS.ByteString)
-  FetchCSV :: String -> ClickHouseQuery (Maybe BS.ByteString)
-  FetchText :: String -> ClickHouseQuery (Maybe BS.ByteString)
+  FetchByteString :: String -> ClickHouseQuery BS.ByteString
+  FetchJSON :: String -> ClickHouseQuery BS.ByteString
+  FetchCSV :: String -> ClickHouseQuery BS.ByteString
+  FetchText :: String -> ClickHouseQuery BS.ByteString
 
 deriving instance Show (ClickHouseQuery a)
 
@@ -104,34 +105,35 @@ fetchData settings fetches = do
         let url = genUrl settings queryType
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
-        return $ Just $ toStrict ans
+        return $ toStrict ans
       TCPConnection host port _ _ -> do
         let prot = genUrl settings queryType
         (sock, sockaddr) <- connectSock host port
         send sock prot
-        res <- recv sock 1000
+        recv' <- recv sock 1000
+        let res = if isJust recv' then fromJust recv' else "Error...Please recheck your query statement"
         return res
   either
     (putFailure var)
     (putSuccess var)
-    (e :: Either SomeException (Maybe BS.ByteString))
+    (e :: Either SomeException (BS.ByteString))
 
 -- | Fetch data from ClickHouse client in the text format.
-getByteString :: String -> GenHaxl u w (Maybe BS.ByteString)
+getByteString :: String -> GenHaxl u w BS.ByteString
 getByteString = dataFetch . FetchByteString
 
-getText :: String -> GenHaxl u w (Maybe T.Text)
-getText cmd = fmap (fmap decodeUtf8) (getByteString cmd)
+getText :: String -> GenHaxl u w T.Text
+getText cmd = fmap decodeUtf8 (getByteString cmd)
 
 -- | Fetch data from ClickHouse client in the JSON format.
-getJSON :: String -> GenHaxl u w (Maybe JSONResult)
-getJSON cmd = fmap (fmap extract) (dataFetch $ FetchJSON cmd)
+getJSON :: String -> GenHaxl u w JSONResult
+getJSON cmd = fmap extract (dataFetch $ FetchJSON cmd)
 
 -- | Fetch data from Clickhouse client with commands warped in a Traversable monad.
-getTextM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m (Maybe T.Text))
+getTextM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m T.Text)
 getTextM = mapM getText
 
-getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m (Maybe JSONResult))
+getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m JSONResult)
 getJsonM = mapM getJSON
 
 -- | Default environment
