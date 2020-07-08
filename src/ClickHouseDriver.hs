@@ -4,7 +4,6 @@ module ClickHouseDriver(
       module ClickHouseDriver.Default
     ) where
 
-
 import ClickHouseDriver.Types
 import ClickHouseDriver.Query
 import ClickHouseDriver.Default

@@ -38,6 +38,7 @@ library
       src
   build-depends:
       aeson
+    , monad-parallel
     , HUnit
     , async 
     , hashable

@@ -1,32 +1,36 @@
-module ClickHouseDriver.Default(
-    usr,
-    hst,
-    pw,
-    prt,
-    defaultHttpConnection
-) where 
+module ClickHouseDriver.Default
+  ( username,
+    hostname,
+    password,
+    portnumber,
+    defaultHttpConnection,
+  )
+where
 
 import ClickHouseDriver.Types
-import Network.HTTP.Client
 import Data.ByteString.Internal
+import Network.HTTP.Client
 
 {-default HTTP settings-}
-usr = "default"
-hst = "localhost"
-pw = ""
-prt = 8123
+username = "default"
 
+hostname = "localhost"
+
+password = "12345612341"
+
+portnumber = 8123
 
 defaultHttpConnection :: IO (ClickHouseConnection)
 defaultHttpConnection = do
-    mng <- newManager defaultManagerSettings
-    return HttpConnection {
-     httpHost = hst
-    ,httpPassword = pw
-    ,httpPort = prt
-    ,httpUsername = usr
-    ,httpManager  = mng
-  }
+  mng <- newManager defaultManagerSettings
+  return
+    HttpConnection
+      { httpHost = hostname,
+        httpPassword = password,
+        httpPort = portnumber,
+        httpUsername = username,
+        httpManager = mng
+      }
 
 defaultTCPConnection :: IO (ClickHouseConnection)
 defaultTCPConnection = undefined

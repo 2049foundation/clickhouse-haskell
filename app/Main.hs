@@ -6,7 +6,8 @@ import           Haxl.Core
 import           Haxl.Core.Monad
 import           Data.Text
 import           Network.HTTP.Client
-import           Data.ByteString
+import           Data.ByteString        
+import           Data.ByteString.Char8
 
 (<*>) :: Int->Int->Int
 x <*> y = x * y
@@ -15,10 +16,8 @@ main :: IO()
 main = do
     deSettings <- defaultHttpConnection
     env <- setupEnv deSettings
-    res3 <- runQuery env (getTextM ["SHOW DATABASES", "SHOW DATABASES"])
-    res4 <- runQuery env (getTextM $ Just "SHOW DATABASES")
+    res4 <- runQuery env (getByteString "SHOW DATABASES FORMAT JSON")
     print "Text: "
-    print res3
-
+    Data.ByteString.Char8.putStrLn res4
 
 
