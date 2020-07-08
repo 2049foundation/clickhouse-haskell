@@ -35,6 +35,7 @@ extract val = getData $ parse JP.json val
   where
     getData (Fail e _ _)           = Left e
     getData (Done _ (JP.Object x)) = Right $ getData' x
+    getData _                      = Right []
 
     getData' = map getObject . maybeArrToList . HM.lookup (pack "data")
 
