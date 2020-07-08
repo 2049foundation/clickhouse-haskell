@@ -3,7 +3,7 @@
 
 module ClickHouseDriver.Helpers
   ( extract,
-    repl,
+    replace,
     toStrict,
     genURL,
     genTCP
@@ -46,10 +46,10 @@ extract val = getData $ parse JP.json val
     getObject (JP.Object x) = x
 
 -- | replace spaces with "%20"
-repl :: String -> String
-repl "" = ""
-repl (' ' : cs) = "%20" ++ repl cs
-repl (x : xs) = x : repl xs
+replace :: String -> String
+replace"" = ""
+replace (' ' : cs) = "%20" ++ replace cs
+replace (x : xs) = x : replace xs
 
 toStrict :: BL.ByteString -> B.ByteString
 toStrict BLI.Empty = B.empty
@@ -66,7 +66,7 @@ toStrict lb = BI.unsafeCreate len $ go lb
 genURL :: ClickHouseConnection->Cmd->String
 genURL HttpConnection {httpHost = host, httpPassword = pw, httpPort = port, httpUsername = usr} cmd =
     let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
-        res = basic ++ (repl cmd)
+        res = basic ++ (replace cmd)
     in res
 
 genTCP :: ClickHouseConnection->Cmd->B.ByteString

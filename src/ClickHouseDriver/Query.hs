@@ -96,8 +96,8 @@ fetchData ::
   IO ()
 fetchData settings fetches = do
   let (queryType, var) = case fetches of
-        BlockedFetch (FetchJSON query) var' -> (repl (query ++ " FORMAT JSON"), var')
-        BlockedFetch (FetchCSV query) var' -> (repl (query ++ " FORMAT CSV"), var')
+        BlockedFetch (FetchJSON query) var' -> (replace (query ++ " FORMAT JSON"), var')
+        BlockedFetch (FetchCSV query) var' -> (replace (query ++ " FORMAT CSV"), var')
         BlockedFetch (FetchByteString query) var' -> (query, var')
   e <- Control.Exception.try $ do
     case settings of
