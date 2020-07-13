@@ -1,9 +1,9 @@
 module ClickHouseDriver( 
-      module ClickHouseDriver.Types,
-      module ClickHouseDriver.Query,
-      module ClickHouseDriver.Default
+      module ClickHouseDriver.Core.Types,
+      module ClickHouseDriver.Core.Client,
+      module ClickHouseDriver.Core.Defines
     ) where
 
-import ClickHouseDriver.Types
-import ClickHouseDriver.Query
-import ClickHouseDriver.Default
+import ClickHouseDriver.Core.Types
+import ClickHouseDriver.Core.Client
+import ClickHouseDriver.Core.Defines

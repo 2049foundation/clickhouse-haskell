@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module ClickHouseDriver.Helpers
+module ClickHouseDriver.Core.Helpers
   ( extract,
     replace,
     toStrict,
@@ -10,7 +10,7 @@ module ClickHouseDriver.Helpers
   )
 where
 
-import ClickHouseDriver.Types
+import ClickHouseDriver.Core.Types
 import qualified Data.Aeson as JP
 import Data.Attoparsec.ByteString
 import qualified Data.ByteString as B
