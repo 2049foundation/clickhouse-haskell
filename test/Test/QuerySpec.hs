@@ -10,21 +10,6 @@ import Haxl.Core
 import Test.HUnit
 import Test.Hspec
 
-{-
-query1 = TestCase(do
-    let deSetting = ClickHouseConnectionSettings {
-                ciHost = "localhost",
-                ciPassword = "12345612341",
-                ciPort = 8123,
-                ciUsername = "default"
-            }
-    env <- initEnv (stateSet (Settings deSetting) stateEmpty) ()
-    res <- runHaxl env (getText "SHOW DATABASES")
-    assertEqual "SHOW DATABASES" res (C8.pack "_temporary_and_external_tables\ndefault\nsystem\n"))
-
-
-tests = TestList [TestLabel "query1" query1]
--}
 
 spec :: Spec
 spec = parallel $ do

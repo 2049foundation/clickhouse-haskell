@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module ClickHouseDriver.Types
+module ClickHouseDriver.Core.Types
   ( JSONResult (..),
     ClickHouseConnection (..),
     Cmd,
@@ -15,6 +15,8 @@ import Data.HashMap.Strict (HashMap)
 import Data.Text (Text)
 import Haxl.Core
 import Network.HTTP.Client (Manager)
+import Network.Simple.TCP
+import Network.Socket (SockAddr, Socket)
 
 type JSONResult = Either ByteString [HashMap Text Value] --Err LBS.ByteString | OK [HM.HashMap T.Text JP.Value]
       --deriving Show
@@ -28,10 +30,12 @@ data ClickHouseConnection
         httpManager :: {-# UNPACK #-} !Manager
       }
   | TCPConnection
-      { tcpHost :: {-# UNPACK #-} !String,
-        tcpPort :: {-# UNPACK #-} !String,
-        tcpUsername :: {-# UNPACK #-} !String,
-        tcpPassword :: {-# UNPACK #-} !String
+      { tcpHost :: {-# UNPACK #-} !ByteString,
+        tcpPort :: {-# UNPACK #-} !ByteString,
+        tcpUsername :: {-# UNPACK #-} !ByteString,
+        tcpPassword :: {-# UNPACK #-} !ByteString,
+        tcpSocket   :: {-# UNPACK #-} !Socket,
+        tcpSockAdrr :: {-# UNPACK #-} !SockAddr
       }
 
 type Cmd = String

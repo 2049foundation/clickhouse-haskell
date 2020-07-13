@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 module Main where
 
 import           ClickHouseDriver
@@ -8,16 +12,15 @@ import           Data.Text
 import           Network.HTTP.Client
 import           Data.ByteString        
 import           Data.ByteString.Char8
-
-(<*>) :: Int->Int->Int
-x <*> y = x * y
+import           Foreign.C
+import           ClickHouseDriver.IO.BufferedWriter
+import           Data.Monoid
 
 main :: IO()
 main = do
-    deSettings <- defaultHttpConnection
-    env <- setupEnv deSettings
-    res4 <- runQuery env (getByteString "SHOW DATABASES FORMAT JSON")
-    print "Text: "
-    Data.ByteString.Char8.putStrLn res4
+    let x = 1644
+    y <- c_write_varint x
+    print y
+
 
 

@@ -9,7 +9,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE BlockArguments #-}
-module ClickHouseDriver.Query
+{-# LANGUAGE CPP  #-}
+
+module ClickHouseDriver.Core.Client
   ( settings,
     setupEnv,
     runQuery,
@@ -21,8 +23,9 @@ module ClickHouseDriver.Query
   )
 where
 
-import ClickHouseDriver.Helpers
-import ClickHouseDriver.Types
+import ClickHouseDriver.Core.Defines
+import ClickHouseDriver.Core.Helpers
+import ClickHouseDriver.Core.Types
 import Control.Concurrent.Async
 import Control.Exception
 import qualified Data.Aeson as JP
@@ -51,6 +54,7 @@ import Network.Socket (SockAddr, Socket)
 import Text.Parsec
 import Text.Printf
 import Data.Maybe
+
 
 {-Implementation in Haxl-}
 --
@@ -106,11 +110,10 @@ fetchData settings fetches = do
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ toStrict ans
-      TCPConnection host port _ _ -> do
+      TCPConnection host port username password sock sockaddr -> do
         let prot = genTCP settings queryType
-        (sock, sockaddr) <- connectSock host port
         send sock prot
-        recv' <- recv sock 1000
+        recv' <- recv sock _BUFFER_SIZE
         let res = if isJust recv' then fromJust recv' else "Error...Please recheck your query statement"
         return res
   either
