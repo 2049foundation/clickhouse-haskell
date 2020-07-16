@@ -4,12 +4,12 @@
 module ClickHouseDriver.Core.Helpers
   ( extract,
     replace,
-    toStrict,
     genURL,
     genTCP
   )
 where
 
+import ClickHouseDriver.Core.Connection
 import ClickHouseDriver.Core.Types
 import qualified Data.Aeson as JP
 import Data.Attoparsec.ByteString
@@ -50,18 +50,6 @@ replace :: String -> String
 replace"" = ""
 replace (' ' : cs) = "%20" ++ replace cs
 replace (x : xs) = x : replace xs
-
-toStrict :: BL.ByteString -> B.ByteString
-toStrict BLI.Empty = B.empty
-toStrict (BLI.Chunk c BLI.Empty) = c
-toStrict lb = BI.unsafeCreate len $ go lb
-  where
-    len = BLI.foldlChunks (\l sb -> l + B.length sb) 0 lb
-    go BLI.Empty _ = return ()
-    go (BLI.Chunk (BI.PS fp s l) r) ptr =
-      withForeignPtr fp $ \p -> do
-        BI.memcpy ptr (p `plusPtr` s) (fromIntegral l)
-        go r (ptr `plusPtr` l)
 
 genURL :: ClickHouseConnection->Cmd->String
 genURL HttpConnection {httpHost = host, httpPassword = pw, httpPort = port, httpUsername = usr} cmd =

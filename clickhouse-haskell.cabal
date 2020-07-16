@@ -31,10 +31,12 @@ library
       ClickHouseDriver.Core.Helpers
       ClickHouseDriver.Core.Client
       ClickHouseDriver.Core.Types
-      ClickHouseDriver.Core.Default
+      ClickHouseDriver.Core.Defines
       ClickHouseDriver.Core.ServerProtocol
       ClickHouseDriver.Core.ClientProtocol
+      ClickHouseDriver.Core.Connection
       ClickHouseDriver.IO.BufferedWriter
+      ClickHouseDriver.IO.BufferedReader
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
