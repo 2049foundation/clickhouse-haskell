@@ -6,11 +6,11 @@ import Data.Vector
 import Data.ByteString
 
 _HELLO = 0 :: Word
-_QUERY = 1
-_DATA  = 2
-_CANCEL = 3
-_PING = 4
-_TABLES_STATUS_REQUEST = 5
+_QUERY = 1 :: Word
+_DATA  = 2 :: Word
+_CANCEL = 3 :: Word
+_PING = 4   :: Word 
+_TABLES_STATUS_REQUEST = 5 :: Word
 
 
 typeStr :: Vector ByteString

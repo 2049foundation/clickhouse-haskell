@@ -3,9 +3,11 @@
 
 #include<stdio.h>
 #include<string.h>
+#include<stdlib.h>
 
-const char * write_varint(size_t number);
-size_t read_varint(const char * istr, size_t size);
-
+const char * write_varint(u_int16_t number);
+u_int16_t read_varint(char * istr, size_t size);
+void test_func(char * istr);
+size_t count_read(char * istr, size_t size);
 
 #endif

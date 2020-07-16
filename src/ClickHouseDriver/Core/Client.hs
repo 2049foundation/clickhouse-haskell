@@ -23,6 +23,7 @@ module ClickHouseDriver.Core.Client
   )
 where
 
+import ClickHouseDriver.Core.Connection
 import ClickHouseDriver.Core.Defines
 import ClickHouseDriver.Core.Helpers
 import ClickHouseDriver.Core.Types
@@ -109,8 +110,8 @@ fetchData settings fetches = do
         let url = genURL settings queryType
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
-        return $ toStrict ans
-      TCPConnection host port username password sock sockaddr -> do
+        return $ LBS.toStrict ans
+      TCPConnection host port username password sock sockaddr info -> do
         let prot = genTCP settings queryType
         send sock prot
         recv' <- recv sock _BUFFER_SIZE
