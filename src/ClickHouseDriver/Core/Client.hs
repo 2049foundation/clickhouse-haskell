@@ -23,6 +23,11 @@ module ClickHouseDriver.Core.Client
   )
 where
 
+import qualified ClickHouseDriver.Core.QueryProcessingStage as Stage
+import qualified ClickHouseDriver.Core.ClientProtocol as Client
+import qualified ClickHouseDriver.Core.ServerProtocol as Server 
+import ClickHouseDriver.IO.BufferedWriter
+import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.Core.Connection
 import ClickHouseDriver.Core.Defines
 import ClickHouseDriver.Core.Helpers
@@ -50,11 +55,13 @@ import Network.HTTP.Client
     responseBody,
   )
 import Network.HTTP.Types.Status (statusCode)
-import Network.Simple.TCP
+import qualified Network.Simple.TCP as TCP 
 import Network.Socket (SockAddr, Socket)
 import Text.Parsec
 import Text.Printf
 import Data.Maybe
+import Data.ByteString.Char8     (pack)
+import Control.Monad.State.Lazy
 
 
 {-Implementation in Haxl-}
@@ -100,27 +107,31 @@ fetchData ::
   BlockedFetch ClickHouseQuery -> --fetched data
   IO ()
 fetchData settings fetches = do
-  let (queryType, var) = case fetches of
-        BlockedFetch (FetchJSON query) var' -> (replace (query ++ " FORMAT JSON"), var')
-        BlockedFetch (FetchCSV query) var' -> (replace (query ++ " FORMAT CSV"), var')
+  let (queryWithType, var) = case fetches of
+        BlockedFetch (FetchJSON query) var' -> (query ++ " FORMAT JSON", var')
+        BlockedFetch (FetchCSV query) var' -> (query ++ " FORMAT CSV", var')
         BlockedFetch (FetchByteString query) var' -> (query, var')
   e <- Control.Exception.try $ do
     case settings of
       HttpConnection _ _ _ _ mng -> do
-        let url = genURL settings queryType
+        let url = genURL settings (replace queryWithType)
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ LBS.toStrict ans
-      TCPConnection host port username password sock sockaddr info -> do
-        let prot = genTCP settings queryType
-        send sock prot
-        recv' <- recv sock _BUFFER_SIZE
-        let res = if isJust recv' then fromJust recv' else "Error...Please recheck your query statement"
-        return res
+      TCPConnection host port username password sock sockaddr info comp-> do
+        let query = pack queryWithType
+        sendQuery query Nothing settings
+        mydata <- TCP.recv sock _BUFFER_SIZE
+        case mydata of
+          Just result-> do
+            (final,_) <- runStateT receiveData result
+            return final
+          Nothing-> return ""
   either
     (putFailure var)
     (putSuccess var)
     (e :: Either SomeException (BS.ByteString))
+      
 
 -- | Fetch data from ClickHouse client in the text format.
 getByteString :: String -> GenHaxl u w BS.ByteString

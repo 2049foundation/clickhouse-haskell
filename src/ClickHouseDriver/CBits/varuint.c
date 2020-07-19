@@ -6,27 +6,26 @@
 /**
  * Encode integer using LEB128
 */
-#define MAX 65535
 
-const char * write_varint(u_int16_t number){
-    char * buf = malloc(sizeof(char) * 32);
-   // memset(buf, '\0', sizeof(char) * 32);
-    u_int16_t i = 0;
-    unsigned char towrite;
+const char * write_varint(u_int16_t number) {
+    char * ostr = malloc(sizeof(char) * 32);
+    char * ptr = ostr;
+    memset(ostr, '\0', sizeof(char) * 32);
+    for (size_t i = 0; i < 9; ++i){
+        u_int8_t byte = number & 0x7F;
+        if(number > 0x7F)
+            byte |= 0x80;
+        *ptr = byte;
+        ++ptr;
 
-    for(;;){
-        towrite = number & 0x7f;
         number >>= 7;
-        if(number){
-            buf[i++] = towrite | 0x80;
-        }
-        else{
-            buf[i] = towrite;
-            break;
-        }
+        if(!number)
+            return ostr;
     }
-    return buf;
+    return ostr;
 }
+
+
 
 u_int16_t read_varint(char * istr, size_t size){
     const char * end = istr + size;

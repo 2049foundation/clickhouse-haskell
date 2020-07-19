@@ -9,8 +9,8 @@ import Network.Socket (SockAddr, Socket)
 import Network.Simple.TCP
 import Data.Word
 
-#define DEFAULT_PORT "9000"
-_DEFAULT_SECURE_PORT = 9440
+_DEFAULT_PORT = "9000"
+_DEFAULT_SECURE_PORT = "9440"
 _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES = 50264
 _DBMS_MIN_REVISION_WITH_TOTAL_ROWS_IN_PROGRESS = 51554
 
@@ -36,7 +36,7 @@ _DBMS_NAME  = "ClickHouse"      :: ByteString
 _CLIENT_NAME = "haskell-driver" :: ByteString
 _CLIENT_VERSION_MAJOR = 18 :: Word
 _CLIENT_VERSION_MINOR = 10 :: Word
-_CLIENT_VERSION_PATCH = 3
+_CLIENT_VERSION_PATCH = 3  :: Word
 _CLIENT_REVISION = 54429   :: Word
 
 _STRINGS_ENCODING = "utf-8" :: ByteString
@@ -44,4 +44,4 @@ _STRINGS_ENCODING = "utf-8" :: ByteString
 _DEFAULT_HTTP_PORT = 8123
 _BUFFER_SIZE       = 1048576 :: Int
 
-
+_DEFAULT_HOST = "localhost"

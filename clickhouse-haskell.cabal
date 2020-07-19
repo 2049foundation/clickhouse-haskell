@@ -35,6 +35,7 @@ library
       ClickHouseDriver.Core.ServerProtocol
       ClickHouseDriver.Core.ClientProtocol
       ClickHouseDriver.Core.Connection
+      ClickHouseDriver.Core.QueryProcessingStage
       ClickHouseDriver.IO.BufferedWriter
       ClickHouseDriver.IO.BufferedReader
   other-modules:
@@ -91,6 +92,7 @@ executable clickhouse-haskell-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , mtl
     , array
     , attoparsec
     , base >=4.7 && <5
@@ -133,6 +135,7 @@ test-suite clickhouse-haskell-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , mtl
     , HUnit
     , array
     , attoparsec
