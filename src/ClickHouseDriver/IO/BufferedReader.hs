@@ -6,8 +6,7 @@ module ClickHouseDriver.IO.BufferedReader (
     readVarInt',
     readBinaryStr',
     readBinaryStr,
-    readVarInt,
-    testStr
+    readVarInt
 ) where
 
 import qualified Data.ByteString as BS
@@ -33,7 +32,7 @@ readVarInt' str = do
 readBinaryStr' :: ByteString->IO(ByteString, ByteString)
 readBinaryStr' str = do
     (len, tail) <- readVarInt' str
-    (head, tail') <- readBinaryStrWithLength (fromIntegral len) str
+    (head, tail') <- readBinaryStrWithLength (fromIntegral len) tail
     return (head, tail')
 
 readVarInt :: StateT ByteString IO Word16
@@ -42,11 +41,5 @@ readVarInt = StateT readVarInt'
 readBinaryStr :: StateT ByteString IO ByteString
 readBinaryStr = StateT readBinaryStr'
 
-testStr :: ByteString->IO()
-testStr str = do
-    void <- UBS.unsafeUseAsCString str c_test
-    print str 
-
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString->Word->IO Word16
-foreign import ccall unsafe "varuint.h test_func"   c_test :: CString->IO()
 foreign import ccall unsafe "varuint.h count_read"  c_count :: CString->Word->IO Word

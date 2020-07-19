@@ -4,8 +4,7 @@
 module ClickHouseDriver.Core.Helpers
   ( extract,
     replace,
-    genURL,
-    genTCP
+    genURL
   )
 where
 
@@ -48,7 +47,7 @@ extract val = getData $ parse JP.json val
 -- | replace spaces with "%20"
 replace :: String -> String
 replace"" = ""
-replace (' ' : cs) = "%20" ++ replace cs
+replace (' ' : xs) = "%20" ++ replace xs
 replace (x : xs) = x : replace xs
 
 genURL :: ClickHouseConnection->Cmd->String
@@ -56,6 +55,3 @@ genURL HttpConnection {httpHost = host, httpPassword = pw, httpPort = port, http
     let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
         res = basic ++ (replace cmd)
     in res
-
-genTCP :: ClickHouseConnection->Cmd->B.ByteString
-genTCP = undefined

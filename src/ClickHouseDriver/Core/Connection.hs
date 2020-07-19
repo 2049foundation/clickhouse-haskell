@@ -1,12 +1,15 @@
-
 {-# LANGUAGE CPP  #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 
 module ClickHouseDriver.Core.Connection (
     tcpConnect,
     httpConnect,
     defaultHttpConnection,
-    ClickHouseConnection(..)
+    defaultTCPConnection,
+    ClickHouseConnection(..),
+    sendQuery,
+    receiveData
 ) where
 
 import Data.ByteString.Builder
@@ -15,7 +18,7 @@ import ClickHouseDriver.IO.BufferedReader
 import Network.Socket                                           
 import qualified Network.Simple.TCP                        as TCP
 import qualified Data.ByteString.Lazy                      as L
-import ClickHouseDriver.Core.Defines
+import ClickHouseDriver.Core.Defines     
 import qualified ClickHouseDriver.Core.ClientProtocol      as Client
 import qualified ClickHouseDriver.Core.ServerProtocol      as Server
 import ClickHouseDriver.Core.Types
@@ -24,6 +27,8 @@ import Data.ByteString.Char8                               (unpack)
 import Network.HTTP.Client
 import Control.Monad.State.Lazy
 import Data.Word
+import qualified ClickHouseDriver.Core.QueryProcessingStage         as Stage
+import qualified Data.ByteString.Char8 as C8
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
@@ -37,15 +42,15 @@ data ServerInfo = ServerInfo {
     revision      :: Word16,
     timezone      :: Maybe ByteString,
     display_name  :: ByteString
-}
+} deriving Show
 
 data ClickHouseConnection
   = HttpConnection
-      { httpHost :: {-# UNPACK #-} !String,
-        httpPort :: {-# UNPACK #-} !Int,
-        httpUsername :: {-# UNPACK #-} !String,
+      { httpHost ::                    !String,
+        httpPort :: {-# UNPACK #-}     !Int,
+        httpUsername ::                !String,
         httpPassword :: {-# UNPACK #-} !String,
-        httpManager :: {-# UNPACK #-} !Manager
+        httpManager ::                 !Manager
       }
   | TCPConnection
       { tcpHost :: {-# UNPACK #-} !ByteString,
@@ -53,9 +58,12 @@ data ClickHouseConnection
         tcpUsername :: {-# UNPACK #-} !ByteString,
         tcpPassword :: {-# UNPACK #-} !ByteString,
         tcpSocket   :: {-# UNPACK #-} !Socket,
-        tcpSockAdrr :: {-# UNPACK #-} !SockAddr,
-        serverInfo  :: {-# UNPACK #-} !ServerInfo
+        tcpSockAdrr ::                !SockAddr,
+        serverInfo  :: {-# UNPACK #-} !ServerInfo,
+        tcpCompression :: {-#UNPACK #-} !Word
       }
+
+data Packet = Block | Exception {message :: ByteString} | Progress
 
 defaultHttpConnection :: IO (ClickHouseConnection)
 defaultHttpConnection = httpConnect DEFAULT_USERNAME DEFAULT_PASSWORD 8123 DEFAULT_HOST_NAME
@@ -72,22 +80,21 @@ httpConnect user password port host = do
     httpManager = mng
   }
 
-
 versionTuple :: ServerInfo->(Word16,Word16,Word16)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
 
 sendHello ::  (ByteString,ByteString,ByteString)->Socket->IO()
 sendHello (database, usrname, password) sock  = do
     w <- writeVarUInt Client._HELLO mempty 
-        >>= writeBinaryStr _CLIENT_NAME 
+        >>= writeBinaryStr ("ClickHouse " <>_CLIENT_NAME )
         >>= writeVarUInt _CLIENT_VERSION_MAJOR
         >>= writeVarUInt _CLIENT_VERSION_MINOR
         >>= writeVarUInt _CLIENT_REVISION
         >>= writeBinaryStr database
         >>= writeBinaryStr usrname
         >>= writeBinaryStr password
+    print ("w = " <> (toLazyByteString w))
     TCP.sendLazy sock (toLazyByteString w)
-
 
 receiveHello :: ByteString->IO(Either ByteString ServerInfo)
 receiveHello str = do
@@ -125,32 +132,104 @@ receiveHello' = do
         display_name  = server_displayname
       }
     else if packet_type == Server._EXCEPTION
-      then
-        return $ Left "exception"
+      then do
+        e <- readBinaryStr
+        e2 <- readBinaryStr
+        e3 <- readBinaryStr
+        return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
       else
         return $ Left "Error"
 
-tcpConnect :: ByteString->ByteString->ByteString->ByteString->IO(Either String ClickHouseConnection)
-tcpConnect host port user password = do
+defaultTCPConnection :: IO(Either String ClickHouseConnection)
+defaultTCPConnection = tcpConnect "localhost" "9000" "default" "12345612341" "default" False
+
+tcpConnect :: ByteString->ByteString->ByteString->ByteString->ByteString->Bool->IO(Either String ClickHouseConnection)
+tcpConnect host port user password database compression = do
     (sock, sockaddr) <- TCP.connectSock (unpack host) (unpack port)
-    sendHello (host, host, password) sock
+    sendHello (database, user, password) sock
     hello <- TCP.recv sock _BUFFER_SIZE
+    let isCompressed = if compression then Client._COMPRESSION_ENABLE else Client._COMPRESSION_DISABLE
     case hello of
       Nothing-> return $ Left "Connection failed"
       Just x -> do
         info <- receiveHello x
+        print info
         case info of
-          Right x -> return $ Right TCPConnection {
-          tcpHost = host,
-          tcpPort = port,
-          tcpUsername = user,
-          tcpPassword = password,
-          tcpSocket   = sock,
-          tcpSockAdrr = sockaddr,
-          serverInfo  = x
-        }
+          Right x -> 
+            return $ 
+              Right TCPConnection {
+                tcpHost = host,
+                tcpPort = port,
+                tcpUsername = user,
+                tcpPassword = password,
+                tcpSocket   = sock,
+                tcpSockAdrr = sockaddr,
+                serverInfo  = x,
+                tcpCompression = isCompressed
+              }
           Left "Exception" -> return $ Left "exception"
-          Left "Error"     -> do
+          Left x     -> do
+            print ("error is " <> x)
             TCP.closeSock sock
-            return $ Left "Error"
+            return $ Left "Connection error"
 
+
+sendQuery :: ByteString->Maybe ByteString->ClickHouseConnection->IO()
+sendQuery query query_id env@TCPConnection{tcpCompression=comp, tcpSocket=sock}= do
+  r <- writeVarUInt Client._QUERY mempty
+   >>= writeBinaryStr (case query_id of
+        Nothing->""
+        Just x->x)
+   >>= writeInfo env _CLIENT_NAME
+   >>= writeVarUInt 0
+   >>= writeVarUInt Stage._COMPLETE
+   >>= writeVarUInt comp
+   >>= writeBinaryStr query
+  let lstr = toLazyByteString r
+  print ("Query = "<> lstr)
+  TCP.sendLazy sock (lstr)
+
+
+receivePacket :: ByteString->IO()
+receivePacket istr = undefined
+  --let packet_type = runStateT readVarInt istr
+
+
+receiveData :: StateT ByteString IO ByteString
+receiveData = do
+  packet_type <- readVarInt
+  result <- readBinaryStr
+  return result
+
+
+writeInfo :: ClickHouseConnection->ByteString->Builder->IO(Builder)
+writeInfo (TCPConnection host port username password sock sockaddr 
+  ServerInfo{revision=revision,display_name=host_name} comp) client_name builder= do
+  let initial_user = "" :: ByteString
+  let initial_query_id = "" :: ByteString
+  let initial_address = "0.0.0.0:0" :: ByteString
+  let quota_key = "" :: ByteString
+  let interface = 1 :: Word
+  let queryKind = 1 :: Word
+
+  --TODO exceptions
+  kind <- writeVarUInt queryKind builder
+
+  initial <- writeBinaryStr initial_user kind
+   >>= writeBinaryStr initial_query_id
+   >>= writeBinaryStr initial_address
+
+  writeInterface <- writeVarUInt interface initial
+
+  client_info <- writeBinaryStr "darth" writeInterface
+    >>= writeBinaryStr host_name
+    >>= writeBinaryStr client_name
+    >>= writeVarUInt _CLIENT_VERSION_MAJOR
+    >>= writeVarUInt _CLIENT_VERSION_MINOR
+    >>= writeVarUInt _CLIENT_REVISION
+    >>= writeBinaryStr quota_key
+    >>= writeVarUInt _CLIENT_VERSION_PATCH
+  
+  return client_info
+  
+writeInfo _ _ builder= return builder
