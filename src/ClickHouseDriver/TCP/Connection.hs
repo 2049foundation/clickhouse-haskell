@@ -2,14 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module ClickHouseDriver.Core.Connection (
+module ClickHouseDriver.TCP.Connection (
     tcpConnect,
-    httpConnect,
-    defaultHttpConnection,
     defaultTCPConnection,
-    ClickHouseConnection(..),
+    TCPConnection(..),
     sendQuery,
-    receiveData
+    receiveData,
+    sendData
 ) where
 
 import Data.ByteString.Builder
@@ -17,18 +16,19 @@ import ClickHouseDriver.IO.BufferedWriter
 import ClickHouseDriver.IO.BufferedReader
 import Network.Socket                                           
 import qualified Network.Simple.TCP                        as TCP
-import qualified Data.ByteString.Lazy                      as L
-import ClickHouseDriver.Core.Defines     
-import qualified ClickHouseDriver.Core.ClientProtocol      as Client
-import qualified ClickHouseDriver.Core.ServerProtocol      as Server
-import ClickHouseDriver.Core.Types
+import qualified Data.ByteString.Lazy                      as L     
+import qualified ClickHouseDriver.TCP.ClientProtocol      as Client
+import qualified ClickHouseDriver.TCP.ServerProtocol      as Server
 import Data.ByteString                                     hiding (unpack)
 import Data.ByteString.Char8                               (unpack)
 import Network.HTTP.Client
 import Control.Monad.State.Lazy
 import Data.Word
-import qualified ClickHouseDriver.Core.QueryProcessingStage         as Stage
+import qualified ClickHouseDriver.TCP.QueryProcessingStage         as Stage
 import qualified Data.ByteString.Char8 as C8
+import Data.Int
+import qualified Data.Binary as Binary
+import ClickHouseDriver.TCP.Defines
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
@@ -44,41 +44,18 @@ data ServerInfo = ServerInfo {
     display_name  :: ByteString
 } deriving Show
 
-data ClickHouseConnection
-  = HttpConnection
-      { httpHost ::                    !String,
-        httpPort :: {-# UNPACK #-}     !Int,
-        httpUsername ::                !String,
-        httpPassword :: {-# UNPACK #-} !String,
-        httpManager ::                 !Manager
-      }
-  | TCPConnection
-      { tcpHost :: {-# UNPACK #-} !ByteString,
-        tcpPort :: {-# UNPACK #-} !ByteString,
-        tcpUsername :: {-# UNPACK #-} !ByteString,
-        tcpPassword :: {-# UNPACK #-} !ByteString,
-        tcpSocket   :: {-# UNPACK #-} !Socket,
-        tcpSockAdrr ::                !SockAddr,
-        serverInfo  :: {-# UNPACK #-} !ServerInfo,
-        tcpCompression :: {-#UNPACK #-} !Word
-      }
+data TCPConnection = TCPConnection{ 
+  tcpHost :: {-# UNPACK #-} !ByteString,
+  tcpPort :: {-# UNPACK #-} !ByteString,
+  tcpUsername :: {-# UNPACK #-} !ByteString,
+  tcpPassword :: {-# UNPACK #-} !ByteString,
+  tcpSocket   :: {-# UNPACK #-} !Socket,
+  tcpSockAdrr ::                !SockAddr,
+  serverInfo  :: {-# UNPACK #-} !ServerInfo,
+  tcpCompression :: {-#UNPACK #-} !Word
+}
 
 data Packet = Block | Exception {message :: ByteString} | Progress
-
-defaultHttpConnection :: IO (ClickHouseConnection)
-defaultHttpConnection = httpConnect DEFAULT_USERNAME DEFAULT_PASSWORD 8123 DEFAULT_HOST_NAME
-
-
-httpConnect :: String->String->Int->String->IO(ClickHouseConnection)
-httpConnect user password port host = do
-  mng <- newManager defaultManagerSettings
-  return HttpConnection {
-    httpHost = host,
-    httpPassword = password,
-    httpPort = port,
-    httpUsername = user,
-    httpManager = mng
-  }
 
 versionTuple :: ServerInfo->(Word16,Word16,Word16)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
@@ -140,10 +117,10 @@ receiveHello' = do
       else
         return $ Left "Error"
 
-defaultTCPConnection :: IO(Either String ClickHouseConnection)
+defaultTCPConnection :: IO(Either String TCPConnection)
 defaultTCPConnection = tcpConnect "localhost" "9000" "default" "12345612341" "default" False
 
-tcpConnect :: ByteString->ByteString->ByteString->ByteString->ByteString->Bool->IO(Either String ClickHouseConnection)
+tcpConnect :: ByteString->ByteString->ByteString->ByteString->ByteString->Bool->IO(Either String TCPConnection)
 tcpConnect host port user password database compression = do
     (sock, sockaddr) <- TCP.connectSock (unpack host) (unpack port)
     sendHello (database, user, password) sock
@@ -174,26 +151,45 @@ tcpConnect host port user password database compression = do
             return $ Left "Connection error"
 
 
-sendQuery :: ByteString->Maybe ByteString->ClickHouseConnection->IO()
+sendQuery :: ByteString->Maybe ByteString->TCPConnection->IO()
 sendQuery query query_id env@TCPConnection{tcpCompression=comp, tcpSocket=sock}= do
   r <- writeVarUInt Client._QUERY mempty
    >>= writeBinaryStr (case query_id of
         Nothing->""
         Just x->x)
-   >>= writeInfo env _CLIENT_NAME
+   >>= writeInfo env ("ClickHouse " <> _CLIENT_NAME)
    >>= writeVarUInt 0
    >>= writeVarUInt Stage._COMPLETE
    >>= writeVarUInt comp
    >>= writeBinaryStr query
-  let lstr = toLazyByteString r
-  print ("Query = "<> lstr)
-  TCP.sendLazy sock (lstr)
+  TCP.sendLazy sock (toLazyByteString r)
 
+sendData :: ByteString->TCPConnection->IO()
+sendData table_name TCPConnection{tcpSocket=sock} = do -- TODO: ADD REVISION
+  let is_overflow = 0
+  let bucket_num = -1
 
+  r <- writeVarUInt Client._DATA mempty
+   >>= writeBinaryStr table_name
+   >>= writeVarUInt 1
+   >>= writeInt8Str 0
+   >>= writeVarUInt 2
+   >>= writeInt32Str (-1::Int32) -- should be -1
+   >>= writeVarUInt 0
+
+   >>= writeVarUInt 0 -- #col
+   >>= writeVarUInt 0 -- #row
+
+  TCP.sendLazy sock (toLazyByteString r)
+
+sendCancel :: TCPConnection->IO()
+sendCancel TCPConnection{tcpSocket=sock} = do
+  c <- writeVarUInt Client._CANCEL mempty
+  TCP.sendLazy sock (toLazyByteString c)
+  
 receivePacket :: ByteString->IO()
 receivePacket istr = undefined
   --let packet_type = runStateT readVarInt istr
-
 
 receiveData :: StateT ByteString IO ByteString
 receiveData = do
@@ -201,8 +197,7 @@ receiveData = do
   result <- readBinaryStr
   return result
 
-
-writeInfo :: ClickHouseConnection->ByteString->Builder->IO(Builder)
+writeInfo :: TCPConnection->ByteString->Builder->IO(Builder)
 writeInfo (TCPConnection host port username password sock sockaddr 
   ServerInfo{revision=revision,display_name=host_name} comp) client_name builder= do
   let initial_user = "" :: ByteString
@@ -232,4 +227,3 @@ writeInfo (TCPConnection host port username password sock sockaddr
   
   return client_info
   
-writeInfo _ _ builder= return builder

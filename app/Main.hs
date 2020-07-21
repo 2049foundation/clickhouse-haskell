@@ -18,11 +18,12 @@ import           ClickHouseDriver.IO.BufferedReader
 import           Data.Monoid
 import           Control.Monad.State.Lazy
 import           Data.ByteString.Builder
-import    qualified   Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy as L
 import           Data.Word
-import qualified ClickHouseDriver.Core.ClientProtocol as Client
-import Network.Socket                                           
-import qualified Network.Simple.TCP                        as TCP 
+import           Network.Socket                                           
+import qualified Network.Simple.TCP                        as TCP
+import qualified Data.Binary as B
+import           Data.Int
 
 readLength :: StateT ByteString IO ByteString
 readLength = StateT (readBinaryStrWithLength 3)
@@ -69,24 +70,31 @@ testVarUInt = do
     (int,_) <- runStateT readResult2 str
     print int
 
-queryTest :: IO()
-queryTest = do
-    print "Test for TCP client"
+{-
+manualTCP :: IO()
+manualTCP = do
+    print "manual"
     conn <- defaultTCPConnection
     case conn of
-        Left e -> do
-            print e
-        Right settings -> do
+        Left e -> print e
+        Right settings->do
             print "connected"
-            env <- setupEnv settings
-            print "set env"
-            res <- runQuery env (getJSON "SHOW DATABASES")
-            print res
+            sendQuery "SELECT * FROM test_table FORMAT CSV" Nothing settings
+            sendData "" settings
+            case settings of
+                TCPConnection {tcpSocket=sock}-> do
+                    x <- TCP.recv sock 2048
+                    print x
+                    y <- TCP.recv sock 2048
+                    print y
+                    z <- TCP.recv sock 2048
+                    print z
 
+-}
 
 writeInt :: IO(Builder)
 writeInt = do
-    w <- writeVarUInt 0 mempty
+    w <- writeVarUInt 10 mempty
     return w
 
 main2 :: IO()
@@ -100,5 +108,12 @@ main3 = do
     print sock
 
 
+query :: IO()
+query = do
+    conn <- defaultHttpConnection
+    env <- setupEnv conn
+    res <- runQuery env (getJSON "SHOW DATABASES")
+    print res
+
 main :: IO()
-main = queryTest
+main = query

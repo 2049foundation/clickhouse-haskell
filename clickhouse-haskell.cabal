@@ -28,14 +28,17 @@ source-repository head
 library
   exposed-modules:
       ClickHouseDriver
-      ClickHouseDriver.Core.Helpers
-      ClickHouseDriver.Core.Client
-      ClickHouseDriver.Core.Types
-      ClickHouseDriver.Core.Defines
-      ClickHouseDriver.Core.ServerProtocol
-      ClickHouseDriver.Core.ClientProtocol
-      ClickHouseDriver.Core.Connection
-      ClickHouseDriver.Core.QueryProcessingStage
+      ClickHouseDriver.HTTP.Helpers
+      ClickHouseDriver.HTTP.Client
+      ClickHouseDriver.HTTP.Types
+      ClickHouseDriver.HTTP.Connection
+      --ClickHouseDriver.TCP.QueryProcessingStage
+      --ClickHouseDriver.TCP.Defines
+      --ClickHouseDriver.TCP.ServerProtocol
+      --ClickHouseDriver.TCP.ClientProtocol
+      --ClickHouseDriver.TCP.Block
+      --ClickHouseDriver.TCP.Client
+      --ClickHouseDriver.TCP.Connection
       ClickHouseDriver.IO.BufferedWriter
       ClickHouseDriver.IO.BufferedReader
   other-modules:

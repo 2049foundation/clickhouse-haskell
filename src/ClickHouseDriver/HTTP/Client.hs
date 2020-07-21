@@ -11,7 +11,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP  #-}
 
-module ClickHouseDriver.Core.Client
+module ClickHouseDriver.HTTP.Client
   ( settings,
     setupEnv,
     runQuery,
@@ -23,15 +23,9 @@ module ClickHouseDriver.Core.Client
   )
 where
 
-import qualified ClickHouseDriver.Core.QueryProcessingStage as Stage
-import qualified ClickHouseDriver.Core.ClientProtocol as Client
-import qualified ClickHouseDriver.Core.ServerProtocol as Server 
-import ClickHouseDriver.IO.BufferedWriter
-import ClickHouseDriver.IO.BufferedReader
-import ClickHouseDriver.Core.Connection
-import ClickHouseDriver.Core.Defines
-import ClickHouseDriver.Core.Helpers
-import ClickHouseDriver.Core.Types
+import ClickHouseDriver.HTTP.Connection
+import ClickHouseDriver.HTTP.Helpers
+import ClickHouseDriver.HTTP.Types
 import Control.Concurrent.Async
 import Control.Exception
 import qualified Data.Aeson as JP
@@ -96,14 +90,14 @@ instance DataSource u ClickHouseQuery where
       [()] -> return ()
 
 instance StateKey ClickHouseQuery where
-  data State ClickHouseQuery = Settings ClickHouseConnection
+  data State ClickHouseQuery = Settings HttpConnection
 
-settings :: ClickHouseConnection -> Haxl.Core.State ClickHouseQuery
+settings :: HttpConnection -> Haxl.Core.State ClickHouseQuery
 settings = Settings
 
 -- | fetch function
 fetchData ::
-  ClickHouseConnection -> --Connection configuration
+  HttpConnection -> --Connection configuration
   BlockedFetch ClickHouseQuery -> --fetched data
   IO ()
 fetchData settings fetches = do
@@ -118,20 +112,12 @@ fetchData settings fetches = do
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ LBS.toStrict ans
-      TCPConnection host port username password sock sockaddr info comp-> do
-        let query = pack queryWithType
-        sendQuery query Nothing settings
-        mydata <- TCP.recv sock _BUFFER_SIZE
-        case mydata of
-          Just result-> do
-            (final,_) <- runStateT receiveData result
-            return final
-          Nothing-> return ""
   either
     (putFailure var)
     (putSuccess var)
     (e :: Either SomeException (BS.ByteString))
       
+
 
 -- | Fetch data from ClickHouse client in the text format.
 getByteString :: String -> GenHaxl u w BS.ByteString
@@ -152,7 +138,7 @@ getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m JSONResult)
 getJsonM = mapM getJSON
 
 -- | Default environment
-setupEnv :: ClickHouseConnection -> IO (Env () w)
+setupEnv ::HttpConnection -> IO (Env () w)
 setupEnv csetting = initEnv (stateSet (settings csetting) stateEmpty) ()
 
 -- | rename runHaxl function.

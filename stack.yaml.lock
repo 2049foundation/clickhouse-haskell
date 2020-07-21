@@ -5,9 +5,6 @@
 
 packages:
 - completed:
-    cabal-file:
-      size: 3904
-      sha256: 8f555258f2ff21cc073df2667a3fa2a2db88b175d8d32776aa497080737c1c03
     name: haxl
     version: 2.3.0.0
     git: https://github.com/facebook/Haxl.git
