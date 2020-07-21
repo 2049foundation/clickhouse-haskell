@@ -1,15 +1,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module ClickHouseDriver.Core.Helpers
+module ClickHouseDriver.HTTP.Helpers
   ( extract,
     replace,
     genURL
   )
 where
 
-import ClickHouseDriver.Core.Connection
-import ClickHouseDriver.Core.Types
+import ClickHouseDriver.HTTP.Connection
+import ClickHouseDriver.HTTP.Types
 import qualified Data.Aeson as JP
 import Data.Attoparsec.ByteString
 import qualified Data.ByteString as B
@@ -50,7 +50,7 @@ replace"" = ""
 replace (' ' : xs) = "%20" ++ replace xs
 replace (x : xs) = x : replace xs
 
-genURL :: ClickHouseConnection->Cmd->String
+genURL :: HttpConnection->Cmd->String
 genURL HttpConnection {httpHost = host, httpPassword = pw, httpPort = port, httpUsername = usr} cmd =
     let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
         res = basic ++ (replace cmd)

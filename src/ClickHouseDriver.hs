@@ -1,11 +1,13 @@
 module ClickHouseDriver( 
-      module ClickHouseDriver.Core.Types,
-      module ClickHouseDriver.Core.Client,
-      module ClickHouseDriver.Core.Defines,
-      module ClickHouseDriver.Core.Connection
+      module ClickHouseDriver.HTTP.Types,
+      module ClickHouseDriver.HTTP.Client,
+      module ClickHouseDriver.HTTP.Connection,
+      module ClickHouseDriver.TCP.Client,
+      module ClickHouseDriver.TCP.Defines
     ) where
 
-import ClickHouseDriver.Core.Types
-import ClickHouseDriver.Core.Client
-import ClickHouseDriver.Core.Defines
-import ClickHouseDriver.Core.Connection
+import ClickHouseDriver.HTTP.Types
+import ClickHouseDriver.HTTP.Client
+import ClickHouseDriver.HTTP.Connection
+import ClickHouseDriver.TCP.Client
+import ClickHouseDriver.TCP.Defines

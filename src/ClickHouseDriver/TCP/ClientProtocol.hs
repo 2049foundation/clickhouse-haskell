@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module ClickHouseDriver.Core.ClientProtocol where
+module ClickHouseDriver.TCP.ClientProtocol where
 import Data.Vector
 import Data.ByteString
 

@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP#-}
-module ClickHouseDriver.Core.Defines where
-
-import ClickHouseDriver.Core.Types
+module ClickHouseDriver.TCP.Defines where
 import Data.ByteString.Internal
 
 import Network.Socket (SockAddr, Socket)
