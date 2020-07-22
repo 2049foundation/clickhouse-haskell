@@ -7,22 +7,8 @@ module ClickHouseDriver.HTTP.Connection (
     defaultHttpConnection,
     HttpConnection(..),
 ) where
-
-import Data.ByteString.Builder
-import ClickHouseDriver.IO.BufferedWriter
-import ClickHouseDriver.IO.BufferedReader
-import Network.Socket                                           
-import qualified Network.Simple.TCP                        as TCP
-import qualified Data.ByteString.Lazy                      as L     
-import ClickHouseDriver.HTTP.Types
-import Data.ByteString                                     hiding (unpack)
-import Data.ByteString.Char8                               (unpack)
+                                
 import Network.HTTP.Client
-import Control.Monad.State.Lazy
-import Data.Word
-import qualified Data.ByteString.Char8 as C8
-import Data.Int
-import qualified Data.Binary as Binary
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"

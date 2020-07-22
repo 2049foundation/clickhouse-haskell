@@ -70,7 +70,7 @@ testVarUInt = do
     (int,_) <- runStateT readResult2 str
     print int
 
-{-
+
 manualTCP :: IO()
 manualTCP = do
     print "manual"
@@ -89,8 +89,9 @@ manualTCP = do
                     print y
                     z <- TCP.recv sock 2048
                     print z
+                    
+                    
 
--}
 
 writeInt :: IO(Builder)
 writeInt = do
@@ -116,4 +117,4 @@ query = do
     print res
 
 main :: IO()
-main = query
+main = manualTCP
