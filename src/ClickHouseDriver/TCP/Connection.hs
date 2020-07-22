@@ -49,7 +49,7 @@ data TCPConnection = TCPConnection{
   tcpPort :: {-# UNPACK #-} !ByteString,
   tcpUsername :: {-# UNPACK #-} !ByteString,
   tcpPassword :: {-# UNPACK #-} !ByteString,
-  tcpSocket   :: {-# UNPACK #-} !Socket,
+  tcpSocket   ::                !Socket,
   tcpSockAdrr ::                !SockAddr,
   serverInfo  :: {-# UNPACK #-} !ServerInfo,
   tcpCompression :: {-#UNPACK #-} !Word
@@ -226,4 +226,3 @@ writeInfo (TCPConnection host port username password sock sockaddr
     >>= writeVarUInt _CLIENT_VERSION_PATCH
   
   return client_info
-  

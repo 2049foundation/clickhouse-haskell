@@ -60,45 +60,45 @@ import Control.Monad.State.Lazy
 
 {-Implementation in Haxl-}
 --
-data ClickHouseQuery a where
-  FetchByteString :: String -> ClickHouseQuery BS.ByteString
-  FetchJSON :: String -> ClickHouseQuery BS.ByteString
-  FetchCSV :: String -> ClickHouseQuery BS.ByteString
-  FetchText :: String -> ClickHouseQuery BS.ByteString
+data HttpQuery a where
+  FetchByteString :: String -> HttpQuery BS.ByteString
+  FetchJSON :: String -> HttpQuery BS.ByteString
+  FetchCSV :: String -> HttpQuery BS.ByteString
+  FetchText :: String -> HttpQuery BS.ByteString
 
-deriving instance Show (ClickHouseQuery a)
+deriving instance Show (HttpQuery a)
 
-deriving instance Typeable ClickHouseQuery
+deriving instance Typeable HttpQuery
 
-deriving instance Eq (ClickHouseQuery a)
+deriving instance Eq (HttpQuery a)
 
-instance ShowP ClickHouseQuery where showp = show
+instance ShowP HttpQuery where showp = show
 
-instance Hashable (ClickHouseQuery a) where
+instance Hashable (HttpQuery a) where
   hashWithSalt salt (FetchByteString cmd) = hashWithSalt salt cmd
   hashWithSalt salt (FetchJSON cmd) = hashWithSalt salt cmd
   hashWithSalt salt (FetchCSV cmd) = hashWithSalt salt cmd
 
-instance DataSourceName ClickHouseQuery where
+instance DataSourceName HttpQuery where
   dataSourceName _ = "ClickhouseDataSource"
 
-instance DataSource u ClickHouseQuery where
+instance DataSource u HttpQuery where
   fetch (Settings settings) _flags _usrenv = SyncFetch $ \blockedFetches -> do
     printf "Fetching %d queries.\n" (length blockedFetches)
     res <- mapConcurrently (fetchData settings) blockedFetches
     case res of
       [()] -> return ()
 
-instance StateKey ClickHouseQuery where
-  data State ClickHouseQuery = Settings HttpConnection
+instance StateKey HttpQuery where
+  data State HttpQuery = Settings HttpConnection
 
-settings :: HttpConnection -> Haxl.Core.State ClickHouseQuery
+settings :: HttpConnection -> Haxl.Core.State HttpQuery
 settings = Settings
 
 -- | fetch function
 fetchData ::
   HttpConnection -> --Connection configuration
-  BlockedFetch ClickHouseQuery -> --fetched data
+  BlockedFetch HttpQuery -> --fetched data
   IO ()
 fetchData settings fetches = do
   let (queryWithType, var) = case fetches of
