@@ -1,15 +1,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module ClickHouseDriver.HTTP.Helpers
+module ClickHouseDriver.Core.HTTP.Helpers
   ( extract,
     replace,
     genURL
   )
 where
 
-import ClickHouseDriver.HTTP.Connection
-import ClickHouseDriver.HTTP.Types
+import ClickHouseDriver.Core.HTTP.Connection
+import ClickHouseDriver.Core.HTTP.Types
 import qualified Data.Aeson as JP
 import Data.Attoparsec.ByteString
 import qualified Data.ByteString as B

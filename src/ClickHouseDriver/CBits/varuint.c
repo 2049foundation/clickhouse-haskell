@@ -54,9 +54,3 @@ size_t count_read(char * istr, size_t size){
     }
     return n;
 }
-
-void test_func(char * istr){
-    *(istr + 1) = 'k';
-    istr = istr + 1;
-    printf("%s\n", istr);
-}

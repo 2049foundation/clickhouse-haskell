@@ -8,7 +8,8 @@ module ClickHouseDriver.IO.BufferedReader (
     readBinaryStr,
     readVarInt,
     readBinaryInt32,
-    readBinaryUInt8
+    readBinaryUInt8,
+    readBinaryUInt64
 ) where
 
 import qualified Data.ByteString as BS
@@ -18,7 +19,7 @@ import Data.Word
 import qualified Data.ByteString.Unsafe    as UBS
 import Control.Monad.State.Lazy
 import Data.Int
-import Data.Binary   (decode)
+import Data.Binary   
 import qualified Data.ByteString.Lazy   as L
 
 type Buffer = ByteString
@@ -40,17 +41,11 @@ readBinaryStr' str = do
     (head, tail') <- readBinaryStrWithLength (fromIntegral len) tail
     return (head, tail')
 
-readBinaryInt32' :: ByteString->IO(Int32, ByteString)
-readBinaryInt32' str = do
-    (cut, tail) <- readBinaryStrWithLength 4 str
-    let i32 = decode (L.fromStrict cut)
-    return (i32, tail)
-
-readBinaryUInt8' :: ByteString->IO(Word8, ByteString)
-readBinaryUInt8' str = do
-    (cut, tail) <- readBinaryStrWithLength 1 str
-    let u8 = decode (L.fromStrict cut)
-    return (u8, tail)
+readBinaryHelper :: Binary a=>Int->ByteString->IO(a, ByteString)
+readBinaryHelper fmt str = do
+    (cut, tail) <- readBinaryStrWithLength fmt str
+    let v = decode (L.fromStrict cut)
+    return (v, tail)
 
 readVarInt :: StateT ByteString IO Word16
 readVarInt = StateT readVarInt'
@@ -59,10 +54,13 @@ readBinaryStr :: StateT ByteString IO ByteString
 readBinaryStr = StateT readBinaryStr'
 
 readBinaryInt32 :: StateT ByteString IO Int32
-readBinaryInt32 = StateT readBinaryInt32'
+readBinaryInt32 = StateT $ readBinaryHelper 4
 
 readBinaryUInt8 :: StateT ByteString IO Word8
-readBinaryUInt8 = StateT readBinaryUInt8'
+readBinaryUInt8 = StateT $ readBinaryHelper 1
+
+readBinaryUInt64 :: StateT ByteString IO Word64
+readBinaryUInt64 = StateT $ readBinaryHelper 8
 
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString->Word->IO Word16
 foreign import ccall unsafe "varuint.h count_read"  c_count :: CString->Word->IO Word
