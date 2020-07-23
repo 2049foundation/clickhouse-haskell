@@ -11,7 +11,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP  #-}
 
-module ClickHouseDriver.HTTP.Client
+module ClickHouseDriver.Core.HTTP.Client
   ( settings,
     setupEnv,
     runQuery,
@@ -23,9 +23,9 @@ module ClickHouseDriver.HTTP.Client
   )
 where
 
-import ClickHouseDriver.HTTP.Connection
-import ClickHouseDriver.HTTP.Helpers
-import ClickHouseDriver.HTTP.Types
+import ClickHouseDriver.Core.HTTP.Connection
+import ClickHouseDriver.Core.HTTP.Helpers
+import ClickHouseDriver.Core.HTTP.Types
 import Control.Concurrent.Async
 import Control.Exception
 import qualified Data.Aeson as JP

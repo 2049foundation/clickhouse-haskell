@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module ClickHouseDriver.HTTP.Connection (
+module ClickHouseDriver.Core.HTTP.Connection (
     httpConnect,
     defaultHttpConnection,
     HttpConnection(..),

@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module ClickHouseDriver.HTTP.Types
+module ClickHouseDriver.Core.HTTP.Types
   ( JSONResult (..),
     Cmd,
     Haxl,

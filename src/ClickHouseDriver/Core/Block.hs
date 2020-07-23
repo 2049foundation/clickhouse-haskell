@@ -1,5 +1,11 @@
-module ClickHouseDriver.TCP.Block (
-
+module ClickHouseDriver.Core.Block (
+    BlockInfo(..),
+    writeInfo,
+    readInfo,
+    readBlockInputStream,
+    Block(..),
+    ClickhouseType(..),
+    defaultBlockInfo
 ) where
 
 import Data.Int
@@ -25,8 +31,14 @@ data Block = ColumnOrientedBlock {
     info :: BlockInfo
 }
 
-write :: BlockInfo->Builder->IO(Builder)
-write (Info is_overflows bucket_num) builder = do
+defaultBlockInfo :: BlockInfo
+defaultBlockInfo = Info{
+    is_overflows = False,
+    bucket_num = -1
+}
+
+writeInfo :: BlockInfo->Builder->IO(Builder)
+writeInfo (Info is_overflows bucket_num) builder = do
     r <- writeVarUInt 1 builder
      >>= writeBinaryUInt8 (if is_overflows then 1 else 0)
      >>= writeVarUInt 2
@@ -80,4 +92,6 @@ readBlockInputStream = do
     }
 
 readColumn :: ByteString->Word16->StateT ByteString IO (Vector ByteString)
-readColumn coltype rows = undefined
+readColumn coltype rows = do
+    state_prefix <- readBinaryUInt64
+    return undefined

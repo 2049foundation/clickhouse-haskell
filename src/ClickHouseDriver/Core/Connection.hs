@@ -1,8 +1,7 @@
 {-# LANGUAGE CPP  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-
-module ClickHouseDriver.TCP.Connection (
+module ClickHouseDriver.Core.Connection (
     tcpConnect,
     defaultTCPConnection,
     TCPConnection(..),
@@ -17,18 +16,19 @@ import ClickHouseDriver.IO.BufferedReader
 import Network.Socket                                           
 import qualified Network.Simple.TCP                        as TCP
 import qualified Data.ByteString.Lazy                      as L     
-import qualified ClickHouseDriver.TCP.ClientProtocol      as Client
-import qualified ClickHouseDriver.TCP.ServerProtocol      as Server
+import qualified ClickHouseDriver.Core.ClientProtocol      as Client
+import qualified ClickHouseDriver.Core.ServerProtocol      as Server
 import Data.ByteString                                     hiding (unpack)
 import Data.ByteString.Char8                               (unpack)
 import Network.HTTP.Client
 import Control.Monad.State.Lazy
 import Data.Word
-import qualified ClickHouseDriver.TCP.QueryProcessingStage         as Stage
+import qualified ClickHouseDriver.Core.QueryProcessingStage         as Stage
 import qualified Data.ByteString.Char8 as C8
 import Data.Int
 import qualified Data.Binary as Binary
-import ClickHouseDriver.TCP.Defines
+import ClickHouseDriver.Core.Defines
+import qualified ClickHouseDriver.Core.Block as Block
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
@@ -166,20 +166,12 @@ sendQuery query query_id env@TCPConnection{tcpCompression=comp, tcpSocket=sock}=
 
 sendData :: ByteString->TCPConnection->IO()
 sendData table_name TCPConnection{tcpSocket=sock} = do -- TODO: ADD REVISION
-  let is_overflow = 0
-  let bucket_num = -1
-
+  let info = Block.defaultBlockInfo
   r <- writeVarUInt Client._DATA mempty
    >>= writeBinaryStr table_name
-   >>= writeVarUInt 1
-   >>= writeInt8Str 0
-   >>= writeVarUInt 2
-   >>= writeInt32Str (-1::Int32) -- should be -1
-   >>= writeVarUInt 0
-
+   >>= Block.writeInfo info 
    >>= writeVarUInt 0 -- #col
    >>= writeVarUInt 0 -- #row
-
   TCP.sendLazy sock (toLazyByteString r)
 
 sendCancel :: TCPConnection->IO()

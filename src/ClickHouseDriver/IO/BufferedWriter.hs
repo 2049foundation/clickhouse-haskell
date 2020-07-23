@@ -69,10 +69,4 @@ writeBinaryInt64 i64 head = do
     let bytes = Binary.encode i64
     return $ head <> lazyByteString bytes
     
-{-
-writeSettings :: ByteString->Bool->Builder->IO(Builder)
-writeSettings setting settings_as_strings buf = do
-    let is_important = 0
--}
-
 foreign import ccall unsafe "varuint.h write_varint" c_write_varint :: Word->IO (CString)
