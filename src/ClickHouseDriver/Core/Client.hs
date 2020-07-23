@@ -11,13 +11,13 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP  #-}
 
-module ClickHouseDriver.TCP.Client (
+module ClickHouseDriver.Core.Client (
 
 ) where
 
-import ClickHouseDriver.TCP.Connection
-import ClickHouseDriver.TCP.Block
-import ClickHouseDriver.TCP.Defines
+import ClickHouseDriver.Core.Connection
+import ClickHouseDriver.Core.Block
+import ClickHouseDriver.Core.Defines
 import Haxl.Core
 
 import qualified Data.ByteString as BS

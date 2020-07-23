@@ -1,4 +1,4 @@
-module Error (
+module ClickHouseDriver.Core.Error (
 
 ) where
 

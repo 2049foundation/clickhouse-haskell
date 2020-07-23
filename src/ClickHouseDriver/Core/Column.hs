@@ -1,4 +1,4 @@
-module ClickHouseDriver.TCP.Column where
+module ClickHouseDriver.Core.Column where
 
 import Data.Binary
 import Data.ByteString
