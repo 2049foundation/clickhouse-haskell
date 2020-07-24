@@ -24,3 +24,4 @@ import qualified Data.ByteString as BS
 
 data Query a where
     GetData :: String->Query String
+    

@@ -56,6 +56,7 @@ data TCPConnection = TCPConnection
     serverInfo :: {-# UNPACK #-} !ServerInfo,
     tcpCompression :: {-# UNPACK #-} !Word
   }
+  deriving (Show)
 
 data Packet = Block | Exception {message :: ByteString} | Progress
 
@@ -131,7 +132,13 @@ receiveHello' = do
 defaultTCPConnection :: IO (Either String TCPConnection)
 defaultTCPConnection = tcpConnect "localhost" "9000" "default" "12345612341" "default" False
 
-tcpConnect :: ByteString -> ByteString -> ByteString -> ByteString -> ByteString -> Bool -> IO (Either String TCPConnection)
+tcpConnect :: ByteString 
+           -> ByteString 
+           -> ByteString 
+           -> ByteString 
+           -> ByteString 
+           -> Bool 
+           -> IO (Either String TCPConnection)
 tcpConnect host port user password database compression = do
   (sock, sockaddr) <- TCP.connectSock (unpack host) (unpack port)
   sendHello (database, user, password) sock
@@ -206,7 +213,10 @@ receiveData = do
   result <- readBinaryStr
   return result
 
-writeInfo :: TCPConnection -> ByteString -> Builder -> IO (Builder)
+writeInfo :: TCPConnection 
+          -> ByteString 
+          -> Builder 
+          -> IO (Builder)
 writeInfo
   ( TCPConnection
       host
@@ -237,6 +247,7 @@ writeInfo
 
     writeInterface <- writeVarUInt interface initial
 
+    -- TODO: should name the client name properly
     client_info <-
       writeBinaryStr "darth" writeInterface
         >>= writeBinaryStr host_name
