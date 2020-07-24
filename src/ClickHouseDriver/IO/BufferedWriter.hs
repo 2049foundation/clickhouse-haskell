@@ -10,6 +10,7 @@ module ClickHouseDriver.IO.BufferedWriter
     writeBinaryInt32,
     writeBinaryInt64,
     writeBinaryUInt8,
+    Writer
   )
 where
 
@@ -27,13 +28,15 @@ import Data.Word8
 import Foreign.C
 import Foreign.Ptr
 
-writeBinaryStr :: ByteString -> Builder -> IO Builder
+type Writer a = a->Builder->IO(Builder)
+
+writeBinaryStr :: Writer ByteString
 writeBinaryStr str builder = do
   let l = BS.length str
   wint <- writeVarUInt (fromIntegral l) builder
   return $ wint <> byteString str
 
-writeVarUInt :: Word -> Builder -> IO Builder
+writeVarUInt ::Writer Word
 writeVarUInt 0 builder = do
   ostr' <- c_write_varint 0
   ostr <- unsafePackCStringLen (ostr', 1)
@@ -45,27 +48,27 @@ writeVarUInt n builder = do
 
 -- TODO : the results should be reversed
 
-writeBinaryUInt8 :: Word8 -> Builder -> IO (Builder)
+writeBinaryUInt8 :: Writer Word8 
 writeBinaryUInt8 w8 head = do
   let bytes = Binary.encode w8
   return $ head <> lazyByteString bytes
 
-writeBinaryInt8 :: Int8 -> Builder -> IO (Builder)
+writeBinaryInt8 :: Writer Int8
 writeBinaryInt8 i8 head = do
   let bytes = Binary.encode i8
   return $ head <> lazyByteString bytes
 
-writeBinaryInt16 :: Int16 -> Builder -> IO (Builder)
+writeBinaryInt16 :: Writer Int16
 writeBinaryInt16 i16 head = do
   let bytes = Binary.encode i16
   return $ head <> lazyByteString bytes
 
-writeBinaryInt32 :: Int32 -> Builder -> IO Builder
+writeBinaryInt32 :: Writer Int32
 writeBinaryInt32 i32 head = do
   let bytes = Binary.encode i32
   return $ head <> lazyByteString bytes
 
-writeBinaryInt64 :: Int64 -> Builder -> IO (Builder)
+writeBinaryInt64 :: Writer Int64
 writeBinaryInt64 i64 head = do
   let bytes = Binary.encode i64
   return $ head <> lazyByteString bytes

@@ -10,6 +10,7 @@ module ClickHouseDriver.IO.BufferedReader
     readBinaryInt32,
     readBinaryUInt8,
     readBinaryUInt64,
+    Reader
   )
 where
 
@@ -24,6 +25,8 @@ import Data.Word
 import Foreign.C
 
 type Buffer = ByteString
+
+type Reader a = StateT Buffer IO a
 
 readBinaryStrWithLength :: Int -> ByteString -> IO (ByteString, ByteString)
 readBinaryStrWithLength n str = return $ BS.splitAt n str
@@ -48,19 +51,19 @@ readBinaryHelper fmt str = do
   let v = decode (L.fromStrict cut)
   return (v, tail)
 
-readVarInt :: StateT ByteString IO Word16
+readVarInt :: Reader Word16
 readVarInt = StateT readVarInt'
 
-readBinaryStr :: StateT ByteString IO ByteString
+readBinaryStr :: Reader ByteString
 readBinaryStr = StateT readBinaryStr'
 
-readBinaryInt32 :: StateT ByteString IO Int32
+readBinaryInt32 :: Reader Int32
 readBinaryInt32 = StateT $ readBinaryHelper 4
 
-readBinaryUInt8 :: StateT ByteString IO Word8
+readBinaryUInt8 :: Reader Word8
 readBinaryUInt8 = StateT $ readBinaryHelper 1
 
-readBinaryUInt64 :: StateT ByteString IO Word64
+readBinaryUInt64 :: Reader Word64
 readBinaryUInt64 = StateT $ readBinaryHelper 8
 
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString -> Word -> IO Word16

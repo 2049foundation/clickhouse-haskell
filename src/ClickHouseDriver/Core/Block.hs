@@ -97,7 +97,9 @@ readBlockInputStream = do
         columns_with_type = V.zip names types
       }
 
-readColumn :: ByteString -> Word16 -> StateT ByteString IO (Vector ByteString)
+readColumn :: ByteString 
+           -> Word16 
+           -> StateT ByteString IO (Vector ByteString)
 readColumn coltype rows = do
   state_prefix <- readBinaryUInt64
   return undefined
