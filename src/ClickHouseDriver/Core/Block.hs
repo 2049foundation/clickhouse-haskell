@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module ClickHouseDriver.Core.Block
   ( BlockInfo (..),
     writeInfo,
@@ -38,18 +40,17 @@ defaultBlockInfo =
     { is_overflows = False,
       bucket_num = -1
     }
+--(MonoidMap ByteString w,MonoidMap Word8 w,MonoidMap Int32 w)=>
+writeInfo :: BlockInfo->IOWriter Builder
+writeInfo (Info is_overflows bucket_num) = do
+    writeVarUInt 1 
+    writeBinaryUInt8 (if is_overflows then 1 else 0)
+    writeVarUInt 2
+    writeBinaryInt32 bucket_num
+    writeVarUInt 0
 
-writeInfo :: BlockInfo -> Builder -> IO (Builder)
-writeInfo (Info is_overflows bucket_num) builder = do
-  r <-
-    writeVarUInt 1 builder
-      >>= writeBinaryUInt8 (if is_overflows then 1 else 0)
-      >>= writeVarUInt 2
-      >>= writeBinaryInt32 bucket_num
-      >>= writeVarUInt 0
-  return r
 
-readInfo :: BlockInfo -> StateT ByteString IO BlockInfo
+readInfo :: BlockInfo -> Reader BlockInfo
 readInfo info@Info {is_overflows = io, bucket_num = bn} = do
   field_num <- readVarInt
   case field_num of
@@ -62,7 +63,7 @@ readInfo info@Info {is_overflows = io, bucket_num = bn} = do
     _ -> return info
     
 
-readBlockInputStream :: StateT ByteString IO Block
+readBlockInputStream :: Reader Block
 readBlockInputStream = do
   let defaultInfo =
         Info
@@ -75,7 +76,7 @@ readBlockInputStream = do
   n_rows <- readVarInt
 
   --(datas, names, types)
-  let loop :: Int -> StateT ByteString IO (Vector ByteString, ByteString, ByteString)
+  let loop :: Int -> Reader (Vector ByteString, ByteString, ByteString)
       loop n = do
         column_name <- readBinaryStr
         column_type <- readBinaryStr
@@ -86,9 +87,9 @@ readBlockInputStream = do
 
   v <- V.generateM (fromIntegral n_columns) loop
 
-  let datas = fmap (\(x, _, _) -> x) v
-      names = fmap (\(_, x, _) -> x) v
-      types = fmap (\(_, _, x) -> x) v
+  let datas = (\(x, _, _) -> x) <$> v
+      names = (\(_, x, _) -> x) <$> v
+      types = (\(_, _, x) -> x) <$> v
 
   return
     ColumnOrientedBlock
@@ -98,8 +99,10 @@ readBlockInputStream = do
       }
 
 readColumn :: ByteString 
-           -> Word16 
-           -> StateT ByteString IO (Vector ByteString)
+              -- ^ Column type
+           -> Word
+              -- ^ row size
+           -> Reader (Vector ByteString)
 readColumn coltype rows = do
   state_prefix <- readBinaryUInt64
   return undefined

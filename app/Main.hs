@@ -24,6 +24,10 @@ import           Network.Socket
 import qualified Network.Simple.TCP                        as TCP
 import qualified Data.Binary as B
 import           Data.Int
+import           Control.Monad.Writer
+
+
+
 
 readLength :: StateT ByteString IO ByteString
 readLength = StateT (readBinaryStrWithLength 3)
@@ -34,22 +38,9 @@ readSix = do
     temp2 <- readLength
     return temp2
 
-sample :: IO (Builder)
-sample = do
-    r' <- writeVarUInt 15 mempty
-    r  <- writeVarUInt 20 r'
-    s <- writeVarUInt  44650 r 
-    return s
 
-sample2 :: IO(Builder)
-sample2 = do
-    r <- writeVarUInt 5 mempty
-     >>= writeBinaryStr "Hello"
-     >>= writeVarUInt 3
-     >>= writeBinaryStr "Six"
-    return r
 
-readResult :: StateT ByteString IO Word16
+readResult :: StateT ByteString IO Word
 readResult = do
     r <- readVarInt
     r2 <- readVarInt
@@ -61,15 +52,6 @@ readResult2 = do
     r <- readBinaryStr
     r' <- readBinaryStr
     return (r <> r')
-
-testVarUInt :: IO()
-testVarUInt = do
-    bder <- sample2
-    let str = L.toStrict $ toLazyByteString bder
-    print str
-    (int,_) <- runStateT readResult2 str
-    print int
-
 
 manualTCP :: IO()
 manualTCP = do
@@ -93,15 +75,6 @@ manualTCP = do
                     
 
 
-writeInt :: IO(Builder)
-writeInt = do
-    w <- writeVarUInt 10 mempty
-    return w
-
-main2 :: IO()
-main2 = do 
-    some <- writeInt
-    print (toLazyByteString some)
 
 main3 :: IO()
 main3 = do

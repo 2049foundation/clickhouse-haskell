@@ -27,6 +27,8 @@ import Data.Typeable
 import Data.Vector (toList)
 import Foreign.ForeignPtr
 import Foreign.Ptr
+import Control.Monad.Writer
+import ClickHouseDriver.IO.BufferedWriter
 
 -- | Trim JSON data
 extract :: C8.ByteString -> JSONResult
@@ -50,8 +52,24 @@ replace"" = ""
 replace (' ' : xs) = "%20" ++ replace xs
 replace (x : xs) = x : replace xs
 
-genURL :: HttpConnection->Cmd->String
-genURL HttpConnection {httpHost = host, httpPassword = pw, httpPort = port, httpUsername = usr} cmd =
-    let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
-        res = basic ++ (replace cmd)
-    in res
+genURL :: HttpConnection->Cmd->IO String
+genURL HttpConnection {
+       httpHost = host,
+       httpPassword = pw, 
+       httpPort = port, 
+       httpUsername = usr} cmd = do
+         (_,basicUrl) <- runWriterT $ do
+           writeIn "http://"
+           writeIn usr
+           writeIn ":"
+           writeIn pw
+           writeIn "@"
+           writeIn host
+           writeIn ":"
+           writeIn $ show port   
+           writeIn "/?query="
+         let res = basicUrl ++ (replace cmd)
+         return res
+   -- let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
+   --    res = basic ++ (replace cmd)
+   -- in res
