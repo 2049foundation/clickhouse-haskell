@@ -163,12 +163,14 @@ sendQuery query query_id env@TCPConnection {tcpCompression = comp, tcpSocket = s
     if revis >= _DBMS_MIN_REVISION_WITH_CLIENT_INFO
       then do
         let client_info = getDefaultClientInfo (_DBMS_NAME <> " " <> _CLIENT_NAME)
-        writeInfo client_info revis
+        writeInfo client_info info
       else return ()
     writeVarUInt 0
     writeVarUInt Stage._COMPLETE
     writeVarUInt comp
     writeBinaryStr query
+  let res = toLazyByteString r
+  print ("res = " <> res)
   TCP.sendLazy sock (toLazyByteString r)
 
 sendData :: ByteString -> TCPConnection -> IO ()
@@ -201,7 +203,7 @@ receiveData = do
   result <- readBinaryStr
   return result
 
-writeInfo :: (MonoidMap ByteString w)=>ClientInfo->Word->IOWriter w
+writeInfo :: (MonoidMap ByteString w)=>ClientInfo->ServerInfo->IOWriter w
 
 writeInfo
   ( ClientInfo
@@ -216,7 +218,7 @@ writeInfo
       initial_address
       quota_key
       query_kind
-  ) server_revision
+  ) ServerInfo{revision = server_revision, display_name = host_name}
   | server_revision < _DBMS_MIN_REVISION_WITH_CLIENT_INFO 
     = error "Method writeInfo is called for unsupported server revision"
   | otherwise = do
@@ -227,8 +229,8 @@ writeInfo
     
     writeVarUInt (if interface == HTTP then 0 else 1)
 
-    writeBinaryStr ""
-    --writeBinaryStr hostname
+    writeBinaryStr ""     -- os_user
+    writeBinaryStr host_name
     writeBinaryStr client_name
     writeVarUInt client_version_major
     writeVarUInt client_version_minor
@@ -239,3 +241,4 @@ writeInfo
     if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
       then writeVarUInt client_version_patch
       else return ()
+
