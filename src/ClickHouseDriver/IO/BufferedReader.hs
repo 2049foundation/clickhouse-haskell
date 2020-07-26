@@ -31,7 +31,7 @@ type Reader a = StateT Buffer IO a
 readBinaryStrWithLength :: Int -> ByteString -> IO (ByteString, ByteString)
 readBinaryStrWithLength n str = return $ BS.splitAt n str
 
-readVarInt' :: ByteString -> IO (Word16, ByteString)
+readVarInt' :: ByteString -> IO (Word, ByteString)
 readVarInt' str = do
   let l = fromIntegral $ BS.length str
   varint <- UBS.unsafeUseAsCString str (\x -> c_read_varint x l)
@@ -51,7 +51,7 @@ readBinaryHelper fmt str = do
   let v = decode (L.fromStrict cut)
   return (v, tail)
 
-readVarInt :: Reader Word16
+readVarInt :: Reader Word
 readVarInt = StateT readVarInt'
 
 readBinaryStr :: Reader ByteString
@@ -66,6 +66,6 @@ readBinaryUInt8 = StateT $ readBinaryHelper 1
 readBinaryUInt64 :: Reader Word64
 readBinaryUInt64 = StateT $ readBinaryHelper 8
 
-foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString -> Word -> IO Word16
+foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString -> Word -> IO Word
 
 foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word

@@ -108,7 +108,7 @@ fetchData settings fetches = do
   e <- Control.Exception.try $ do
     case settings of
       HttpConnection _ _ _ _ mng -> do
-        let url = genURL settings (replace queryWithType)
+        url <- genURL settings (replace queryWithType)
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ LBS.toStrict ans

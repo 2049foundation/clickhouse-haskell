@@ -39,6 +39,7 @@ library
       ClickHouseDriver.Core.Block
       ClickHouseDriver.Core.Client
       ClickHouseDriver.Core.Connection
+      ClickHouseDriver.Core.Types
       ClickHouseDriver.IO.BufferedWriter
       ClickHouseDriver.IO.BufferedReader
   other-modules:
@@ -47,6 +48,7 @@ library
       src
   build-depends:
       aeson
+    , cereal
     , word8
     , monad-parallel
     , HUnit

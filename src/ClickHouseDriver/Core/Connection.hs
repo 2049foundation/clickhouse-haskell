@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE FlexibleContexts #-}
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
     defaultTCPConnection,
@@ -11,6 +11,7 @@ module ClickHouseDriver.Core.Connection
   )
 where
 
+import ClickHouseDriver.Core.Types
 import qualified ClickHouseDriver.Core.Block as Block
 import qualified ClickHouseDriver.Core.ClientProtocol as Client
 import ClickHouseDriver.Core.Defines
@@ -30,52 +31,32 @@ import Data.Word
 import Network.HTTP.Client
 import qualified Network.Simple.TCP as TCP
 import Network.Socket
+import Control.Monad.Writer
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
 #define DEFAULT_PASSWORD  ""
 
-data ServerInfo = ServerInfo
-  { name :: ByteString,
-    version_major :: Word16,
-    version_minor :: Word16,
-    version_patch :: Word16,
-    revision :: Word16,
-    timezone :: Maybe ByteString,
-    display_name :: ByteString
-  }
-  deriving (Show)
 
-data TCPConnection = TCPConnection
-  { tcpHost :: {-# UNPACK #-} !ByteString,
-    tcpPort :: {-# UNPACK #-} !ByteString,
-    tcpUsername :: {-# UNPACK #-} !ByteString,
-    tcpPassword :: {-# UNPACK #-} !ByteString,
-    tcpSocket :: !Socket,
-    tcpSockAdrr :: !SockAddr,
-    serverInfo :: {-# UNPACK #-} !ServerInfo,
-    tcpCompression :: {-# UNPACK #-} !Word
-  }
-  deriving (Show)
-
-data Packet = Block | Exception {message :: ByteString} | Progress
-
-versionTuple :: ServerInfo -> (Word16, Word16, Word16)
+versionTuple :: ServerInfo -> (Word, Word, Word)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
 
-sendHello :: (ByteString, ByteString, ByteString) -> Socket -> IO ()
-sendHello (database, usrname, password) sock = do
-  w <-
-    writeVarUInt Client._HELLO mempty
-      >>= writeBinaryStr ("ClickHouse " <> _CLIENT_NAME)
-      >>= writeVarUInt _CLIENT_VERSION_MAJOR
-      >>= writeVarUInt _CLIENT_VERSION_MINOR
-      >>= writeVarUInt _CLIENT_REVISION
-      >>= writeBinaryStr database
-      >>= writeBinaryStr usrname
-      >>= writeBinaryStr password
+sendHello :: (ByteString, ByteString, ByteString)-> Socket -> IO ()
+sendHello (database, usrname, password)  sock = do
+  (_,w) <- runWriterT writeHello 
   print ("w = " <> (toLazyByteString w))
-  TCP.sendLazy sock (toLazyByteString w)
+  TCP.sendLazy sock (toLazyByteString w) where
+    writeHello ::IOWriter Builder
+    writeHello = do
+      writeVarUInt Client._HELLO
+      writeBinaryStr ("ClickHouse " <> _CLIENT_NAME)
+      writeVarUInt _CLIENT_VERSION_MAJOR
+      writeVarUInt _CLIENT_VERSION_MINOR
+      writeVarUInt _CLIENT_REVISION
+      writeBinaryStr database
+      writeBinaryStr usrname
+      writeBinaryStr password
+  
 
 receiveHello :: ByteString -> IO (Either ByteString ServerInfo)
 receiveHello str = do
@@ -170,37 +151,44 @@ tcpConnect host port user password database compression = do
           return $ Left "Connection error"
 
 sendQuery :: ByteString -> Maybe ByteString -> TCPConnection -> IO ()
-sendQuery query query_id env@TCPConnection {tcpCompression = comp, tcpSocket = sock} = do
-  r <-
-    writeVarUInt Client._QUERY mempty
-      >>= writeBinaryStr
+sendQuery query query_id env@TCPConnection {tcpCompression = comp, tcpSocket = sock, serverInfo=info} = do
+  (_,r) <- runWriterT $ do 
+    writeVarUInt Client._QUERY
+    writeBinaryStr
         ( case query_id of
             Nothing -> ""
             Just x -> x
         )
-      >>= writeInfo env ("ClickHouse " <> _CLIENT_NAME)
-      >>= writeVarUInt 0
-      >>= writeVarUInt Stage._COMPLETE
-      >>= writeVarUInt comp
-      >>= writeBinaryStr query
+    let revis = revision info
+    if revis >= _DBMS_MIN_REVISION_WITH_CLIENT_INFO
+      then do
+        let client_info = getDefaultClientInfo (_DBMS_NAME <> " " <> _CLIENT_NAME)
+        writeInfo client_info revis
+      else return ()
+    writeVarUInt 0
+    writeVarUInt Stage._COMPLETE
+    writeVarUInt comp
+    writeBinaryStr query
   TCP.sendLazy sock (toLazyByteString r)
 
 sendData :: ByteString -> TCPConnection -> IO ()
 sendData table_name TCPConnection {tcpSocket = sock} = do
   -- TODO: ADD REVISION
   let info = Block.defaultBlockInfo
-  r <-
-    writeVarUInt Client._DATA mempty
-      >>= writeBinaryStr table_name
-      >>= Block.writeInfo info
-      >>= writeVarUInt 0 -- #col
-      >>= writeVarUInt 0 -- #row
+  (_,r) <- runWriterT $ do
+    writeVarUInt Client._DATA
+    writeBinaryStr table_name
+    Block.writeInfo info
+    writeVarUInt 0 -- #col
+    writeVarUInt 0 -- #row
   TCP.sendLazy sock (toLazyByteString r)
 
 sendCancel :: TCPConnection -> IO ()
 sendCancel TCPConnection {tcpSocket = sock} = do
-  c <- writeVarUInt Client._CANCEL mempty
-  TCP.sendLazy sock (toLazyByteString c)
+  (_,c) <- runWriterT $ writeVarUInt Client._CANCEL
+  TCP.sendLazy sock (toLazyByteString c) where
+
+    
 
 receivePacket :: ByteString -> IO ()
 receivePacket istr = undefined
@@ -213,49 +201,41 @@ receiveData = do
   result <- readBinaryStr
   return result
 
-writeInfo :: TCPConnection 
-          -> ByteString 
-          -> Builder 
-          -> IO (Builder)
+writeInfo :: (MonoidMap ByteString w)=>ClientInfo->Word->IOWriter w
+
 writeInfo
-  ( TCPConnection
-      host
-      port
-      username
-      password
-      sock
-      sockaddr
-      ServerInfo {revision = revision, display_name = host_name}
-      comp
-    )
-  client_name
-  builder = do
-    let initial_user = "" :: ByteString
-    let initial_query_id = "" :: ByteString
-    let initial_address = "0.0.0.0:0" :: ByteString
-    let quota_key = "" :: ByteString
-    let interface = 1 :: Word
-    let queryKind = 1 :: Word
+  ( ClientInfo
+      client_name
+      interface
+      client_version_major
+      client_version_minor
+      client_version_patch
+      client_revision
+      initial_user
+      initial_query_id
+      initial_address
+      quota_key
+      query_kind
+  ) server_revision
+  | server_revision < _DBMS_MIN_REVISION_WITH_CLIENT_INFO 
+    = error "Method writeInfo is called for unsupported server revision"
+  | otherwise = do
+    writeVarUInt 0
+    writeBinaryStr initial_user
+    writeBinaryStr initial_query_id
+    writeBinaryStr initial_address
+    
+    writeVarUInt (if interface == HTTP then 0 else 1)
 
-    --TODO exceptions
-    kind <- writeVarUInt queryKind builder
-
-    initial <-
-      writeBinaryStr initial_user kind
-        >>= writeBinaryStr initial_query_id
-        >>= writeBinaryStr initial_address
-
-    writeInterface <- writeVarUInt interface initial
-
-    -- TODO: should name the client name properly
-    client_info <-
-      writeBinaryStr "darth" writeInterface
-        >>= writeBinaryStr host_name
-        >>= writeBinaryStr client_name
-        >>= writeVarUInt _CLIENT_VERSION_MAJOR
-        >>= writeVarUInt _CLIENT_VERSION_MINOR
-        >>= writeVarUInt _CLIENT_REVISION
-        >>= writeBinaryStr quota_key
-        >>= writeVarUInt _CLIENT_VERSION_PATCH
-
-    return client_info
+    writeBinaryStr ""
+    --writeBinaryStr hostname
+    writeBinaryStr client_name
+    writeVarUInt client_version_major
+    writeVarUInt client_version_minor
+    writeVarUInt client_revision
+    if server_revision >= _DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO
+      then writeBinaryStr quota_key
+      else return ()
+    if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
+      then writeVarUInt client_version_patch
+      else return ()

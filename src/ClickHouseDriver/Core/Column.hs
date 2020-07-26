@@ -19,7 +19,7 @@ data BaseColumn = BaseColumn {
 
 
 class Column a where
-    writeData :: Writer a
+    writeData :: a->IOWriter w
     readData :: Reader a
     readStatePrefix :: a->Reader Word16
-    writeStatePrefix :: a->Writer Word
+    writeStatePrefix :: a->Word->IOWriter w
