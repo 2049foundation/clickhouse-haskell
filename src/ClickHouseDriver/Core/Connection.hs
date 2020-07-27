@@ -152,6 +152,7 @@ tcpConnect host port user password database compression = do
 
 sendQuery :: ByteString -> Maybe ByteString -> TCPConnection -> IO ()
 sendQuery query query_id env@TCPConnection {tcpCompression = comp, tcpSocket = sock, serverInfo=info} = do
+  print (info)
   (_,r) <- runWriterT $ do 
     writeVarUInt Client._QUERY
     writeBinaryStr
@@ -222,7 +223,7 @@ writeInfo
   | server_revision < _DBMS_MIN_REVISION_WITH_CLIENT_INFO 
     = error "Method writeInfo is called for unsupported server revision"
   | otherwise = do
-    writeVarUInt 0
+    writeVarUInt 1
     writeBinaryStr initial_user
     writeBinaryStr initial_query_id
     writeBinaryStr initial_address
@@ -231,7 +232,7 @@ writeInfo
 
     writeBinaryStr ""     -- os_user
     writeBinaryStr host_name
-    writeBinaryStr client_name
+    writeBinaryStr "haskell"--client_name
     writeVarUInt client_version_major
     writeVarUInt client_version_minor
     writeVarUInt client_revision
