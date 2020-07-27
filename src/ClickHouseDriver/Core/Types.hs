@@ -24,7 +24,7 @@ data ServerInfo = ServerInfo
     timezone :: Maybe ByteString,
     display_name ::{-# UNPACK #-}  !ByteString
   }
-  deriving (Show)
+  deriving Show
 
 data TCPConnection = TCPConnection
   { tcpHost :: {-# UNPACK #-} !ByteString,
@@ -36,7 +36,7 @@ data TCPConnection = TCPConnection
     serverInfo :: {-# UNPACK #-} !ServerInfo,
     tcpCompression :: {-# UNPACK #-} !Word
   }
-  deriving (Show)
+  deriving Show
 
 data ClientInfo = ClientInfo {
   client_name :: {-#UNPACK#-} !ByteString,
@@ -80,4 +80,4 @@ data Context = Context {
 }  deriving Show
 
 data Packet = Block | Exception {message :: ByteString} | Progress
-      deriving Show
+      deriving (Show, Eq)

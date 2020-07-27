@@ -40,6 +40,7 @@ library
       ClickHouseDriver.Core.Client
       ClickHouseDriver.Core.Connection
       ClickHouseDriver.Core.Types
+      ClickHouseDriver.Core.Column
       ClickHouseDriver.IO.BufferedWriter
       ClickHouseDriver.IO.BufferedReader
   other-modules:

@@ -28,6 +28,8 @@ type Buffer = ByteString
 
 type Reader a = StateT Buffer IO a
 
+-- TODO : Need to take into account the cases in which the reader hit the buffer. 
+
 readBinaryStrWithLength :: Int -> ByteString -> IO (ByteString, ByteString)
 readBinaryStrWithLength n str = return $ BS.splitAt n str
 
@@ -57,11 +59,26 @@ readVarInt = StateT readVarInt'
 readBinaryStr :: Reader ByteString
 readBinaryStr = StateT readBinaryStr'
 
+readBinaryInt8 :: Reader Int8
+readBinaryInt8 = StateT $ readBinaryHelper 1
+
+readBinaryInt16 :: Reader Int8
+readBinaryInt16 = StateT $ readBinaryHelper 2
+
 readBinaryInt32 :: Reader Int32
 readBinaryInt32 = StateT $ readBinaryHelper 4
 
+readBinaryInt64 :: Reader Word64
+readBinaryInt64 = StateT $ readBinaryHelper 8
+
+readBinaryUInt32 :: Reader Int8
+readBinaryUInt32 = StateT $ readBinaryHelper 4
+
 readBinaryUInt8 :: Reader Word8
 readBinaryUInt8 = StateT $ readBinaryHelper 1
+
+readBinaryUInt16 :: Reader Int8
+readBinaryUInt16 = StateT $ readBinaryHelper 2
 
 readBinaryUInt64 :: Reader Word64
 readBinaryUInt64 = StateT $ readBinaryHelper 8
