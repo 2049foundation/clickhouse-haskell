@@ -70,6 +70,3 @@ genURL HttpConnection {
            writeIn "/?query="
          let res = basicUrl ++ (replace cmd)
          return res
-   -- let basic = "http://" ++ usr ++ ":" ++ pw ++ "@" ++ host ++ ":" ++ (show port) ++ "/?query="
-   --    res = basic ++ (replace cmd)
-   -- in res

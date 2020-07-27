@@ -89,6 +89,22 @@ query = do
     res <- runQuery env (getJSON "SHOW DATABASES")
     print res
 
+
+class MyType a
+
+instance MyType Int
+
+instance MyType Char
+
+instance MyType Bool
+
+myfunc :: (MyType a)=>a->a
+myfunc a = a
+
+
+
+
 main :: IO()
 main = manualTCP
+
 
