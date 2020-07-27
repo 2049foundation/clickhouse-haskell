@@ -23,3 +23,4 @@ class Column a where
     readData :: Reader a
     readStatePrefix :: a->Reader Word16
     writeStatePrefix :: a->Word->IOWriter w
+
