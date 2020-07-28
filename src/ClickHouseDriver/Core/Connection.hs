@@ -242,4 +242,3 @@ writeInfo
     if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
       then writeVarUInt client_version_patch
       else return ()
-

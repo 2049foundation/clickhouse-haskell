@@ -56,7 +56,7 @@ instance Sequential Vector where
     length = V.length
     gen n f = V.generate n f
 
-class (CKType a, Sequential t, Monoid (t a))=>Column t a where
+class (CKType a, Sequential t, Monoid (t a))=>Column (t :: * -> *) a where
     writeData :: a->IOWriter (t a)
     writeStatePrefix :: a->Word->IOWriter (t a)
 
