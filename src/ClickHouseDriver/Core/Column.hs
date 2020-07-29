@@ -4,10 +4,12 @@
 {-# LANGUAGE UndecidableInstances#-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
 module ClickHouseDriver.Core.Column where
 
 import Data.Binary
-import Data.ByteString
+import qualified Data.ByteString as BS
+import Data.ByteString (ByteString, isPrefixOf)
 import Data.Vector
 import Control.Monad.State.Lazy
 import Data.ByteString.Builder
@@ -17,59 +19,51 @@ import Data.Word
 import Data.Int
 import qualified Data.Vector as V
 import Data.Traversable
+import Data.ByteString.Char8 (readInt)
 
 
-data BaseColumn = BaseColumn {
-    ch_type :: Maybe ByteString,
-    hs_type :: Maybe ByteString,
-    null_value :: Int
-}
 
-class Sequential (m :: * -> *) where
+class (Foldable m)=>Sequential (m :: * -> *) where
     length :: forall a. m a -> Int
     gen :: forall a. Int->(Int->a)->m a
+    iterateM :: (Monad f)=>forall a. Int->f a->f (m a)
 
-data FixedLengthString = StringLen Int ByteString
-
-data CKNull = CKNull 
-
-class CKType a where
- --   writeOut :: a->IOWriter w
-
-instance (Num a)=>CKType a
-
-instance CKType ByteString
-
-instance CKType Bool
-
-instance CKType FixedLengthString where
-    
-instance CKType CKNull
-
-instance (CKType a)=>CKType (Vector a)
+data ClickhouseType = CKBool Bool | CKInt8 Int8 | CKInt16 Int16 | CKInt32 Int32 | CKInt64 Int64
+                    | CKUInt8 Word8 | CKUInt16 Word16 | CKUInt32 Word32 | CKUInt64 Word64 
+                    | CKString ByteString | CKFixedLengthString Int ByteString
+                    | CKArray (Vector ClickhouseType) | CKNull | CKDecimal Float
+                    | CKDateTime
 
 instance Sequential [] where
     length = Prelude.length
     gen n f = f <$> [1..n]
+    iterateM n s = V.toList <$> V.replicateM n s
 
 instance Sequential Vector where
     length = V.length
     gen n f = V.generate n f
+    iterateM n s = V.replicateM n s
 
-class (CKType a, Sequential t, Monoid (t a))=>Column (t :: * -> *) a where
+class (Sequential t, Monoid (t a))=>Column (t :: * -> *) a where
     writeData :: a->IOWriter (t a)
     writeStatePrefix :: a->Word->IOWriter (t a)
 
 readStatePrefix :: Reader Word64
-readStatePrefix = do
-    n <- readBinaryUInt64
-    return n
+readStatePrefix = readBinaryUInt64
 
-readColumn :: (Column t a)=>Int->ByteString->ByteString-> t a
-readColumn n_rows spec source
-    | "String" `isPrefixOf` spec = undefined
+
+readColumn :: (Column t ClickhouseType)=>Int->ByteString-> Reader (t ClickhouseType)
+readColumn n_rows spec 
+    | "String" `isPrefixOf` spec = iterateM n_rows (CKString <$> readBinaryStr)
     | "Array" `isPrefixOf` spec = undefined
-    | "FixedString" `isPrefixOf` spec = undefined
+    | "FixedString" `isPrefixOf` spec = do
+        let l = BS.length spec
+        let strnumber = BS.take (l - 13) (BS.drop 12 spec)
+        let number = case readInt strnumber of
+                Nothing -> 0 -- This can't happen
+                Just (x,_) -> x
+        result <- iterateM n_rows (readFixedLengthString number)
+        return result
     | "DateTime" `isPrefixOf` spec = undefined
     | "Tuple" `isPrefixOf` spec = undefined
     | "Nullable" `isPrefixOf` spec = undefined
@@ -79,16 +73,19 @@ readColumn n_rows spec source
     | "Enum" `isPrefixOf` spec = undefined
     | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
     | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
-    | "Float" `isPrefixOf` spec = undefined
     | otherwise = error "Unknown Type"
 
-readIntColumn :: (Column t a)=>Int->ByteString->t a
-readIntColumn n_rows "Int8" = undefined
-readIntColumn n_rows "Int16" = undefined
-readIntColumn n_rows "Int32" = undefined
-readIntColumn n_rows "Int64" = undefined
-readIntColumn n_rows "UInt8" = undefined
-readIntColumn n_rows "UInt16" = undefined
-readIntColumn n_rows "UInt32" = undefined
-readIntColumn n_rows "UInt64" = undefined
+readIntColumn :: (Column t ClickhouseType)=>Int->ByteString->Reader (t ClickhouseType)
+readIntColumn n_rows "Int8" = iterateM n_rows (CKInt8 <$> readBinaryInt8)
+readIntColumn n_rows "Int16" = iterateM n_rows (CKInt16 <$> readBinaryInt16)
+readIntColumn n_rows "Int32" = iterateM n_rows (CKInt32 <$> readBinaryInt32)
+readIntColumn n_rows "Int64" = iterateM n_rows (CKInt64 <$> readBinaryInt64)
+readIntColumn n_rows "UInt8" = iterateM n_rows (CKUInt8 <$> readBinaryUInt8)
+readIntColumn n_rows "UInt16" = iterateM n_rows (CKUInt16 <$> readBinaryUInt16)
+readIntColumn n_rows "UInt32" = iterateM n_rows (CKUInt32 <$> readBinaryUInt32)
+readIntColumn n_rows "UInt64" = iterateM n_rows (CKUInt64 <$> readBinaryUInt64)
 readIntColumn _ _ = error "Not integer type"
+
+
+readFixedLengthString :: Int->Reader ClickhouseType
+readFixedLengthString strlen = (CKFixedLengthString strlen) <$> (readBinaryStrWithLength strlen)

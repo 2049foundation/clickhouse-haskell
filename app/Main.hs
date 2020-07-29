@@ -25,18 +25,11 @@ import qualified Network.Simple.TCP                        as TCP
 import qualified Data.Binary as B
 import           Data.Int
 import           Control.Monad.Writer
+import qualified Data.Vector as V
 
 
 
 
-readLength :: StateT ByteString IO ByteString
-readLength = StateT (readBinaryStrWithLength 3)
-
-readSix :: StateT ByteString IO ByteString
-readSix = do
-    temp <- readLength
-    temp2 <- readLength
-    return temp2
 
 
 
@@ -72,10 +65,7 @@ manualTCP = do
                     z <- TCP.recv sock 2048
                     print z
                     
-                    
-
-
-
+                
 main3 :: IO()
 main3 = do
     (sock, sockaddr) <- TCP.connectSock "localhost" "9000"
@@ -101,10 +91,21 @@ instance MyType Bool
 myfunc :: (MyType a)=>a->a
 myfunc a = a
 
+testByteString :: IO ByteString
+testByteString = do
+    (_,res) <- runWriterT $ do
+        writeBinaryStr "hello"
+        writeBinaryStr "world"
+        writeBinaryStr "my"
+        writeBinaryStr "darling"
+    return res
 
-
+readBinaryStrN = V.replicateM 4 readBinaryStr
 
 main :: IO()
-main = manualTCP
+main = do
+    teststr <- testByteString
+    (r,_) <- runStateT readBinaryStrN teststr
+    print r
 
 

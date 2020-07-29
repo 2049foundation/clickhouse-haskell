@@ -66,8 +66,6 @@ instance MonoidMap Builder ByteString where
 instance (Monoid w)=>MonoidMap w w where
   transform = id
 
-
-
 type IOWriter w = WriterT w IO ()
 
 writeBinaryStr :: (MonoidMap ByteString w)=>ByteString->IOWriter w
