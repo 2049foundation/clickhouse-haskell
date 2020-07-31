@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
     defaultTCPConnection,
@@ -8,6 +9,7 @@ module ClickHouseDriver.Core.Connection
     sendQuery,
     receiveData,
     sendData,
+    receiveResult
   )
 where
 
@@ -21,7 +23,7 @@ import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
 import Control.Monad.State.Lazy
 import qualified Data.Binary as Binary
-import Data.ByteString hiding (unpack)
+import Data.ByteString hiding (unpack, filter)
 import Data.ByteString.Builder
 import Data.ByteString.Char8 (unpack)
 import qualified Data.ByteString.Char8 as C8
@@ -32,7 +34,12 @@ import Network.HTTP.Client
 import qualified Network.Simple.TCP as TCP
 import Network.Socket
 import Control.Monad.Writer
+import qualified ClickHouseDriver.Core.Block as Block
+import qualified  Data.Vector as V
+import Data.Vector (Vector)
+import ClickHouseDriver.Core.Column
 
+ 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
 #define DEFAULT_PASSWORD  ""
@@ -151,7 +158,8 @@ tcpConnect host port user password database compression = do
           return $ Left "Connection error"
 
 sendQuery :: ByteString -> Maybe ByteString -> TCPConnection -> IO ()
-sendQuery query query_id env@TCPConnection {tcpCompression = comp, tcpSocket = sock, serverInfo=info} = do
+sendQuery query query_id env@TCPConnection {tcpCompression = comp,
+ tcpSocket = sock, serverInfo=info} = do
   print (info)
   (_,r) <- runWriterT $ do 
     writeVarUInt Client._QUERY
@@ -182,6 +190,7 @@ sendData table_name TCPConnection {tcpSocket = sock} = do
     writeVarUInt Client._DATA
     writeBinaryStr table_name
     Block.writeInfo info
+    -- TODO need to support sending columns 
     writeVarUInt 0 -- #col
     writeVarUInt 0 -- #row
   TCP.sendLazy sock (toLazyByteString r)
@@ -191,21 +200,55 @@ sendCancel TCPConnection {tcpSocket = sock} = do
   (_,c) <- runWriterT $ writeVarUInt Client._CANCEL
   TCP.sendLazy sock (toLazyByteString c) where
 
-    
+receiveData :: ServerInfo->StateT ByteString IO Block.Block
+receiveData ServerInfo{revision=revision} = do
+      xx <- if revision >= _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES 
+            then readBinaryStr
+            else return ""
+      block <- Block.readBlockInputStream
+      return block
 
-receivePacket :: ByteString -> IO ()
-receivePacket istr = undefined
+receiveResult :: ServerInfo->Reader (Vector (Vector ClickhouseType))
+receiveResult info = do
+  packets <- packetGen
+  let onlyDataPacket = filter isBlock packets
+      dataVectors = (Block.cdata . queryData) <$> onlyDataPacket
+  return $ V.concat dataVectors
+  where
+    isBlock :: Packet->Bool
+    isBlock Block{..} = True
+    isBlock _ = False
 
---let packet_type = runStateT readVarInt istr
+    packetGen :: Reader [Packet]
+    packetGen = do
+      packet <- receivePacket
+      case packet of
+        EndOfStream-> return []
+        _ -> do
+          next <- packetGen
+          return (packet : next)
 
-receiveData :: StateT ByteString IO ByteString
-receiveData = do
-  packet_type <- readVarInt
-  result <- readBinaryStr
-  return result
+    receivePacket :: Reader Packet
+    receivePacket  = do
+      packet_type <- readVarInt
+      case packet_type of
+        _DATA -> do
+          result <- receiveData info
+          return $ Block result
 
-writeInfo :: (MonoidMap ByteString w)=>ClientInfo->ServerInfo->IOWriter w
+        _PROGRESS -> do
+          progress <- readProgress (revision info)
+          return Progress{prog = progress}
 
+        _PROFILE_INFO -> do
+          profile_info <- readBlockStreamProfileInfo
+          return StreamProfileInfo {profile = profile_info}
+
+        _ -> return Exception{message = "error"}
+
+writeInfo :: (MonoidMap ByteString w)=>ClientInfo
+                            ->ServerInfo
+                            ->IOWriter w
 writeInfo
   ( ClientInfo
       client_name
