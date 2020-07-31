@@ -31,8 +31,9 @@ class (Foldable m)=>Sequential (m :: * -> *) where
 data ClickhouseType = CKBool Bool | CKInt8 Int8 | CKInt16 Int16 | CKInt32 Int32 | CKInt64 Int64
                     | CKUInt8 Word8 | CKUInt16 Word16 | CKUInt32 Word32 | CKUInt64 Word64 
                     | CKString ByteString | CKFixedLengthString Int ByteString
-                    | CKArray (Vector ClickhouseType) | CKNull | CKDecimal Float
-                    | CKDateTime
+                    | CKArray (Vector ClickhouseType)  | CKDecimal Float
+                    | CKDateTime | Nullable ClickhouseType | CKNothing | CKNull
+                    deriving (Show, Eq)
 
 instance Sequential [] where
     length = Prelude.length
@@ -44,16 +45,13 @@ instance Sequential Vector where
     gen n f = V.generate n f
     iterateM n s = V.replicateM n s
 
-class (Sequential t, Monoid (t a))=>Column (t :: * -> *) a where
-    writeData :: a->IOWriter (t a)
-    writeStatePrefix :: a->Word->IOWriter (t a)
 
 readStatePrefix :: Reader Word64
 readStatePrefix = readBinaryUInt64
 
 
-readColumn :: (Column t ClickhouseType)=>Int->ByteString-> Reader (t ClickhouseType)
-readColumn n_rows spec 
+getColumnWithSpec :: (Sequential t)=>Int->ByteString-> Reader (t ClickhouseType)
+getColumnWithSpec n_rows spec 
     | "String" `isPrefixOf` spec = iterateM n_rows (CKString <$> readBinaryStr)
     | "Array" `isPrefixOf` spec = undefined
     | "FixedString" `isPrefixOf` spec = do
@@ -75,7 +73,7 @@ readColumn n_rows spec
     | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
     | otherwise = error "Unknown Type"
 
-readIntColumn :: (Column t ClickhouseType)=>Int->ByteString->Reader (t ClickhouseType)
+readIntColumn :: (Sequential t)=>Int->ByteString->Reader (t ClickhouseType)
 readIntColumn n_rows "Int8" = iterateM n_rows (CKInt8 <$> readBinaryInt8)
 readIntColumn n_rows "Int16" = iterateM n_rows (CKInt16 <$> readBinaryInt16)
 readIntColumn n_rows "Int32" = iterateM n_rows (CKInt32 <$> readBinaryInt32)

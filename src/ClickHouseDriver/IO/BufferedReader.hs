@@ -126,9 +126,6 @@ readBinaryUInt16 = readone
 readBinaryUInt64 :: Reader Word64
 readBinaryUInt64 = readone
 
-readNBiInt8 = V.replicateM 3 readBinaryStr
-
-
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString -> Word -> IO Word
 
 foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word

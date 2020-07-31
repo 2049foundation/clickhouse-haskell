@@ -6,14 +6,19 @@ module ClickHouseDriver.Core.ClientProtocol where
 import Data.ByteString
 import Data.Vector
 
+-- Name, version, revision, default DB
 _HELLO = 0 :: Word
 
+-- Query id, settings,
 _QUERY = 1 :: Word
 
+-- A block of data
 _DATA = 2 :: Word
 
+-- Cancel the query execution
 _CANCEL = 3 :: Word
 
+-- Check that the connection to the server is alive
 _PING = 4 :: Word
 
 _TABLES_STATUS_REQUEST = 5 :: Word

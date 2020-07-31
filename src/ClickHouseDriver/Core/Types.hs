@@ -8,12 +8,17 @@ module ClickHouseDriver.Core.Types(
     Interface(..),
     QueryKind(..),
     getDefaultClientInfo,
+    Packet(..),
+    readProgress,
+    readBlockStreamProfileInfo,
 ) where
 
 import Data.ByteString
 import Network.Socket
-import ClickHouseDriver.Core.Defines
+import qualified ClickHouseDriver.Core.Defines as Defines
 import ClickHouseDriver.IO.BufferedWriter
+import ClickHouseDriver.Core.Block
+import ClickHouseDriver.IO.BufferedReader
 
 data ServerInfo = ServerInfo
   { name :: {-# UNPACK #-} !ByteString,
@@ -56,10 +61,10 @@ getDefaultClientInfo :: ByteString->ClientInfo
 getDefaultClientInfo name = ClientInfo {
   client_name = name,
   interface = TCP,
-  client_version_major = _CLIENT_VERSION_MAJOR,
-  client_version_minor = _CLIENT_VERSION_MINOR,
-  client_version_patch = _CLIENT_VERSION_PATCH,
-  client_revision = _CLIENT_REVISION,
+  client_version_major = Defines._CLIENT_VERSION_MAJOR,
+  client_version_minor = Defines._CLIENT_VERSION_MINOR,
+  client_version_patch = Defines._CLIENT_VERSION_PATCH,
+  client_revision = Defines._CLIENT_REVISION,
   initial_user = "",
   initial_query_id = "",
   initial_address = "0.0.0.0:0",
@@ -79,5 +84,59 @@ data Context = Context {
   server_info :: ServerInfo
 }  deriving Show
 
-data Packet = Block | Exception {message :: ByteString} | Progress
-      deriving (Show, Eq)
+data Packet = Block {queryData :: Block} 
+          | Exception {message :: ByteString} 
+          | Progress  {prog :: Progress}
+          | StreamProfileInfo {profile :: BlockStreamProfileInfo}
+          | EndOfStream
+      deriving Show
+
+data Progress = Prog {
+    rows :: !Word,
+    bytes :: !Word,
+    total_rows :: !Word,
+    written_tows :: !Word,
+    written_bytes :: !Word
+} deriving Show
+
+increment :: Progress->Progress->Progress
+increment (Prog a b c d e) (Prog a' b' c' d' e') 
+        = Prog (a + a') (b + b') (c + c') (d + d') (e + e') 
+
+readProgress :: Word->Reader Progress
+readProgress server_revision = do
+  rows <- readVarInt
+  bytes <- readVarInt
+  
+  let revision = server_revision
+  total_rows <- if revision >= Defines._DBMS_MIN_REVISION_WITH_TOTAL_ROWS_IN_PROGRESS
+                  then readVarInt
+                  else return 0
+  if revision >= Defines._DBMS_MIN_REVISION_WITH_CLIENT_WRITE_INFO
+    then do
+      written_rows <- readVarInt
+      written_bytes <- readVarInt
+      return $ Prog rows bytes total_rows written_rows written_bytes
+    else do
+      return $ Prog rows bytes total_rows 0 0
+
+data BlockStreamProfileInfo 
+  = ProfileInfo {
+      number_rows :: Word,
+      blocks :: Word,
+      number_bytes :: Word,
+      applied_limit :: Bool,
+      rows_before_limit :: Word,
+      calculated_rows_before_limit :: Bool
+  }
+  deriving Show
+
+readBlockStreamProfileInfo :: Reader BlockStreamProfileInfo
+readBlockStreamProfileInfo = do
+  rows <- readVarInt
+  blocks <- readVarInt
+  bytes <- readVarInt
+  applied_limit <- ( >= 0) <$> readBinaryUInt8
+  rows_before_limit <- readVarInt
+  calculated_rows_before_limit <- ( >= 0) <$> readBinaryUInt8
+  return $ ProfileInfo rows blocks bytes applied_limit rows_before_limit calculated_rows_before_limit 

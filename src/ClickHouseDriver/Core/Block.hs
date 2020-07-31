@@ -6,8 +6,8 @@ module ClickHouseDriver.Core.Block
     readInfo,
     readBlockInputStream,
     Block (..),
-    ClickhouseType (..),
     defaultBlockInfo,
+    transposeData
   )
 where
 
@@ -20,19 +20,21 @@ import Data.Int
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Data.Word
-
-data ClickhouseType = CInt Int | CString ByteString | CFixedString ByteString Word | CDate ByteString | CDateTime ByteString
+import ClickHouseDriver.Core.Column
+import qualified Data.List as List
 
 data BlockInfo = Info
   { is_overflows :: Bool,
     bucket_num :: Int32
-  }
+  } 
+  deriving Show
 
 data Block = ColumnOrientedBlock
   { columns_with_type :: Vector (ByteString, ByteString),
-    cdata :: Vector (Vector ByteString),
+    cdata :: Vector (Vector ClickhouseType),
     info :: BlockInfo
   }
+  deriving Show
 
 defaultBlockInfo :: BlockInfo
 defaultBlockInfo =
@@ -40,7 +42,8 @@ defaultBlockInfo =
     { is_overflows = False,
       bucket_num = -1
     }
---(MonoidMap ByteString w,MonoidMap Word8 w,MonoidMap Int32 w)=>
+
+
 writeInfo :: BlockInfo->IOWriter Builder
 writeInfo (Info is_overflows bucket_num) = do
     writeVarUInt 1 
@@ -76,12 +79,12 @@ readBlockInputStream = do
   n_rows <- readVarInt
 
   --(datas, names, types)
-  let loop :: Int -> Reader (Vector ByteString, ByteString, ByteString)
+  let loop :: Int -> Reader (Vector ClickhouseType, ByteString, ByteString)
       loop n = do
         column_name <- readBinaryStr
         column_type <- readBinaryStr
 
-        column <- readColumn column_type n_rows
+        column <- getColumnWithSpec (fromIntegral n_rows) column_type
 
         return (column, column_name, column_type)
 
@@ -98,11 +101,11 @@ readBlockInputStream = do
         columns_with_type = V.zip names types
       }
 
-readColumn :: ByteString 
-              -- ^ Column type
-           -> Word
-              -- ^ row size
-           -> Reader (Vector ByteString)
-readColumn coltype rows = do
-  state_prefix <- readBinaryUInt64
-  return undefined
+transposeData :: Block->Vector (Vector ClickhouseType)
+transposeData ColumnOrientedBlock{cdata=cdata} 
+          = rotate cdata where
+            rotate matrix 
+              = let transposedList = List.transpose (V.toList <$> V.toList matrix)
+                    toVector = V.fromList <$> (V.fromList transposedList)
+                    in
+                      toVector

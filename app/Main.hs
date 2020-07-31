@@ -26,7 +26,7 @@ import qualified Data.Binary as B
 import           Data.Int
 import           Control.Monad.Writer
 import qualified Data.Vector as V
-
+import           Control.Monad.Loops
 
 
 
@@ -54,7 +54,7 @@ manualTCP = do
         Left e -> print e
         Right settings->do
             print "connected"
-            sendQuery "SELECT * FROM test_table FORMAT CSV" Nothing settings
+            sendQuery "SHOW DATABASES" Nothing settings
             sendData "" settings
             case settings of
                 TCPConnection {tcpSocket=sock}-> do
@@ -64,6 +64,8 @@ manualTCP = do
                     print y
                     z <- TCP.recv sock 2048
                     print z
+                    TCP.closeSock sock
+                    
                     
                 
 main3 :: IO()
@@ -102,10 +104,29 @@ testByteString = do
 
 readBinaryStrN = V.replicateM 4 readBinaryStr
 
+testIntStr :: IO ByteString
+testIntStr = do
+    (_,res) <- runWriterT $ do
+        writeVarUInt 2
+        writeVarUInt 4
+        writeVarUInt 8
+        writeVarUInt 10
+        writeVarUInt 12
+    return res
+
+
+readManyVarInt :: Reader [Word]
+readManyVarInt = do
+    int <- readVarInt
+    if int == 10 
+        then
+        return [10]
+        else do
+            next <- readManyVarInt
+            return (int : next)
+    
+
 main :: IO()
-main = do
-    teststr <- testByteString
-    (r,_) <- runStateT readBinaryStrN teststr
-    print r
+main = manualTCP
 
 

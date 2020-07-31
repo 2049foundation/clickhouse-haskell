@@ -49,6 +49,7 @@ library
       src
   build-depends:
       aeson
+    , monad-loops
     , cereal
     , word8
     , monad-parallel
