@@ -127,6 +127,8 @@ readManyVarInt = do
     
 
 main :: IO()
-main = manualTCP
+main = do
+    print "Test Section"
+    
 
 
