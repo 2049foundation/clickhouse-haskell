@@ -14,6 +14,7 @@
 module ClickHouseDriver.Core.Client
   ( execute,
     deploySettings,
+    client
   )
 where
 
@@ -88,5 +89,12 @@ fetchData settings fetch = do
 deploySettings :: TCPConnection -> IO (Env () w)
 deploySettings tcp = initEnv (stateSet (settings tcp) stateEmpty) ()
 
-execute :: String -> GenHaxl u w (Vector (Vector ClickhouseType))
-execute = dataFetch . FetchData
+client :: Either String TCPConnection -> IO(Env () w)
+client (Left e) = error e
+client (Right tcp) = initEnv (stateSet (settings tcp) stateEmpty) ()
+
+executeQuery :: String -> GenHaxl u w (Vector (Vector ClickhouseType))
+executeQuery = dataFetch . FetchData
+
+execute :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
+execute query env = runHaxl env (executeQuery query)

@@ -129,6 +129,8 @@ readManyVarInt = do
 main :: IO()
 main = do
     print "Test Section"
-    
-
-
+    conn <- defaultTCPConnection
+    env <- client conn
+    print "connected"
+    res <- execute "SHOW DATABASES" env
+    print res
