@@ -11,6 +11,7 @@ module ClickHouseDriver.Core.Connection
     receiveData,
     sendData,
     receiveResult,
+    closeConnection
   )
 where
 
@@ -185,7 +186,6 @@ sendQuery
       writeVarUInt comp
       writeBinaryStr query
     let res = toLazyByteString r
-    print ("res = " <> res)
     TCP.sendLazy sock (toLazyByteString r)
 
 sendData :: ByteString -> TCPConnection -> IO ()
@@ -207,7 +207,7 @@ sendCancel TCPConnection {tcpSocket = sock} = do
   TCP.sendLazy sock (toLazyByteString c)
   where
 
-receiveData :: ServerInfo -> StateT ByteString IO Block.Block
+receiveData :: ServerInfo -> Reader Block.Block
 receiveData ServerInfo {revision = revision} = do
   xx <-
     if revision >= _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES
@@ -226,6 +226,7 @@ receiveResult info = do
     isBlock :: Packet -> Bool
     isBlock Block {..} = True
     isBlock _ = False
+
     packetGen :: Reader [Packet]
     packetGen = do
       packet <- receivePacket
@@ -234,6 +235,7 @@ receiveResult info = do
         _ -> do
           next <- packetGen
           return (packet : next)
+  
     receivePacket :: Reader Packet
     receivePacket = do
       packet_type <- readVarInt
@@ -241,13 +243,19 @@ receiveResult info = do
         _DATA -> do
           result <- receiveData info
           return $ Block result
+
         _PROGRESS -> do
           progress <- readProgress (revision info)
           return Progress {prog = progress}
+          
         _PROFILE_INFO -> do
           profile_info <- readBlockStreamProfileInfo
           return StreamProfileInfo {profile = profile_info}
         _ -> return Exception {message = "error"}
+
+closeConnection :: Either String TCPConnection->IO ()
+closeConnection (Right TCPConnection{tcpSocket=sock}) = TCP.closeSock sock
+closeConnection (Left e) = print e
 
 writeInfo ::
   (MonoidMap ByteString w) =>

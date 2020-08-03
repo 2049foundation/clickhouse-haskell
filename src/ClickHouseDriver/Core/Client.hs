@@ -25,7 +25,7 @@ import ClickHouseDriver.Core.Defines
 import qualified ClickHouseDriver.Core.Defines as Defines
 import Control.Concurrent.Async
 import Control.Exception
-import Control.Monad.State
+import Control.Monad.State hiding (State)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
 import Data.Hashable
@@ -35,6 +35,7 @@ import Haxl.Core
 import qualified Network.Simple.TCP as TCP
 import Network.Socket
 import Text.Printf
+
 
 data Query a where
   FetchData :: String -> Query (Vector (Vector ClickhouseType))
@@ -63,7 +64,7 @@ instance DataSource u Query where
 instance StateKey Query where
   data State Query = Settings TCPConnection
 
-settings :: TCPConnection -> Haxl.Core.State Query
+settings :: TCPConnection -> State Query
 settings = Settings
 
 fetchData :: TCPConnection -> BlockedFetch Query -> IO ()
@@ -75,11 +76,20 @@ fetchData settings fetch = do
     sendData "" settings
     let server_info = serverInfo settings
     let sock = tcpSocket settings
-    maybeRaw <- TCP.recv sock Defines._BUFFER_SIZE
+    maybeRaw <- TCP.recv sock 1024
+    mayber2 <- TCP.recv sock 1024
+    print maybeRaw
+    TCP.closeSock sock
     let raw = case maybeRaw of
           Nothing -> ""
           Just x -> x
-    (results, _) <- runStateT (receiveResult server_info) raw
+        r2 = case mayber2 of
+          Nothing -> ""
+          Just x -> x
+    (res, _) <- runStateT (receiveData server_info) r2
+    print "result = "
+    print (res)
+    (results, _) <- runStateT (receiveResult server_info) (raw <> r2)
     return results
   either
     (putFailure var)
