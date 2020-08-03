@@ -96,11 +96,11 @@ data Packet
   deriving (Show)
 
 data Progress = Prog
-  { rows :: !Word,
-    bytes :: !Word,
-    total_rows :: !Word,
-    written_tows :: !Word,
-    written_bytes :: !Word
+  { rows :: {-# UNPACK #-} !Word,
+    bytes :: {-# UNPACK #-} !Word,
+    total_rows :: {-# UNPACK #-} !Word,
+    written_tows :: {-# UNPACK #-} !Word,
+    written_bytes :: {-# UNPACK #-} !Word
   }
   deriving (Show)
 
@@ -127,14 +127,14 @@ readProgress server_revision = do
       return $ Prog rows bytes total_rows 0 0
 
 data BlockStreamProfileInfo = ProfileInfo
-  { number_rows :: !Word,
-    blocks :: !Word,
-    number_bytes :: !Word,
-    applied_limit :: !Bool,
-    rows_before_limit :: !Word,
-    calculated_rows_before_limit :: !Bool
+  { number_rows :: {-# UNPACK #-} !Word,
+    blocks :: {-# UNPACK #-} !Word,
+    number_bytes :: {-# UNPACK #-} !Word,
+    applied_limit :: {-# UNPACK #-} !Bool,
+    rows_before_limit :: {-# UNPACK #-} !Word,
+    calculated_rows_before_limit :: {-# UNPACK #-} !Bool
   }
-  deriving (Show)
+  deriving Show
 
 readBlockStreamProfileInfo :: Reader BlockStreamProfileInfo
 readBlockStreamProfileInfo = do

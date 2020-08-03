@@ -11,7 +11,7 @@ import           Haxl.Core.Monad
 import           Data.Text
 import           Network.HTTP.Client
 import           Data.ByteString        
-import           Data.ByteString.Char8
+import qualified Data.ByteString.Char8 as C8
 import           Foreign.C
 import           ClickHouseDriver.IO.BufferedWriter
 import           ClickHouseDriver.IO.BufferedReader
@@ -26,7 +26,6 @@ import qualified Data.Binary as B
 import           Data.Int
 import           Control.Monad.Writer
 import qualified Data.Vector as V
-import           Control.Monad.Loops
 
 
 
@@ -114,6 +113,14 @@ testIntStr = do
         writeVarUInt 12
     return res
 
+testWriteHybrid :: IO ByteString
+testWriteHybrid = do
+    (_,r) <- runWriterT $ do
+        writeBinaryStr "Hello"
+        writeVarUInt 27
+        writeVarUInt 38
+        writeBinaryStr "World"
+    return r
 
 readManyVarInt :: Reader [Word]
 readManyVarInt = do
@@ -126,11 +133,30 @@ readManyVarInt = do
             return (int : next)
     
 
-main :: IO()
-main = do
+mainTest :: IO()
+mainTest = do
     print "Test Section"
     conn <- defaultTCPConnection
     env <- client conn
     print "connected"
-    res <- execute "SHOW DATABASES" env
+    res <- execute "SELECT id, item, number number FROM test_table" env
+    closeConnection conn
     print res
+
+writes ::ByteString->IO (ByteString)
+writes str = do
+    (_, r) <- runWriterT $ do
+        writeBinaryStr str
+    return r
+
+
+
+mainT :: IO()
+mainT = do
+    cmd <- C8.getLine
+    res <- writes cmd
+    result <- runStateT readBinaryStr res
+    print res
+    print result
+
+main = mainTest

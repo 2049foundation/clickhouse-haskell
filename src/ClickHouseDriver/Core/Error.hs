@@ -8,5 +8,5 @@ import ClickHouseDriver.IO.BufferedReader
 data ClickhouseException = ServerException
 
 --TODO
-readException :: Reader ClickhouseException
-readException = undefined
+--readException :: Reader ClickhouseException
+--readException = undefined

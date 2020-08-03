@@ -35,7 +35,6 @@ type Buffer = ByteString
 type Reader a = StateT Buffer IO a
 
 -- TODO : Need to take into account the cases in which the reader hit the buffer. 
-
 readBinaryStrWithLength' :: Int -> ByteString -> IO (ByteString, ByteString)
 readBinaryStrWithLength' n str = return $ BS.splitAt n str
 
@@ -61,70 +60,70 @@ readBinaryHelper fmt str = do
 
 
 class Readable a where
-  readone :: Reader a
+  readin :: Reader a
 
 instance Readable Word where
-  readone = StateT readVarInt'
+  readin = StateT readVarInt'
 
 instance Readable ByteString where
-  readone = StateT readBinaryStr'
+  readin = StateT readBinaryStr'
 
 instance Readable Int8 where
-  readone = StateT $ readBinaryHelper 1
+  readin = StateT $ readBinaryHelper 1
 
 instance Readable Int16 where
-  readone = StateT $ readBinaryHelper 2
+  readin = StateT $ readBinaryHelper 2
 
 instance Readable Int32 where
-  readone = StateT $ readBinaryHelper 4
+  readin = StateT $ readBinaryHelper 4
 
 instance Readable Int64 where
-  readone = StateT $ readBinaryHelper 8
+  readin = StateT $ readBinaryHelper 8
 
 instance Readable Word8 where
-  readone = StateT $ readBinaryHelper 1
+  readin = StateT $ readBinaryHelper 1
 
 instance Readable Word16 where
-  readone = StateT $ readBinaryHelper 2
+  readin = StateT $ readBinaryHelper 2
 
 instance Readable Word32 where
-  readone = StateT $ readBinaryHelper 4
+  readin = StateT $ readBinaryHelper 4
 
 instance Readable Word64 where
-  readone = StateT $ readBinaryHelper 8
+  readin = StateT $ readBinaryHelper 8
 
 readVarInt :: Reader Word
-readVarInt = readone
+readVarInt = readin
 
 readBinaryStrWithLength :: Int->Reader ByteString
 readBinaryStrWithLength n = StateT (readBinaryStrWithLength' $ fromIntegral n)
 
 readBinaryStr :: Reader ByteString
-readBinaryStr = readone
+readBinaryStr = readin
 
 readBinaryInt8 :: Reader Int8
-readBinaryInt8 = readone
+readBinaryInt8 = readin
 
 readBinaryInt16 :: Reader Int16
-readBinaryInt16 = readone
+readBinaryInt16 = readin
 
 readBinaryInt32 :: Reader Int32
-readBinaryInt32 = readone
+readBinaryInt32 = readin
 
 readBinaryInt64 :: Reader Int64
-readBinaryInt64 = readone
+readBinaryInt64 = readin
 
 readBinaryUInt32 :: Reader Word32
-readBinaryUInt32 = readone
+readBinaryUInt32 = readin
 
 readBinaryUInt8 :: Reader Word8
-readBinaryUInt8 = readone
+readBinaryUInt8 = readin
 
 readBinaryUInt16 :: Reader Word16
-readBinaryUInt16 = readone
+readBinaryUInt16 = readin
 
 readBinaryUInt64 :: Reader Word64
-readBinaryUInt64 = readone
+readBinaryUInt64 = readin
 
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString -> Word -> IO Word
 
