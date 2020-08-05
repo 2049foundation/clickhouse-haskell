@@ -15,7 +15,9 @@ module ClickHouseDriver.IO.BufferedReader
     readBinaryUInt64,
     readBinaryUInt32,
     readBinaryUInt16,
-    Reader
+    Reader,
+    Buffer,
+    createBuffer
   )
 where
 
@@ -29,30 +31,83 @@ import Data.Int
 import Data.Word
 import Foreign.C
 import qualified Data.Vector as V
+import Network.Socket hiding (socket)
+import qualified Network.Simple.TCP as TCP
+import Data.Maybe
+import qualified Data.ByteString.Char8 as C8
+import Data.Bits
 
-type Buffer = ByteString
+data Buffer = Buffer {
+  bufSize :: !Int,
+  bytesData :: ByteString,
+  socket :: Socket
+}
+
+createBuffer :: Int->Socket->IO Buffer
+createBuffer size sock = do
+  receive <- TCP.recv sock size
+  return Buffer{
+    bufSize = size,
+    bytesData = if isNothing receive then "" else fromJust receive,
+    socket = sock
+  }
+
+
+refill :: Buffer->IO Buffer
+refill Buffer{socket = sock, bufSize = size} = do
+  newData' <- TCP.recv sock size
+  print newData'
+  let newBuffer = case newData' of
+        Just newData -> Buffer {
+          bufSize = size,
+          bytesData = newData,
+          socket = sock
+        }
+        Nothing -> error "Network error"
+  return newBuffer
 
 type Reader a = StateT Buffer IO a
 
 -- TODO : Need to take into account the cases in which the reader hit the buffer. 
-readBinaryStrWithLength' :: Int -> ByteString -> IO (ByteString, ByteString)
-readBinaryStrWithLength' n str = return $ BS.splitAt n str
+readBinaryStrWithLength' :: Int -> Buffer -> IO (ByteString, Buffer)
+readBinaryStrWithLength' n buf@Buffer{bufSize=size, bytesData=str, socket=sock} = do--return $ BS.splitAt n str
+  let l = BS.length str
+  let (part, tail) = BS.splitAt n str
+  if n > l
+    then do
+      newbuff <- refill buf
+      (unread, altbuff) <- readBinaryStrWithLength' (n - l) newbuff
+      return (part <> unread, altbuff)
+    else do
+      return (part, Buffer size tail sock)
 
-readVarInt' :: ByteString -> IO (Word, ByteString)
-readVarInt' str = do
+readVarInt' :: Buffer -> IO (Word, Buffer)
+readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
   let l = fromIntegral $ BS.length str
-  varint <- UBS.unsafeUseAsCString str (\x -> c_read_varint x l)
   skip <- UBS.unsafeUseAsCString str (\x -> c_count x l)
-  let tail = BS.drop (fromIntegral skip) str
-  return (varint, tail)
+  if skip == 0
+    then do
+      varint' <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
+      newbuf <- refill buf
+      let newstr = bytesData newbuf
+      varint <- UBS.unsafeUseAsCString newstr (\x->c_read_varint varint' x l)
+      skip2 <- UBS.unsafeUseAsCString newstr (\x->c_count x l)
+      let tail = BS.drop (fromIntegral skip) newstr
+      return (varint, Buffer size tail sock)
+    else do
+      varint <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+      let tail = BS.drop (fromIntegral skip) str
+      return (varint, Buffer size tail sock)
 
-readBinaryStr' :: ByteString -> IO (ByteString, ByteString)
+
+readBinaryStr' :: Buffer -> IO (ByteString, Buffer)
 readBinaryStr' str = do
   (len, tail) <- readVarInt' str
   (head, tail') <- readBinaryStrWithLength' (fromIntegral len) tail
+  
   return (head, tail')
 
-readBinaryHelper :: Binary a => Int -> ByteString -> IO (a, ByteString)
+readBinaryHelper :: Binary a => Int -> Buffer -> IO (a, Buffer)
 readBinaryHelper fmt str = do
   (cut, tail) <- readBinaryStrWithLength' fmt str
   let v = decode (L.fromStrict cut)
@@ -125,6 +180,6 @@ readBinaryUInt16 = readin
 readBinaryUInt64 :: Reader Word64
 readBinaryUInt64 = readin
 
-foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: CString -> Word -> IO Word
+foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO Word
 
 foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word

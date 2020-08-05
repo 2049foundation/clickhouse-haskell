@@ -21,25 +21,33 @@ import           Data.ByteString.Builder
 import qualified Data.ByteString.Lazy as L
 import           Data.Word
 import           Network.Socket                                           
-import qualified Network.Simple.TCP                        as TCP
+import qualified Network.Simple.TCP as TCP
 import qualified Data.Binary as B
 import           Data.Int
 import           Control.Monad.Writer
 import qualified Data.Vector as V
+import qualified Control.Monad.Reader as R
+import           Control.Monad.Reader (ask)
+
+
+someReader :: R.Reader Int Int
+someReader = do
+    x <- ask
+    return (x + 1)
+
+xReader :: R.Reader Socket ByteString
+xReader = undefined
 
 
 
-
-
-
-readResult :: StateT ByteString IO Word
+readResult :: Reader Word
 readResult = do
     r <- readVarInt
     r2 <- readVarInt
     r3 <- readVarInt
     return r3
 
-readResult2 :: StateT ByteString IO ByteString
+readResult2 :: Reader ByteString
 readResult2 = do
     r <- readBinaryStr
     r' <- readBinaryStr
@@ -139,7 +147,7 @@ mainTest = do
     conn <- defaultTCPConnection
     env <- client conn
     print "connected"
-    res <- execute "SELECT id, item, number number FROM test_table" env
+    res <- execute "SELECT id, item, number FROM test_table" env
     closeConnection conn
     print res
 
@@ -149,14 +157,9 @@ writes str = do
         writeBinaryStr str
     return r
 
-
-
-mainT :: IO()
-mainT = do
-    cmd <- C8.getLine
-    res <- writes cmd
-    result <- runStateT readBinaryStr res
-    print res
-    print result
+data SocketReader = SocketReader {
+    sock :: Socket,
+    readFromSock :: Socket->IO(ByteString)
+}
 
 main = mainTest

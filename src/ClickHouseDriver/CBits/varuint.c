@@ -27,20 +27,22 @@ const char *write_varint(u_int16_t number)
 	return ostr;
 }
 
-u_int16_t read_varint(char *istr, size_t size)
+u_int16_t read_varint(u_int16_t cont,char *istr, size_t size)
 {
 	const char *end = istr + size;
-	u_int16_t x = 0;
 	int byte;
 	for (size_t i = 0; i < 9; ++i)
 	{
+		if(istr == end){
+			break;
+		}
 		byte = *istr;
 		++istr;
-		x |= (byte & 0x7F) << (7 *i);
+		cont |= (byte & 0x7F) << (7 *i);
 		if (!(byte & 0x80))
 			break;
 	}
-	return x;
+	return cont;
 }
 
 size_t count_read(char *istr, size_t size)
@@ -50,6 +52,9 @@ size_t count_read(char *istr, size_t size)
 	int byte;
 	for (size_t i = 0; i < 9; ++i)
 	{
+		if (istr == end){
+			return 0;
+		}
 		byte = *istr;
 		++istr;
 		++n;

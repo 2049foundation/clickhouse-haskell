@@ -41,6 +41,9 @@ import Network.HTTP.Client
 import qualified Network.Simple.TCP as TCP
 import Network.Socket
 
+--Debug 
+import Debug.Trace 
+
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
 #define DEFAULT_PASSWORD  ""
@@ -65,12 +68,12 @@ sendHello (database, usrname, password) sock = do
       writeBinaryStr usrname
       writeBinaryStr password
 
-receiveHello :: ByteString -> IO (Either ByteString ServerInfo)
-receiveHello str = do
-  (res, _) <- runStateT receiveHello' str
+receiveHello :: Buffer -> IO (Either ByteString ServerInfo)
+receiveHello buf = do
+  (res, _) <- runStateT receiveHello' buf
   return res
 
-receiveHello' :: StateT ByteString IO (Either ByteString ServerInfo)
+receiveHello' :: Reader (Either ByteString ServerInfo)
 receiveHello' = do
   packet_type <- readVarInt
   if packet_type == Server._HELLO
@@ -131,32 +134,29 @@ tcpConnect ::
 tcpConnect host port user password database compression = do
   (sock, sockaddr) <- TCP.connectSock (unpack host) (unpack port)
   sendHello (database, user, password) sock
-  hello <- TCP.recv sock _BUFFER_SIZE
   let isCompressed = if compression then Client._COMPRESSION_ENABLE else Client._COMPRESSION_DISABLE
+
+  buf <- createBuffer _BUFFER_SIZE sock
+  hello <- receiveHello buf
   case hello of
-    Nothing -> return $ Left "Connection failed"
-    Just x -> do
-      info <- receiveHello x
-      print info
-      case info of
-        Right x ->
-          return $
-            Right
-              TCPConnection
-                { tcpHost = host,
-                  tcpPort = port,
-                  tcpUsername = user,
-                  tcpPassword = password,
-                  tcpSocket = sock,
-                  tcpSockAdrr = sockaddr,
-                  serverInfo = x,
-                  tcpCompression = isCompressed
-                }
-        Left "Exception" -> return $ Left "exception"
-        Left x -> do
-          print ("error is " <> x)
-          TCP.closeSock sock
-          return $ Left "Connection error"
+    Right x ->
+      return $
+        Right
+          TCPConnection
+            { tcpHost = host,
+              tcpPort = port,
+              tcpUsername = user,
+              tcpPassword = password,
+              tcpSocket = sock,
+              tcpSockAdrr = sockaddr,
+              serverInfo = x,
+              tcpCompression = isCompressed
+            }
+    Left "Exception" -> return $ Left "exception"
+    Left x -> do
+      print ("error is " <> x)
+      TCP.closeSock sock
+      return $ Left "Connection error"
 
 sendQuery :: ByteString -> Maybe ByteString -> TCPConnection -> IO ()
 sendQuery
@@ -230,6 +230,7 @@ receiveResult info = do
     packetGen :: Reader [Packet]
     packetGen = do
       packet <- receivePacket
+
       case packet of
         EndOfStream -> return []
         _ -> do
@@ -240,18 +241,24 @@ receiveResult info = do
     receivePacket = do
       packet_type <- readVarInt
       case packet_type of
-        _DATA -> do
+        1 -> do  --Data
           result <- receiveData info
           return $ Block result
 
-        _PROGRESS -> do
+        3 -> do --Progress
           progress <- readProgress (revision info)
           return Progress {prog = progress}
           
-        _PROFILE_INFO -> do
+        6 -> do --Profile
           profile_info <- readBlockStreamProfileInfo
           return StreamProfileInfo {profile = profile_info}
+
+        5 -> do --End of stream
+          return EndOfStream
+
         _ -> return Exception {message = "error"}
+
+         
 
 closeConnection :: Either String TCPConnection->IO ()
 closeConnection (Right TCPConnection{tcpSocket=sock}) = TCP.closeSock sock
