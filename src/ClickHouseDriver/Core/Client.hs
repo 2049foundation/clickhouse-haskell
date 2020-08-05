@@ -1,4 +1,4 @@
-{-# LANGUAGE ApplicativeDo #-}
+
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -35,7 +35,7 @@ import Haxl.Core
 import qualified Network.Simple.TCP as TCP
 import Network.Socket
 import Text.Printf
-
+import ClickHouseDriver.IO.BufferedReader
 
 data Query a where
   FetchData :: String -> Query (Vector (Vector ClickhouseType))
@@ -76,21 +76,21 @@ fetchData settings fetch = do
     sendData "" settings
     let server_info = serverInfo settings
     let sock = tcpSocket settings
-    maybeRaw <- TCP.recv sock 1024
-    mayber2 <- TCP.recv sock 1024
-    print maybeRaw
-    TCP.closeSock sock
-    let raw = case maybeRaw of
-          Nothing -> ""
-          Just x -> x
-        r2 = case mayber2 of
-          Nothing -> ""
-          Just x -> x
-    (res, _) <- runStateT (receiveData server_info) r2
+    
+    {-r1 <- TCP.recv sock 1024
+    print r1
+    r2 <- TCP.recv sock 1024
+    print r2-}
+
+
+    buf <- createBuffer _BUFFER_SIZE sock
+    
+    (res, _) <- runStateT (receiveResult server_info) buf
     print "result = "
     print (res)
-    (results, _) <- runStateT (receiveResult server_info) (raw <> r2)
-    return results
+
+    TCP.closeSock sock
+    return res
   either
     (putFailure var)
     (putSuccess var)

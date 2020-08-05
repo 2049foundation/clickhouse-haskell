@@ -23,6 +23,9 @@ import Data.Word
 import ClickHouseDriver.Core.Column
 import qualified Data.List as List
 
+--Debug
+import Debug.Trace
+
 data BlockInfo = Info
   { is_overflows :: Bool,
     bucket_num :: Int32

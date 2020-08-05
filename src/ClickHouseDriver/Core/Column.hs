@@ -13,6 +13,7 @@ import ClickHouseDriver.IO.BufferedWriter
 import Control.Monad.State.Lazy
 import Data.Binary
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as C8
 import Data.ByteString (ByteString, isPrefixOf)
 import Data.ByteString.Builder
 import Data.ByteString.Char8 (readInt)
@@ -81,7 +82,7 @@ getColumnWithSpec n_rows spec
   | "Enum" `isPrefixOf` spec = undefined
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
   | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
-  | otherwise = error "Unknown Type"
+  | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
 
 readIntColumn :: (Sequential t) => Int -> ByteString -> Reader (t ClickhouseType)
 readIntColumn n_rows "Int8" = iterateM n_rows (CKInt8 <$> readBinaryInt8)
