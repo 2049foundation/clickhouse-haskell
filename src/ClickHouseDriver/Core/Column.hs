@@ -22,7 +22,7 @@ import Data.Traversable
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as V
 import Data.Word
-
+import qualified Data.List as List
 --Debug 
 import Debug.Trace 
 
@@ -38,10 +38,12 @@ data ClickhouseType
   | CKUInt64 Word64
   | CKString ByteString
   | CKFixedLengthString Int ByteString
+  | CKTuple (Vector ClickhouseType)
   | CKArray (Vector ClickhouseType)
   | CKDecimal Float
+  | CKEnum8 Int8
+  | CKEnum16 Int16
   | CKDateTime
-  | CKNothing
   | CKNull
   deriving (Show, Eq)
 
@@ -63,14 +65,14 @@ getColumnWithSpec n_rows spec
           Just (x, _) -> x
     result <- V.replicateM n_rows (readFixedLengthString number)
     return result
-  | "DateTime" `isPrefixOf` spec = undefined
-  | "Tuple" `isPrefixOf` spec = undefined
+  | "DateTime" `isPrefixOf` spec = undefined --TODO
+  | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
   
-  | "LowCardinality" `isPrefixOf` spec = undefined
-  | "Decimal" `isPrefixOf` spec = undefined
-  | "SimpleAggregateFunction" `isPrefixOf` spec = undefined
-  | "Enum" `isPrefixOf` spec = undefined
+  | "LowCardinality" `isPrefixOf` spec = undefined--TODO
+  | "Decimal" `isPrefixOf` spec = undefined--TODO
+  | "SimpleAggregateFunction" `isPrefixOf` spec = undefined--TODO
+  | "Enum" `isPrefixOf` spec = undefined--TODO
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
   | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
@@ -94,6 +96,10 @@ readDateTime n_rows spec
           | "DateTime64" `isPrefixOf` spec = undefined
           |  otherwise = undefined 
 
+{-
+          Informal description for this config:
+          (\Null | \SOH)^{n_rows}
+-}
 readNullable :: Int->ByteString->Reader (Vector ClickhouseType)
 readNullable n_rows spec = do
     let l = BS.length spec
@@ -103,10 +109,6 @@ readNullable n_rows spec = do
     let result = V.generate n_rows (\i->if config ! i == 1 then CKNull else items ! i)
     return result
       where
-        {-
-          Informal description for this config:
-          (\Null | \SOH)^{n_rows}
-        -}
         readNullableConfig :: Int->ByteString->Reader (Vector Word8)
         readNullableConfig n_rows spec = do
           config <- readBinaryStrWithLength n_rows
@@ -114,6 +116,7 @@ readNullable n_rows spec = do
 
 {-
   Format:
+  "
      One element of array of arrays can be represented as tree:
       (0 depth)          [[3, 4], [5, 6]]
                         |               |
@@ -126,7 +129,7 @@ readNullable n_rows spec = do
       2) size of array 1 in depth=1: 2
       3) size of array 2 plus size of all array before in depth=1: 2 + 2 = 4
       After sizes info comes flatten data: 3 -> 4 -> 5 -> 6
-
+  "
       Quoted from https://github.com/mymarilyn/clickhouse-driver/blob/master/clickhouse_driver/columns/arraycolumn.py
 -}
 
@@ -135,21 +138,21 @@ readArray n_rows spec = do
   specs@(lastSpec, x:xs) <- genSpecs spec [V.fromList [fromIntegral n_rows]]
   let numElem = fromIntegral $ V.sum x
   elems <- getColumnWithSpec numElem lastSpec
-  let result = case (combine elems (x:xs)) ! 0 of
+  let result' = foldl combine elems (x:xs)
+  let result = case (result' ! 0) of
              CKArray arr -> arr
              _ -> error "wrong type. This cannot happen"
   return result
-  where
-    combine :: Vector ClickhouseType -> [Vector Word64] -> Vector ClickhouseType
-    combine elems [] = elems
-    combine elems (config:configs) = combine embed configs
-      where
-        intervals = intervalize (fromIntegral <$> config)
-        embed = (\(l, r)->cut (l, r - l + 1)) <$> intervals
-        cut (a, b) = CKArray $ V.take b (V.drop a elems)
-
+  where  
+    combine :: Vector ClickhouseType -> Vector Word64 -> Vector ClickhouseType
+    combine elems config = 
+      let intervals = intervalize (fromIntegral <$> config)
+          cut (a, b) = CKArray $ V.take b (V.drop a elems)
+          embed = (\(l, r)->cut (l, r - l + 1)) <$> intervals
+      in  embed
+        
     intervalize :: Vector Int -> Vector (Int, Int)
-    intervalize vec = V.drop 1 (V.scanl' (\(a, b) v->(b+1, v+b)) (-1, -1) vec)
+    intervalize vec = V.drop 1 $ V.scanl' (\(a, b) v->(b+1, v+b)) (-1, -1) vec
 
     readArraySpec :: Vector Word64->Reader (Vector Word64)
     readArraySpec sizeArr = do
@@ -160,16 +163,39 @@ readArray n_rows spec = do
       return sizes
 
     genSpecs :: ByteString->[Vector Word64]-> Reader (ByteString, [Vector Word64])
-    genSpecs spec (x:xs) = do
+    genSpecs spec rest@(x:xs) = do
       let l = BS.length spec
       let cktype = BS.take (l - 7) (BS.drop 6 spec)
       if "Array" `isPrefixOf` spec
         then do 
           next <- readArraySpec x
-          genSpecs cktype (next:x:xs)
+          genSpecs cktype (next:rest)
         else
-          return (spec, x:xs)
-
+          return (spec, rest)
 
 readTuple :: Int->ByteString->Reader (Vector ClickhouseType)
-readTuple = undefined
+readTuple n_rows spec = do
+  let l = BS.length spec
+  let innerSpecString = BS.take(l - 7) (BS.drop 6 spec)
+  let arr = V.fromList (getSpecs [] innerSpecString) 
+  datas <- V.mapM (getColumnWithSpec n_rows) arr
+  let transposed = transpose datas
+  return $ CKTuple <$> transposed
+  where
+    getSpecs :: [ByteString] -> ByteString -> [ByteString]
+    getSpecs xs str = BS.splitWith (==44) (BS.filter ( /= 32) str)
+
+readEnum :: Int->ByteString->Reader (Vector ClickhouseType)
+readEnum = undefined
+
+---------------------------------------------------------------------------------------------
+--Helpers 
+
+transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
+transpose cdata =
+  rotate cdata
+  where
+    rotate matrix =
+      let transposedList = List.transpose (V.toList <$> V.toList matrix)
+          toVector = V.fromList <$> (V.fromList transposedList)
+       in toVector
