@@ -41,6 +41,7 @@ import Network.HTTP.Client
 import qualified Network.Simple.TCP as TCP
 import Network.Socket
 
+
 --Debug 
 import Debug.Trace 
 
@@ -219,7 +220,7 @@ receiveResult :: ServerInfo -> Reader (Vector (Vector ClickhouseType))
 receiveResult info = do
   packets <- packetGen
   let onlyDataPacket = filter isBlock packets
-      dataVectors = (Block.transpose . Block.cdata . queryData) <$> onlyDataPacket
+      dataVectors = (ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData) <$> onlyDataPacket
   return $ (V.concat dataVectors)
   where
     isBlock :: Packet -> Bool
@@ -290,7 +291,7 @@ writeInfo
 
       writeVarUInt (if interface == HTTP then 0 else 1)
 
-      writeBinaryStr "" -- os_user
+      writeBinaryStr "" -- os_user. Seems that haskell modules don't support getting system username yet.
       writeBinaryStr host_name
       writeBinaryStr "haskell" --client_name
       writeVarUInt client_version_major

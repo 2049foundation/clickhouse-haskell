@@ -123,7 +123,6 @@ readProgress server_revision = do
       else return 0
   if revision >= Defines._DBMS_MIN_REVISION_WITH_CLIENT_WRITE_INFO
     then do
-      
       written_rows <- readVarInt
       written_bytes <- readVarInt
       return $ Prog rows bytes total_rows written_rows written_bytes

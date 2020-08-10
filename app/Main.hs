@@ -121,7 +121,7 @@ mainTest = do
     conn <- defaultTCPConnection
     env <- client conn
     print "connected"
-    res <- execute "select items from array_t" env
+    res <- execute "select items, id from array_t" env
     closeConnection conn
     print res
 
@@ -144,7 +144,7 @@ manualTCP = do
         Left e -> print e
         Right settings->do
             print "connected"
-            sendQuery "select items from array_t" Nothing settings
+            sendQuery "select items, id from array_t" Nothing settings
             sendData "" settings
             case settings of
                 TCPConnection {tcpSocket=sock}-> do
@@ -174,6 +174,7 @@ testWrie = do
     let s = Data.ByteString.take (l - 10) (Data.ByteString.drop 9 nullable)
     print s
 
+
 testInt16 :: IO ByteString
 testInt16 = do
     (_, r) <- runWriterT $ do
@@ -182,6 +183,11 @@ testInt16 = do
         writeBinaryInt16 3
         writeBinaryInt16 1024
     return r
+
+x = if (Prelude.length x > 100) then x else 0 : x
+
+comma :: ByteString
+comma = " "
 
 main = mainTest
 
