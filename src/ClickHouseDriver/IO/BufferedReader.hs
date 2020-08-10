@@ -56,7 +56,6 @@ createBuffer size sock = do
 refill :: Buffer->IO Buffer
 refill Buffer{socket = sock, bufSize = size} = do
   newData' <- TCP.recv sock size
-  print newData'
   let newBuffer = case newData' of
         Just newData -> Buffer {
           bufSize = size,
@@ -68,9 +67,8 @@ refill Buffer{socket = sock, bufSize = size} = do
 
 type Reader a = StateT Buffer IO a
 
--- TODO : Need to take into account the cases in which the reader hit the buffer. 
 readBinaryStrWithLength' :: Int -> Buffer -> IO (ByteString, Buffer)
-readBinaryStrWithLength' n buf@Buffer{bufSize=size, bytesData=str, socket=sock} = do--return $ BS.splitAt n str
+readBinaryStrWithLength' n buf@Buffer{bufSize=size, bytesData=str, socket=sock} = do
   let l = BS.length str
   let (part, tail) = BS.splitAt n str
   if n > l
@@ -110,7 +108,7 @@ readBinaryStr' str = do
 readBinaryHelper :: Binary a => Int -> Buffer -> IO (a, Buffer)
 readBinaryHelper fmt str = do
   (cut, tail) <- readBinaryStrWithLength' fmt str
-  let v = decode (L.fromStrict cut)
+  let v = decode ((L.fromStrict. BS.reverse) cut)
   return (v, tail)
 
 

@@ -49,6 +49,7 @@ library
       src
   build-depends:
       aeson
+    , bytestring-to-vector
     , monad-loops
     , cereal
     , word8

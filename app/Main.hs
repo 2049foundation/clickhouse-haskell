@@ -38,8 +38,6 @@ someReader = do
 xReader :: R.Reader Socket ByteString
 xReader = undefined
 
-
-
 readResult :: Reader Word
 readResult = do
     r <- readVarInt
@@ -53,33 +51,10 @@ readResult2 = do
     r' <- readBinaryStr
     return (r <> r')
 
-manualTCP :: IO()
-manualTCP = do
-    print "manual"
-    conn <- defaultTCPConnection
-    case conn of
-        Left e -> print e
-        Right settings->do
-            print "connected"
-            sendQuery "SHOW DATABASES" Nothing settings
-            sendData "" settings
-            case settings of
-                TCPConnection {tcpSocket=sock}-> do
-                    x <- TCP.recv sock 2048
-                    print x
-                    y <- TCP.recv sock 2048
-                    print y
-                    z <- TCP.recv sock 2048
-                    print z
-                    TCP.closeSock sock
-                    
-                    
-                
 main3 :: IO()
 main3 = do
     (sock, sockaddr) <- TCP.connectSock "localhost" "9000"
     print sock
-
 
 query :: IO()
 query = do
@@ -140,14 +115,13 @@ readManyVarInt = do
             next <- readManyVarInt
             return (int : next)
     
-
 mainTest :: IO()
 mainTest = do
     print "Test Section"
     conn <- defaultTCPConnection
     env <- client conn
     print "connected"
-    res <- execute "SELECT id, item, number FROM test_table" env
+    res <- execute "select items from array_t" env
     closeConnection conn
     print res
 
@@ -162,4 +136,52 @@ data SocketReader = SocketReader {
     readFromSock :: Socket->IO(ByteString)
 }
 
+manualTCP :: IO()
+manualTCP = do
+    print "manual"
+    conn <- defaultTCPConnection
+    case conn of
+        Left e -> print e
+        Right settings->do
+            print "connected"
+            sendQuery "select items from array_t" Nothing settings
+            sendData "" settings
+            case settings of
+                TCPConnection {tcpSocket=sock}-> do
+                    x <- TCP.recv sock 2048
+                    print x
+                    y <- TCP.recv sock 2048
+                    print y
+                    z <- TCP.recv sock 2048
+                    print z
+                    TCP.closeSock sock
+
+writeNulls :: IO ByteString
+writeNulls = do
+    (_, r) <- runWriterT $ do
+        writeVarUInt 0
+        writeVarUInt 0
+        writeVarUInt 1
+    return r
+
+
+testWrie = do
+    str <- writeNulls
+    print str
+    print (Data.ByteString.unpack str)
+    let nullable = "Nullable(Int8)" :: ByteString
+    let l = Data.ByteString.length nullable
+    let s = Data.ByteString.take (l - 10) (Data.ByteString.drop 9 nullable)
+    print s
+
+testInt16 :: IO ByteString
+testInt16 = do
+    (_, r) <- runWriterT $ do
+        writeBinaryInt16 1
+        writeBinaryInt16 2
+        writeBinaryInt16 3
+        writeBinaryInt16 1024
+    return r
+
 main = mainTest
+
