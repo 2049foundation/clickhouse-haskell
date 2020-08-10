@@ -76,19 +76,8 @@ fetchData settings fetch = do
     sendData "" settings
     let server_info = serverInfo settings
     let sock = tcpSocket settings
-    
-    {-r1 <- TCP.recv sock 1024
-    print r1
-    r2 <- TCP.recv sock 1024
-    print r2-}
-
-
     buf <- createBuffer _BUFFER_SIZE sock
-    
     (res, _) <- runStateT (receiveResult server_info) buf
-    print "result = "
-    print (res)
-
     TCP.closeSock sock
     return res
   either

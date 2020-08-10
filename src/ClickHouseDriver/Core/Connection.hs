@@ -35,7 +35,7 @@ import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as L
 import Data.Int
 import qualified Data.Vector as V
-import Data.Vector (Vector)
+import Data.Vector (Vector, (!))
 import Data.Word
 import Network.HTTP.Client
 import qualified Network.Simple.TCP as TCP
@@ -54,7 +54,6 @@ versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
 sendHello :: (ByteString, ByteString, ByteString) -> Socket -> IO ()
 sendHello (database, usrname, password) sock = do
   (_, w) <- runWriterT writeHello
-  print ("w = " <> (toLazyByteString w))
   TCP.sendLazy sock (toLazyByteString w)
   where
     writeHello :: IOWriter Builder
@@ -220,17 +219,16 @@ receiveResult :: ServerInfo -> Reader (Vector (Vector ClickhouseType))
 receiveResult info = do
   packets <- packetGen
   let onlyDataPacket = filter isBlock packets
-      dataVectors = (Block.cdata . queryData) <$> onlyDataPacket
-  return $ V.concat dataVectors
+      dataVectors = (Block.transpose . Block.cdata . queryData) <$> onlyDataPacket
+  return $ (V.concat dataVectors)
   where
     isBlock :: Packet -> Bool
-    isBlock Block {..} = True
+    isBlock Block {queryData=Block.ColumnOrientedBlock{cdata=d}} = (V.length d > 0 &&  V.length (d ! 0) > 0)
     isBlock _ = False
 
     packetGen :: Reader [Packet]
     packetGen = do
       packet <- receivePacket
-
       case packet of
         EndOfStream -> return []
         _ -> do
@@ -241,7 +239,7 @@ receiveResult info = do
     receivePacket = do
       packet_type <- readVarInt
       case packet_type of
-        1 -> do  --Data
+        1 -> do  -- Data
           result <- receiveData info
           return $ Block result
 
@@ -257,8 +255,6 @@ receiveResult info = do
           return EndOfStream
 
         _ -> return Exception {message = "error"}
-
-         
 
 closeConnection :: Either String TCPConnection->IO ()
 closeConnection (Right TCPConnection{tcpSocket=sock}) = TCP.closeSock sock

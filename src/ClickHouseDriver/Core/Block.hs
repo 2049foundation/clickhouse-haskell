@@ -7,7 +7,7 @@ module ClickHouseDriver.Core.Block
     readBlockInputStream,
     Block (..),
     defaultBlockInfo,
-    transposeData
+    ClickHouseDriver.Core.Block.transpose
   )
 where
 
@@ -104,8 +104,8 @@ readBlockInputStream = do
         columns_with_type = V.zip names types
       }
 
-transposeData :: Block->Vector (Vector ClickhouseType)
-transposeData ColumnOrientedBlock{cdata=cdata} 
+transpose :: Vector (Vector ClickhouseType)->Vector (Vector ClickhouseType)
+transpose cdata
           = rotate cdata where
             rotate matrix 
               = let transposedList = List.transpose (V.toList <$> V.toList matrix)
