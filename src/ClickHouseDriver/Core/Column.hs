@@ -1,10 +1,4 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module ClickHouseDriver.Core.Column where
 
@@ -43,6 +37,7 @@ data ClickhouseType
   | CKArray (Vector ClickhouseType)
   | CKDecimal Float
   | CKDateTime
+  | CKDate
   | CKNull
   deriving (Show, Eq)
 
@@ -58,7 +53,7 @@ getColumnWithSpec n_rows spec
   | "Array" `isPrefixOf` spec = readArray n_rows spec
   | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
   | "DateTime" `isPrefixOf` spec = undefined --TODO
-  | "Date"     `isPrefixOf` spec = undefined --
+  | "Date"     `isPrefixOf` spec = undefined -- TODO
   | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
   | "LowCardinality" `isPrefixOf` spec = undefined--TODO
@@ -89,7 +84,6 @@ readFixed n_rows spec = do
         Just (x, _) -> x
   result <- V.replicateM n_rows (readFixedLengthString number)
   return result
-
 
 readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKFixedLengthString strlen) <$> (readBinaryStrWithLength strlen)
@@ -138,7 +132,7 @@ readNullable n_rows spec = do
 
 readArray :: Int->ByteString->Reader (Vector ClickhouseType)
 readArray n_rows spec = do
-  specs@(lastSpec, x:xs) <- genSpecs spec [V.fromList [fromIntegral n_rows]]
+  (lastSpec, x:xs) <- genSpecs spec [V.fromList [fromIntegral n_rows]]
   let numElem = fromIntegral $ V.sum x
   elems <- getColumnWithSpec numElem lastSpec
   let result' = foldl combine elems (x:xs)
@@ -193,7 +187,7 @@ readEnum n_rows spec = do
         then BS.take(l - 7) (BS.drop 6 spec)
         else BS.take(l - 8) (BS.drop 7 spec)
       prespecs = getSpecs innerSpec
-      specs = (\(name, Just (n, _))-> (n, name)) <$> ((toTuple . BS.splitWith (== 61)) <$> prespecs)
+      specs = (\(name, Just (n, _))-> (n, name)) <$> ((toTuple . BS.splitWith (== 61)) <$> prespecs) --61 is '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec 
     then do 
@@ -205,11 +199,14 @@ readEnum n_rows spec = do
       where
         toTuple [x, y] = (x, readInt y)
 
+readDate :: Int->ByteString->Reader(Vector ClickhouseType)
+readDate n_rows spec = undefined
 ---------------------------------------------------------------------------------------------
 --Helpers 
 
+-- | Get rid of commas and spaces
 getSpecs :: ByteString -> [ByteString]
-getSpecs str = BS.splitWith (==44) (BS.filter ( /= 32) str)
+getSpecs str = BS.splitWith (==44) (BS.filter ( /= 32) str) 
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
 transpose cdata =
@@ -219,3 +216,6 @@ transpose cdata =
       let transposedList = List.transpose (V.toList <$> V.toList matrix)
           toVector = V.fromList <$> (V.fromList transposedList)
        in toVector
+
+format :: Vector (Vector ClickhouseType) -> String
+format = undefined

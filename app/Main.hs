@@ -121,7 +121,7 @@ mainTest = do
     conn <- defaultTCPConnection
     env <- client conn
     print "connected"
-    res <- execute "select * from tande" env
+    res <- execute "select * from big" env
     closeConnection conn
     print res
 

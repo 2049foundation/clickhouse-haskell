@@ -28,9 +28,6 @@ import ClickHouseDriver.Core.HTTP.Helpers
 import ClickHouseDriver.Core.HTTP.Types
 import Control.Concurrent.Async
 import Control.Exception
-import qualified Data.Aeson as JP
-import qualified Data.Attoparsec.Lazy as AP
-import qualified Data.Attoparsec.Lazy as DAL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HM
@@ -51,9 +48,7 @@ import Network.HTTP.Client
 import Network.HTTP.Types.Status (statusCode)
 import qualified Network.Simple.TCP as TCP 
 import Network.Socket (SockAddr, Socket)
-import Text.Parsec
 import Text.Printf
-import Data.Maybe
 import Data.ByteString.Char8     (pack)
 import Control.Monad.State.Lazy
 
