@@ -205,7 +205,6 @@ sendCancel :: TCPConnection -> IO ()
 sendCancel TCPConnection {tcpSocket = sock} = do
   (_, c) <- runWriterT $ writeVarUInt Client._CANCEL
   TCP.sendLazy sock (toLazyByteString c)
-  where
 
 receiveData :: ServerInfo -> Reader Block.Block
 receiveData ServerInfo {revision = revision} = do
@@ -291,7 +290,7 @@ writeInfo
 
       writeVarUInt (if interface == HTTP then 0 else 1)
 
-      writeBinaryStr "" -- os_user. Seems that haskell modules don't support getting system username yet.
+      writeBinaryStr "" -- os_user. Seems that haskell modules don't have support of getting system username yet.
       writeBinaryStr host_name
       writeBinaryStr "haskell" --client_name
       writeVarUInt client_version_major

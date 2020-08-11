@@ -78,7 +78,7 @@ fetchData settings fetch = do
     let sock = tcpSocket settings
     buf <- createBuffer _BUFFER_SIZE sock
     (res, _) <- runStateT (receiveResult server_info) buf
-    TCP.closeSock sock
+    TCP.closeSock sock -- will change it later.
     return res
   either
     (putFailure var)
