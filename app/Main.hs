@@ -121,7 +121,7 @@ mainTest = do
     conn <- defaultTCPConnection
     env <- client conn
     print "connected"
-    res <- execute "select items, id from array_t" env
+    res <- execute "select * from tande" env
     closeConnection conn
     print res
 
@@ -144,7 +144,7 @@ manualTCP = do
         Left e -> print e
         Right settings->do
             print "connected"
-            sendQuery "select items, id from array_t" Nothing settings
+            sendQuery "select x from tande" Nothing settings
             sendData "" settings
             case settings of
                 TCPConnection {tcpSocket=sock}-> do

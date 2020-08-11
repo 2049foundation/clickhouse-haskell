@@ -23,6 +23,7 @@ import Data.Vector (Vector, (!))
 import qualified Data.Vector as V
 import Data.Word
 import qualified Data.List as List
+import qualified Data.Map as Map
 --Debug 
 import Debug.Trace 
 
@@ -41,8 +42,6 @@ data ClickhouseType
   | CKTuple (Vector ClickhouseType)
   | CKArray (Vector ClickhouseType)
   | CKDecimal Float
-  | CKEnum8 Int8
-  | CKEnum16 Int16
   | CKDateTime
   | CKNull
   deriving (Show, Eq)
@@ -57,22 +56,15 @@ getColumnWithSpec ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 getColumnWithSpec n_rows spec
   | "String" `isPrefixOf` spec = V.replicateM n_rows (CKString <$> readBinaryStr)
   | "Array" `isPrefixOf` spec = readArray n_rows spec
-  | "FixedString" `isPrefixOf` spec = do
-    let l = BS.length spec
-    let strnumber = BS.take (l - 13) (BS.drop 12 spec)
-    let number = case readInt strnumber of
-          Nothing -> 0 -- This can't happen
-          Just (x, _) -> x
-    result <- V.replicateM n_rows (readFixedLengthString number)
-    return result
+  | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
   | "DateTime" `isPrefixOf` spec = undefined --TODO
+  | "Date"     `isPrefixOf` spec = undefined --
   | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
-  
   | "LowCardinality" `isPrefixOf` spec = undefined--TODO
   | "Decimal" `isPrefixOf` spec = undefined--TODO
   | "SimpleAggregateFunction" `isPrefixOf` spec = undefined--TODO
-  | "Enum" `isPrefixOf` spec = undefined--TODO
+  | "Enum" `isPrefixOf` spec = readEnum n_rows spec
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
   | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
@@ -87,6 +79,17 @@ readIntColumn n_rows "UInt16" = V.replicateM n_rows (CKUInt16 <$> readBinaryUInt
 readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt32)
 readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
 readIntColumn _ _ = error "Not an integer type"
+
+readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
+readFixed n_rows spec = do
+  let l = BS.length spec
+  let strnumber = BS.take (l - 13) (BS.drop 12 spec)
+  let number = case readInt strnumber of
+        Nothing -> 0 -- This can't happen
+        Just (x, _) -> x
+  result <- V.replicateM n_rows (readFixedLengthString number)
+  return result
+
 
 readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKFixedLengthString strlen) <$> (readBinaryStrWithLength strlen)
@@ -177,19 +180,36 @@ readTuple :: Int->ByteString->Reader (Vector ClickhouseType)
 readTuple n_rows spec = do
   let l = BS.length spec
   let innerSpecString = BS.take(l - 7) (BS.drop 6 spec)
-  let arr = V.fromList (getSpecs [] innerSpecString) 
+  let arr = V.fromList (getSpecs innerSpecString) 
   datas <- V.mapM (getColumnWithSpec n_rows) arr
   let transposed = transpose datas
   return $ CKTuple <$> transposed
-  where
-    getSpecs :: [ByteString] -> ByteString -> [ByteString]
-    getSpecs xs str = BS.splitWith (==44) (BS.filter ( /= 32) str)
+
 
 readEnum :: Int->ByteString->Reader (Vector ClickhouseType)
-readEnum = undefined
+readEnum n_rows spec = do
+  let l = BS.length spec
+      innerSpec = if "Enum8" `isPrefixOf` spec 
+        then BS.take(l - 7) (BS.drop 6 spec)
+        else BS.take(l - 8) (BS.drop 7 spec)
+      prespecs = getSpecs innerSpec
+      specs = (\(name, Just (n, _))-> (n, name)) <$> ((toTuple . BS.splitWith (== 61)) <$> prespecs)
+      specsMap = Map.fromList specs
+  if "Enum8" `isPrefixOf` spec 
+    then do 
+      vals <- V.replicateM n_rows readBinaryInt8
+      return $ (CKString . (specsMap Map.!) . fromIntegral) <$> vals
+    else do
+      vals <- V.replicateM n_rows readBinaryInt16
+      return $ (CKString . (specsMap Map.!) . fromIntegral) <$> vals
+      where
+        toTuple [x, y] = (x, readInt y)
 
 ---------------------------------------------------------------------------------------------
 --Helpers 
+
+getSpecs :: ByteString -> [ByteString]
+getSpecs str = BS.splitWith (==44) (BS.filter ( /= 32) str)
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
 transpose cdata =
