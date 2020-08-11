@@ -20,6 +20,8 @@ module ClickHouseDriver.Core.HTTP.Client
     getText,
     getTextM,
     getJsonM,
+    insertOneRow,
+    ping
   )
 where
 
@@ -44,6 +46,7 @@ import Network.HTTP.Client
     newManager,
     parseRequest,
     responseBody,
+    method
   )
 import Network.HTTP.Types.Status (statusCode)
 import qualified Network.Simple.TCP as TCP 
@@ -51,55 +54,57 @@ import Network.Socket (SockAddr, Socket)
 import Text.Printf
 import Data.ByteString.Char8     (pack)
 import Control.Monad.State.Lazy
-
+import ClickHouseDriver.Core.Column 
 
 {-Implementation in Haxl-}
 --
-data HttpQuery a where
-  FetchByteString :: String -> HttpQuery BS.ByteString
-  FetchJSON :: String -> HttpQuery BS.ByteString
-  FetchCSV :: String -> HttpQuery BS.ByteString
-  FetchText :: String -> HttpQuery BS.ByteString
+data HttpClient a where
+  FetchByteString :: String -> HttpClient BS.ByteString
+  FetchJSON :: String -> HttpClient BS.ByteString
+  FetchCSV :: String -> HttpClient BS.ByteString
+  FetchText :: String -> HttpClient BS.ByteString
+  Ping :: HttpClient BS.ByteString
 
-deriving instance Show (HttpQuery a)
+deriving instance Show (HttpClient a)
 
-deriving instance Typeable HttpQuery
+deriving instance Typeable HttpClient
 
-deriving instance Eq (HttpQuery a)
+deriving instance Eq (HttpClient a)
 
-instance ShowP HttpQuery where showp = show
+instance ShowP HttpClient where showp = show
 
-instance Hashable (HttpQuery a) where
+instance Hashable (HttpClient a) where
   hashWithSalt salt (FetchByteString cmd) = hashWithSalt salt cmd
   hashWithSalt salt (FetchJSON cmd) = hashWithSalt salt cmd
   hashWithSalt salt (FetchCSV cmd) = hashWithSalt salt cmd
 
-instance DataSourceName HttpQuery where
+instance DataSourceName HttpClient where
   dataSourceName _ = "ClickhouseDataSource"
 
-instance DataSource u HttpQuery where
+instance DataSource u HttpClient where
   fetch (Settings settings) _flags _usrenv = SyncFetch $ \blockedFetches -> do
     printf "Fetching %d queries.\n" (length blockedFetches)
     res <- mapConcurrently (fetchData settings) blockedFetches
     case res of
       [()] -> return ()
 
-instance StateKey HttpQuery where
-  data State HttpQuery = Settings HttpConnection
+instance StateKey HttpClient where
+  data State HttpClient = Settings HttpConnection
 
-settings :: HttpConnection -> Haxl.Core.State HttpQuery
+settings :: HttpConnection -> Haxl.Core.State HttpClient
 settings = Settings
 
 -- | fetch function
 fetchData ::
   HttpConnection -> --Connection configuration
-  BlockedFetch HttpQuery -> --fetched data
+  BlockedFetch HttpClient -> --fetched data
   IO ()
 fetchData settings fetches = do
   let (queryWithType, var) = case fetches of
         BlockedFetch (FetchJSON query) var' -> (query ++ " FORMAT JSON", var')
         BlockedFetch (FetchCSV query) var' -> (query ++ " FORMAT CSV", var')
         BlockedFetch (FetchByteString query) var' -> (query, var')
+        BlockedFetch Ping var' -> ("ping", var')
   e <- Control.Exception.try $ do
     case settings of
       HttpConnection _ _ _ _ mng -> do
@@ -131,6 +136,22 @@ getTextM = mapM getText
 
 getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m JSONResult)
 getJsonM = mapM getJSON
+
+insertOneRow :: String
+             -> [ClickhouseType]
+             -> HttpConnection
+             -> IO ()
+insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
+  let row = toString arr
+  let cmd = "INSERT INTO " ++ table_name ++ " VALUES " ++ row
+  url <- genURL settings cmd
+  req <- parseRequest url
+  ans <- responseBody <$> httpLbs req{ method = "POST"} mng
+  print "sent result: "
+  print ans
+
+ping :: GenHaxl u w BS.ByteString
+ping = dataFetch $ Ping
 
 -- | Default environment
 setupEnv ::HttpConnection -> IO (Env () w)
