@@ -49,6 +49,7 @@ library
       src
   build-depends:
       aeson
+    , uri-encode
     , bytestring-to-vector
     , monad-loops
     , cereal

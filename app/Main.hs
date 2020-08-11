@@ -28,7 +28,9 @@ import           Control.Monad.Writer
 import qualified Data.Vector as V
 import qualified Control.Monad.Reader as R
 import           Control.Monad.Reader (ask)
-
+import           ClickHouseDriver.Core.Column
+import           ClickHouseDriver.Core.HTTP.Helpers
+import qualified Network.URI.Encode as NE
 
 someReader :: R.Reader Int Int
 someReader = do
@@ -189,5 +191,14 @@ x = if (Prelude.length x > 100) then x else 0 : x
 comma :: ByteString
 comma = " "
 
-main = mainTest
+testparse = do
+    let ck = [CKString "0987654321", CKString "Connan", CKInt32 9984, CKArray $ V.fromList [CKInt32 24]]
+    let str = toString ck
+    print str
+    return str
 
+main = do
+    testparse
+    conn <- defaultHttpConnection
+    print "connect"
+    insertOneRow "test_table" [CKString "0987654321", CKString "Connan", CKInt32 9984, CKArray $ V.fromList [CKInt32 24]] conn

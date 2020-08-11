@@ -4,7 +4,8 @@
 module ClickHouseDriver.Core.HTTP.Helpers
   ( extract,
     replace,
-    genURL
+    genURL,
+    toString
   )
 where
 
@@ -29,6 +30,9 @@ import Foreign.ForeignPtr
 import Foreign.Ptr
 import Control.Monad.Writer
 import ClickHouseDriver.IO.BufferedWriter
+import ClickHouseDriver.Core.Column
+import Data.Vector (toList)
+import qualified Network.URI.Encode as NE
 
 -- | Trim JSON data
 extract :: C8.ByteString -> JSONResult
@@ -68,5 +72,22 @@ genURL HttpConnection {
            writeIn ":"
            writeIn $ show port   
            writeIn "/?query="
-         let res = basicUrl ++ (replace cmd)
+         let res = basicUrl ++ NE.encode cmd
          return res
+
+
+toString :: [ClickhouseType]->String
+toString ck = "(" ++ toStr ck ++ ")"
+
+toStr :: [ClickhouseType]->String
+toStr [] = ""
+toStr (x:[]) = toStr' x
+toStr (x:xs) = toStr' x ++ "," ++ toStr xs
+
+toStr' :: ClickhouseType->String
+toStr' (CKInt32 n) = show n
+toStr' (CKString str) = "'" ++ C8.unpack str ++ "'"
+toStr' (CKArray arr) = "[" ++ (toStr $ toList arr) ++ "]"
+toStr' (CKTuple arr) = "(" ++ (toStr $ toList arr) ++ ")"
+toStr' CKNull = "null"
+toStr' _ = error "unsupported writing type"
