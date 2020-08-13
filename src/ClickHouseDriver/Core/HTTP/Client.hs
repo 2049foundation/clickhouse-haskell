@@ -21,6 +21,7 @@ module ClickHouseDriver.Core.HTTP.Client
     getTextM,
     getJsonM,
     insertOneRow,
+    insertMany,
     ping
   )
 where
@@ -162,7 +163,9 @@ insertMany :: String
            -> IO()
 insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
   let rowsString = map (lazyByteString . C8.pack . toString) rows
-      togo = foldl (<>) mempty rowsString
+      comma = lazyByteString ","
+      preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
+      togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{method = "POST"
@@ -171,6 +174,8 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
   if ans /= ""
     then error ("Errror message: " ++ C8.unpack ans)
     else print ("Inserted successfully")
+
+insertLargeFromFile = undefined
 
 ping :: GenHaxl u w BS.ByteString
 ping = dataFetch $ Ping

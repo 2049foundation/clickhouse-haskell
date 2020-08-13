@@ -1,10 +1,10 @@
 # Details
 
-Date : 2020-08-11 08:25:31
+Date : 2020-08-12 19:00:01
 
 Directory /home/darth/EMQX/clickhouse-haskell-1/src
 
-Total : 20 files,  1383 codes, 118 comments, 300 blanks, all 1801 lines
+Total : 20 files,  1405 codes, 117 comments, 301 blanks, all 1823 lines
 
 [summary](results.md)
 
@@ -20,10 +20,10 @@ Total : 20 files,  1383 codes, 118 comments, 300 blanks, all 1801 lines
 | [src/ClickHouseDriver/Core/Connection.hs](/src/ClickHouseDriver/Core/Connection.hs) | Haskell | 270 | 7 | 27 | 304 |
 | [src/ClickHouseDriver/Core/Defines.hs](/src/ClickHouseDriver/Core/Defines.hs) | Haskell | 34 | 4 | 31 | 69 |
 | [src/ClickHouseDriver/Core/Error.hs](/src/ClickHouseDriver/Core/Error.hs) | Haskell | 5 | 3 | 4 | 12 |
-| [src/ClickHouseDriver/Core/HTTP/Client.hs](/src/ClickHouseDriver/Core/HTTP/Client.hs) | Haskell | 118 | 20 | 24 | 162 |
+| [src/ClickHouseDriver/Core/HTTP/Client.hs](/src/ClickHouseDriver/Core/HTTP/Client.hs) | Haskell | 140 | 20 | 26 | 186 |
 | [src/ClickHouseDriver/Core/HTTP/Connection.hs](/src/ClickHouseDriver/Core/HTTP/Connection.hs) | Haskell | 29 | 3 | 9 | 41 |
 | [src/ClickHouseDriver/Core/HTTP/Helpers.hs](/src/ClickHouseDriver/Core/HTTP/Helpers.hs) | Haskell | 77 | 4 | 11 | 92 |
-| [src/ClickHouseDriver/Core/HTTP/Types.hs](/src/ClickHouseDriver/Core/HTTP/Types.hs) | Haskell | 15 | 2 | 5 | 22 |
+| [src/ClickHouseDriver/Core/HTTP/Types.hs](/src/ClickHouseDriver/Core/HTTP/Types.hs) | Haskell | 15 | 1 | 4 | 20 |
 | [src/ClickHouseDriver/Core/QueryProcessingStage.hs](/src/ClickHouseDriver/Core/QueryProcessingStage.hs) | Haskell | 4 | 0 | 4 | 8 |
 | [src/ClickHouseDriver/Core/ServerProtocol.hs](/src/ClickHouseDriver/Core/ServerProtocol.hs) | Haskell | 36 | 14 | 16 | 66 |
 | [src/ClickHouseDriver/Core/Types.hs](/src/ClickHouseDriver/Core/Types.hs) | Haskell | 131 | 2 | 18 | 151 |
