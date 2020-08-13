@@ -201,4 +201,4 @@ main = do
     testparse
     conn <- defaultHttpConnection
     print "connect"
-    insertOneRow "test_table" [CKString "9987654321", CKString "Suzuki", CKInt32 12507, CKArray $ V.fromList [CKInt32 667]] conn
+    insertMany "test_table" [[CKString "9987654321", CKString "Suzuki", CKInt32 12507, CKArray $ V.fromList [CKInt32 667]],[CKString "9987654321", CKString "Suzuki", CKInt32 12507, CKArray $ V.fromList [CKInt32 667]]] conn
