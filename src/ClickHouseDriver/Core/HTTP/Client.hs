@@ -32,7 +32,9 @@ import Control.Concurrent.Async
 import Control.Exception
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as C8
 import qualified Data.HashMap.Strict as HM
+import Data.ByteString.Lazy.Builder (toLazyByteString, lazyByteString)
 import Data.Hashable
 import qualified Data.Text as T
 import Data.Text.Encoding
@@ -46,7 +48,9 @@ import Network.HTTP.Client
     newManager,
     parseRequest,
     responseBody,
-    method
+    method,
+    requestBody,
+    RequestBody(..)
   )
 import Network.HTTP.Types.Status (statusCode)
 import qualified Network.Simple.TCP as TCP 
@@ -143,12 +147,28 @@ insertOneRow :: String
              -> IO ()
 insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
   let row = toString arr
-  let cmd = "INSERT INTO " ++ table_name ++ " VALUES " ++ row
-  url <- genURL settings cmd
+  let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
+  url <- genURL settings ""
   req <- parseRequest url
-  ans <- responseBody <$> httpLbs req{ method = "POST"} mng
-  print "sent result: "
-  print ans
+  ans <- responseBody <$> httpLbs req{ method = "POST"
+  , requestBody = RequestBodyLBS cmd} mng
+  if ans /= ""
+    then error ("Errror message: " ++ C8.unpack ans)
+    else print ("Inserted successfully")
+
+insertMany :: String
+           -> [[ClickhouseType]]
+           -> HttpConnection
+           -> IO()
+insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
+  let rowsString = map (lazyByteString . C8.pack . toString) rows
+      togo = foldl (<>) mempty rowsString
+  url <- genURL settings ""
+  req <- parseRequest url
+  ans <- responseBody <$> httpLbs req{method = "POST"
+  , requestBody = RequestBodyLBS $ toLazyByteString togo} mng
+  print "inserted successfully"
+  undefined
 
 ping :: GenHaxl u w BS.ByteString
 ping = dataFetch $ Ping
