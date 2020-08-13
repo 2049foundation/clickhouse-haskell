@@ -168,7 +168,9 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
   ans <- responseBody <$> httpLbs req{method = "POST"
   , requestBody = RequestBodyLBS $ toLazyByteString togo} mng
   print "inserted successfully"
-  undefined
+  if ans /= ""
+    then error ("Errror message: " ++ C8.unpack ans)
+    else print ("Inserted successfully")
 
 ping :: GenHaxl u w BS.ByteString
 ping = dataFetch $ Ping
