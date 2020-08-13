@@ -75,7 +75,6 @@ genURL HttpConnection {
          let res = basicUrl ++ NE.encode cmd
          return res
 
-
 toString :: [ClickhouseType]->String
 toString ck = "(" ++ toStr ck ++ ")"
 
