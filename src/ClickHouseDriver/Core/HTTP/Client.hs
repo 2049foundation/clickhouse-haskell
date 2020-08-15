@@ -155,7 +155,7 @@ insertOneRow :: String
 insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
   let row = toString arr
   let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
-  url <- genURL settings ""
+  url <- genURL settings "/?query="
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
   , requestBody = RequestBodyLBS cmd} mng
@@ -172,7 +172,7 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
       comma =  char8 ','
       preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
       togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
-  url <- genURL settings ""
+  url <- genURL settings "/?query="
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{method = "POST"
   , requestBody = RequestBodyLBS $ toLazyByteString togo} mng
@@ -181,10 +181,14 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
     then return $ Left ans
     else return $ Right "Successful insertion"
 
-insertFromFile :: String->FilePath->HttpConnection->IO(Either C8.ByteString String)
-insertFromFile table_name file settings@(HttpConnection _ _ _ _ mng) = do
+insertFromFile :: String->Format->FilePath->HttpConnection->IO(Either C8.ByteString String)
+insertFromFile table_name format file settings@(HttpConnection _ _ _ _ mng) = do
   fileReqBody <- streamFile file
-  url <- genURL settings "/?query="
+  url <- genURL settings ("/?query=INSERT INTO " <> table_name <> " VALUES " 
+    <> case format of
+          CSV->"FORMAT CSV"
+          JSON->"FORMAT JSON"
+          TUPLE->"")
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req {method = "POST"
   , requestBody = fileReqBody} mng

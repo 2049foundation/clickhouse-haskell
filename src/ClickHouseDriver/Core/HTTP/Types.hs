@@ -2,6 +2,7 @@ module ClickHouseDriver.Core.HTTP.Types
   ( JSONResult (..),
     Cmd,
     Haxl,
+    Format(..)
   )
 where
 
@@ -18,3 +19,6 @@ type JSONResult = Either ByteString [HashMap Text Value] --Err LBS.ByteString | 
 type Cmd = String
 
 type Haxl a = GenHaxl () a
+
+data Format = CSV | JSON | TUPLE
+    deriving Eq

@@ -148,7 +148,7 @@ manualTCP = do
         Left e -> print e
         Right settings->do
             print "connected"
-            sendQuery "select x from tande" Nothing settings
+            sendQuery "select * from dt" Nothing settings
             sendData "" settings
             case settings of
                 TCPConnection {tcpSocket=sock}-> do
@@ -204,6 +204,4 @@ cat file = withFile file ReadMode $ \h->do
     is <- Streams.handleToInputStream h
     Streams.read is
 
-main = do
-    print "main"
-    cat "text.txt"
+main = manualTCP

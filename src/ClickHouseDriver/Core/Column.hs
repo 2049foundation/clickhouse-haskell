@@ -19,6 +19,7 @@ import Data.Word
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Time (Day, addDays, fromGregorian, toGregorian)
+import Network.IP.Addr (IP4(..), IP6(..))
 --Debug 
 import Debug.Trace 
 
@@ -40,6 +41,8 @@ data ClickhouseType
   | CKDecimal64 Float
   | CKDecimal128 Float
   | CKDateTime
+  | CKIPv4 IP4
+  | CKIPv6 IP6
   | CKDate {
     year :: !Integer,
     month :: !Int,
@@ -48,11 +51,8 @@ data ClickhouseType
   | CKNull
   deriving (Show, Eq)
 
-readStatePrefix :: Reader Word64
-readStatePrefix = readBinaryUInt64
-
-readNull :: Reader Word8
-readNull = readBinaryUInt8
+---------------------------------------------------------------------------------------
+---Readers 
 
 getColumnWithSpec ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 getColumnWithSpec n_rows spec
@@ -65,11 +65,19 @@ getColumnWithSpec n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
   | "LowCardinality" `isPrefixOf` spec = undefined--TODO
   | "Decimal" `isPrefixOf` spec = readDecimal n_rows spec
-  | "SimpleAggregateFunction" `isPrefixOf` spec = undefined--TODO
   | "Enum" `isPrefixOf` spec = readEnum n_rows spec
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
   | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
+  | "IPv4" `isPrefixOf` spec = readIPv4 n_rows
+  | "IPv6" `isPrefixOf` spec = readIPv6 n_rows
+  | "SimpleAggregateFunction" `isPrefixOf` spec = readSimpleAggregateFunction n_rows spec
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
+
+readStatePrefix :: Reader Word64
+readStatePrefix = readBinaryUInt64
+
+readNull :: Reader Word8
+readNull = readBinaryUInt8
 
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
@@ -243,10 +251,20 @@ readDecimal n_rows spec = do
     trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
     trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
 
+readIPv4 :: Int->Reader (Vector ClickhouseType)
+readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)
 
+readIPv6 :: Int->Reader (Vector ClickhouseType)
+readIPv6 n_rows = V.replicateM n_rows (CKIPv6 . IP6  <$> readBinaryUInt128)
+
+readSimpleAggregateFunction :: Int->ByteString->Reader (Vector ClickhouseType)
+readSimpleAggregateFunction n_rows spec = do
+   let l = BS.length spec
+   let [func, cktype] = getSpecs $ BS.take(l - 25) (BS.drop 24 spec)
+   getColumnWithSpec n_rows cktype
 
 ---------------------------------------------------------------------------------------------
---------Helpers 
+---Helpers 
 
 -- | Get rid of commas and spaces
 getSpecs :: ByteString -> [ByteString]
