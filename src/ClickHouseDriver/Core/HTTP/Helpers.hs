@@ -12,21 +12,10 @@ import ClickHouseDriver.Core.HTTP.Connection
 import ClickHouseDriver.Core.HTTP.Types
 import qualified Data.Aeson as JP
 import Data.Attoparsec.ByteString
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
-import qualified Data.ByteString.Internal as BI
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Lazy.Internal as BLI
 import qualified Data.HashMap.Strict as HM
-import Data.Hashable
 import Data.Text (pack)
-import qualified Data.Text as T
-import Data.Text.Internal.Lazy (Text)
-import Data.Text.Lazy.Encoding
-import Data.Typeable
 import Data.Vector (toList)
-import Foreign.ForeignPtr
-import Foreign.Ptr
 import Control.Monad.Writer
 import ClickHouseDriver.IO.BufferedWriter
 import ClickHouseDriver.Core.Column
