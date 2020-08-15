@@ -1,12 +1,12 @@
-Date : 2020-08-12 19:00:01
+Date : 2020-08-13 18:38:43
 Directory : /home/darth/EMQX/clickhouse-haskell-1/src
-Total : 20 files,  1405 codes, 117 comments, 301 blanks, all 1823 lines
+Total : 19 files,  1429 codes, 117 comments, 305 blanks, all 1851 lines
 
 Languages
 +----------+------------+------------+------------+------------+------------+
 | language | files      | code       | comment    | blank      | total      |
 +----------+------------+------------+------------+------------+------------+
-| Haskell  |         18 |      1,339 |        114 |        293 |      1,746 |
+| Haskell  |         17 |      1,363 |        114 |        297 |      1,774 |
 | C        |          1 |         57 |          3 |          5 |         65 |
 | C++      |          1 |          9 |          0 |          3 |         12 |
 +----------+------------+------------+------------+------------+------------+
@@ -15,14 +15,13 @@ Directories
 +-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
 | path                                                                                    | files      | code       | comment    | blank      | total      |
 +-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
-| .                                                                                       |         20 |      1,405 |        117 |        301 |      1,823 |
-| ClickHouseDriver                                                                        |         19 |      1,391 |        117 |        300 |      1,808 |
+| .                                                                                       |         19 |      1,429 |        117 |        305 |      1,851 |
+| ClickHouseDriver                                                                        |         18 |      1,415 |        117 |        304 |      1,836 |
 | ClickHouseDriver/CBits                                                                  |          1 |         57 |          3 |          5 |         65 |
-| ClickHouseDriver/Core                                                                   |         14 |      1,086 |        106 |        227 |      1,419 |
-| ClickHouseDriver/Core/HTTP                                                              |          4 |        261 |         28 |         50 |        339 |
+| ClickHouseDriver/Core                                                                   |         14 |      1,123 |        106 |        237 |      1,466 |
+| ClickHouseDriver/Core/HTTP                                                              |          4 |        264 |         28 |         52 |        344 |
 | ClickHouseDriver/IO                                                                     |          2 |        226 |          8 |         59 |        293 |
 | ClickHouseDriver/Include                                                                |          1 |          9 |          0 |          3 |         12 |
-| ClickHouseDriver/Utils                                                                  |          1 |         13 |          0 |          6 |         19 |
 +-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
 
 Files
@@ -34,11 +33,11 @@ Files
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/Block.hs                | Haskell  |         82 |          3 |         19 |        104 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/Client.hs               | Haskell  |         70 |         11 |         18 |         99 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/ClientProtocol.hs       | Haskell  |         22 |          7 |         17 |         46 |
-| /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/Column.hs               | Haskell  |        171 |         27 |         23 |        221 |
+| /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/Column.hs               | Haskell  |        205 |         27 |         31 |        263 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/Connection.hs           | Haskell  |        270 |          7 |         27 |        304 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/Defines.hs              | Haskell  |         34 |          4 |         31 |         69 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/Error.hs                | Haskell  |          5 |          3 |          4 |         12 |
-| /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/HTTP/Client.hs          | Haskell  |        140 |         20 |         26 |        186 |
+| /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/HTTP/Client.hs          | Haskell  |        143 |         20 |         28 |        191 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/HTTP/Connection.hs      | Haskell  |         29 |          3 |          9 |         41 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/HTTP/Helpers.hs         | Haskell  |         77 |          4 |         11 |         92 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Core/HTTP/Types.hs           | Haskell  |         15 |          1 |          4 |         20 |
@@ -48,6 +47,5 @@ Files
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/IO/BufferedReader.hs         | Haskell  |        143 |          2 |         38 |        183 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/IO/BufferedWriter.hs         | Haskell  |         83 |          6 |         21 |        110 |
 | /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Include/varuint.h            | C++      |          9 |          0 |          3 |         12 |
-| /home/darth/EMQX/clickhouse-haskell-1/src/ClickHouseDriver/Utils/Datetimes.hs           | Haskell  |         13 |          0 |          6 |         19 |
-| Total                                                                                   |          |      1,405 |        117 |        301 |      1,823 |
+| Total                                                                                   |          |      1,429 |        117 |        305 |      1,851 |
 +-----------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+

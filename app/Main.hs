@@ -31,6 +31,8 @@ import           Control.Monad.Reader (ask)
 import           ClickHouseDriver.Core.Column
 import           ClickHouseDriver.Core.HTTP.Helpers
 import qualified Network.URI.Encode as NE
+import qualified System.IO.Streams as Streams
+import           System.IO
 
 someReader :: R.Reader Int Int
 someReader = do
@@ -197,8 +199,11 @@ testparse = do
     print str
     return str
 
+cat :: FilePath -> IO(Maybe ByteString)
+cat file = withFile file ReadMode $ \h->do
+    is <- Streams.handleToInputStream h
+    Streams.read is
+
 main = do
-    testparse
-    conn <- defaultHttpConnection
-    print "connect"
-    insertMany "test_table" [[CKString "9987654321", CKString "Suzuki", CKInt32 12507, CKArray $ V.fromList [CKInt32 667]],[CKString "9987654321", CKString "Suzuki", CKInt32 12507, CKArray $ V.fromList [CKInt32 667]]] conn
+    print "main"
+    cat "text.txt"

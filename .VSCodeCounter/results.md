@@ -1,30 +1,29 @@
 # Summary
 
-Date : 2020-08-12 19:00:01
+Date : 2020-08-13 18:38:43
 
 Directory /home/darth/EMQX/clickhouse-haskell-1/src
 
-Total : 20 files,  1405 codes, 117 comments, 301 blanks, all 1823 lines
+Total : 19 files,  1429 codes, 117 comments, 305 blanks, all 1851 lines
 
 [details](details.md)
 
 ## Languages
 | language | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| Haskell | 18 | 1,339 | 114 | 293 | 1,746 |
+| Haskell | 17 | 1,363 | 114 | 297 | 1,774 |
 | C | 1 | 57 | 3 | 5 | 65 |
 | C++ | 1 | 9 | 0 | 3 | 12 |
 
 ## Directories
 | path | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| . | 20 | 1,405 | 117 | 301 | 1,823 |
-| ClickHouseDriver | 19 | 1,391 | 117 | 300 | 1,808 |
+| . | 19 | 1,429 | 117 | 305 | 1,851 |
+| ClickHouseDriver | 18 | 1,415 | 117 | 304 | 1,836 |
 | ClickHouseDriver/CBits | 1 | 57 | 3 | 5 | 65 |
-| ClickHouseDriver/Core | 14 | 1,086 | 106 | 227 | 1,419 |
-| ClickHouseDriver/Core/HTTP | 4 | 261 | 28 | 50 | 339 |
+| ClickHouseDriver/Core | 14 | 1,123 | 106 | 237 | 1,466 |
+| ClickHouseDriver/Core/HTTP | 4 | 264 | 28 | 52 | 344 |
 | ClickHouseDriver/IO | 2 | 226 | 8 | 59 | 293 |
 | ClickHouseDriver/Include | 1 | 9 | 0 | 3 | 12 |
-| ClickHouseDriver/Utils | 1 | 13 | 0 | 6 | 19 |
 
 [details](details.md)

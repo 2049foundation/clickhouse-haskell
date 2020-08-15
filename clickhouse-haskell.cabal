@@ -49,43 +49,35 @@ library
       src
   build-depends:
       aeson
+    , io-streams
+    , filepath
     , uri-encode
+    , time
     , bytestring-to-vector
     , monad-loops
-    , cereal
     , word8
     , monad-parallel
     , HUnit
     , async 
     , hashable
-    , mtl
     , array
-    , attoparsec
     , base >=4.7 && <5
     , binary
     , bytestring
     , call-stack
-    , cassava
     , containers
     , exceptions
-    , ghc-prim
     , hashmap
     , haxl
     , hspec
     , http-client
-    , http-client-tls
-    , http-types
     , network
     , network-simple
-    , network-uri
     , parsec
-    , regex-tdfa
-    , scanner
     , text
     , transformers
     , unordered-containers
     , vector
-    , network-simple
   default-language: Haskell2010
   c-sources: ./src/ClickHouseDriver/CBits/varuint.c
   include-dirs: ./src/ClickHouseDriver/Include 

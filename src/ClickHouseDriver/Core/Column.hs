@@ -18,6 +18,7 @@ import qualified Data.Vector as V
 import Data.Word
 import qualified Data.List as List
 import qualified Data.Map as Map
+import Data.Time (Day, addDays, fromGregorian, toGregorian)
 --Debug 
 import Debug.Trace 
 
@@ -35,9 +36,15 @@ data ClickhouseType
   | CKFixedLengthString Int ByteString
   | CKTuple (Vector ClickhouseType)
   | CKArray (Vector ClickhouseType)
-  | CKDecimal Float
+  | CKDecimal32 Float
+  | CKDecimal64 Float
+  | CKDecimal128 Float
   | CKDateTime
-  | CKDate
+  | CKDate {
+    year :: !Integer,
+    month :: !Int,
+    day :: !Int 
+  }
   | CKNull
   deriving (Show, Eq)
 
@@ -53,11 +60,11 @@ getColumnWithSpec n_rows spec
   | "Array" `isPrefixOf` spec = readArray n_rows spec
   | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
   | "DateTime" `isPrefixOf` spec = undefined --TODO
-  | "Date"     `isPrefixOf` spec = undefined -- TODO
+  | "Date"     `isPrefixOf` spec = readDate n_rows spec
   | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
   | "LowCardinality" `isPrefixOf` spec = undefined--TODO
-  | "Decimal" `isPrefixOf` spec = undefined--TODO
+  | "Decimal" `isPrefixOf` spec = readDecimal n_rows spec
   | "SimpleAggregateFunction" `isPrefixOf` spec = undefined--TODO
   | "Enum" `isPrefixOf` spec = readEnum n_rows spec
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
@@ -200,9 +207,46 @@ readEnum n_rows spec = do
         toTuple [x, y] = (x, readInt y)
 
 readDate :: Int->ByteString->Reader(Vector ClickhouseType)
-readDate n_rows spec = undefined
+readDate n_rows spec = do
+  let epoch_start = fromGregorian 1970 1 1
+  days <- V.replicateM n_rows readBinaryUInt16
+  let dates = fmap (\x->addDays (fromIntegral x) epoch_start) days
+      toTriple = fmap toGregorian dates
+      toCK = fmap (\(y, m, d)->CKDate y m d) toTriple
+  return toCK
+
+readDecimal :: Int->ByteString->Reader(Vector ClickhouseType)
+readDecimal n_rows spec = do
+  let l = BS.length spec 
+  let [precision', scale'] = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
+  
+  let (Just (precision,_), Just (scale,_)) = (readInt precision', readInt scale')
+
+  let specific = 
+        if precision <= 9
+          then readDecimal32
+          else if precision <= 18
+            then readDecimal64
+            else readDecimal128
+  
+  raw <- specific n_rows
+
+  let final = fmap (trans scale) raw
+  
+  return final
+  where
+    readDecimal32 n_rows = readIntColumn n_rows "Int32"
+    readDecimal64 n_rows = readIntColumn n_rows "Int64"
+    readDecimal128 n_rows = undefined
+
+    trans :: Int->ClickhouseType->ClickhouseType
+    trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
+    trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
+
+
+
 ---------------------------------------------------------------------------------------------
---Helpers 
+--------Helpers 
 
 -- | Get rid of commas and spaces
 getSpecs :: ByteString -> [ByteString]
@@ -217,5 +261,6 @@ transpose cdata =
           toVector = V.fromList <$> (V.fromList transposedList)
        in toVector
 
+-- | print in format
 format :: Vector (Vector ClickhouseType) -> String
 format = undefined

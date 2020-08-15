@@ -37,7 +37,6 @@ import Foreign.C
 import Foreign.Ptr
 import Control.Monad.Writer
 import Data.ByteString.Char8 (unpack)
-import Data.Serialize
 import Control.Monad.IO.Class
 
 
