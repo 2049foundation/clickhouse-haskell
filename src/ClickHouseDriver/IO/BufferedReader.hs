@@ -12,6 +12,7 @@ module ClickHouseDriver.IO.BufferedReader
     readBinaryInt64,
     readBinaryInt32,
     readBinaryUInt8,
+    readBinaryUInt128,
     readBinaryUInt64,
     readBinaryUInt32,
     readBinaryUInt16,
@@ -36,6 +37,7 @@ import qualified Network.Simple.TCP as TCP
 import Data.Maybe
 import qualified Data.ByteString.Char8 as C8
 import Data.Bits
+import Data.DoubleWord (Word128(..))
 
 data Buffer = Buffer {
   bufSize :: !Int,
@@ -177,6 +179,12 @@ readBinaryUInt16 = readin
 
 readBinaryUInt64 :: Reader Word64
 readBinaryUInt64 = readin
+
+readBinaryUInt128 :: Reader Word128
+readBinaryUInt128 = do
+  hi <- readBinaryUInt64
+  lo <- readBinaryUInt64
+  return $ Word128 hi lo
 
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO Word
 

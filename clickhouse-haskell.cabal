@@ -49,6 +49,8 @@ library
       src
   build-depends:
       aeson
+    , data-dword
+    , network-ip
     , io-streams
     , filepath
     , uri-encode
