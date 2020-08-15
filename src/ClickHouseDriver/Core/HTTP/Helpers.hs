@@ -3,7 +3,6 @@
 
 module ClickHouseDriver.Core.HTTP.Helpers
   ( extract,
-    replace,
     genURL,
     toString
   )
@@ -50,12 +49,6 @@ extract val = getData $ parse JP.json val
     getArray (JP.Array arr) = arr
     getObject (JP.Object x) = x
 
--- | replace spaces with "%20"
-replace :: String -> String
-replace"" = ""
-replace (' ' : xs) = "%20" ++ replace xs
-replace (x : xs) = x : replace xs
-
 genURL :: HttpConnection->Cmd->IO String
 genURL HttpConnection {
        httpHost = host,
@@ -71,7 +64,7 @@ genURL HttpConnection {
            writeIn host
            writeIn ":"
            writeIn $ show port   
-           writeIn "/?query="
+           --writeIn "/?query="
          let res = basicUrl ++ NE.encode cmd
          return res
 

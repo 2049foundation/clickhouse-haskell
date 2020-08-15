@@ -22,7 +22,8 @@ module ClickHouseDriver.Core.HTTP.Client
     getJsonM,
     insertOneRow,
     insertMany,
-    ping
+    ping,
+    insertFromFile
   )
 where
 
@@ -35,7 +36,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Lazy.Char8 as C8
 import qualified Data.HashMap.Strict as HM
-import Data.ByteString.Lazy.Builder (toLazyByteString, lazyByteString)
+import Data.ByteString.Lazy.Builder (toLazyByteString, lazyByteString, char8)
 import Data.Hashable
 import qualified Data.Text as T
 import Data.Text.Encoding
@@ -51,7 +52,8 @@ import Network.HTTP.Client
     responseBody,
     method,
     requestBody,
-    RequestBody(..)
+    RequestBody(..),
+    streamFile
   )
 import Network.HTTP.Types.Status (statusCode)
 import qualified Network.Simple.TCP as TCP 
@@ -59,7 +61,11 @@ import Network.Socket (SockAddr, Socket)
 import Text.Printf
 import Data.ByteString.Char8     (pack)
 import Control.Monad.State.Lazy
-import ClickHouseDriver.Core.Column 
+import ClickHouseDriver.Core.Column
+import qualified System.IO.Streams as Streams
+import System.IO hiding (char8)
+import System.FilePath
+
 
 {-Implementation in Haxl-}
 --
@@ -106,14 +112,14 @@ fetchData ::
   IO ()
 fetchData settings fetches = do
   let (queryWithType, var) = case fetches of
-        BlockedFetch (FetchJSON query) var' -> (query ++ " FORMAT JSON", var')
-        BlockedFetch (FetchCSV query) var' -> (query ++ " FORMAT CSV", var')
-        BlockedFetch (FetchByteString query) var' -> (query, var')
-        BlockedFetch Ping var' -> ("ping", var')
+        BlockedFetch (FetchJSON query) var' -> ("/?query=" ++ query ++ " FORMAT JSON", var')
+        BlockedFetch (FetchCSV query) var' -> ("/?query=" ++ query ++ " FORMAT CSV", var')
+        BlockedFetch (FetchByteString query) var' -> ("/?query=" ++ query, var')
+        BlockedFetch Ping var' -> ("/ping", var')
   e <- Control.Exception.try $ do
     case settings of
       HttpConnection _ _ _ _ mng -> do
-        url <- genURL settings (replace queryWithType)
+        url <- genURL settings queryWithType
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ LBS.toStrict ans
@@ -145,7 +151,7 @@ getJsonM = mapM getJSON
 insertOneRow :: String
              -> [ClickhouseType]
              -> HttpConnection
-             -> IO ()
+             -> IO (Either C8.ByteString String)
 insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
   let row = toString arr
   let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
@@ -154,16 +160,16 @@ insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
   ans <- responseBody <$> httpLbs req{ method = "POST"
   , requestBody = RequestBodyLBS cmd} mng
   if ans /= ""
-    then error ("Errror message: " ++ C8.unpack ans)
-    else print ("Inserted successfully")
+    then return $ Left ans -- error message
+    else return $ Right "Inserted successfully"
 
 insertMany :: String
            -> [[ClickhouseType]]
            -> HttpConnection
-           -> IO()
+           -> IO(Either C8.ByteString String)
 insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
   let rowsString = map (lazyByteString . C8.pack . toString) rows
-      comma = lazyByteString ","
+      comma =  char8 ','
       preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
       togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
   url <- genURL settings ""
@@ -172,10 +178,19 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
   , requestBody = RequestBodyLBS $ toLazyByteString togo} mng
   print "inserted successfully"
   if ans /= ""
-    then error ("Errror message: " ++ C8.unpack ans)
-    else print ("Inserted successfully")
+    then return $ Left ans
+    else return $ Right "Successful insertion"
 
-insertLargeFromFile = undefined
+insertFromFile :: String->FilePath->HttpConnection->IO(Either C8.ByteString String)
+insertFromFile table_name file settings@(HttpConnection _ _ _ _ mng) = do
+  fileReqBody <- streamFile file
+  url <- genURL settings "/?query="
+  req <- parseRequest url
+  ans <- responseBody <$> httpLbs req {method = "POST"
+  , requestBody = fileReqBody} mng
+  if ans /= ""
+    then return $ Left ans -- error message
+    else return $ Right "Inserted successfully"
 
 ping :: GenHaxl u w BS.ByteString
 ping = dataFetch $ Ping
