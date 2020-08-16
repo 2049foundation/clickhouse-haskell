@@ -54,13 +54,11 @@ import Debug.Trace
 versionTuple :: ServerInfo -> (Word, Word, Word)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
 
-
 -- | set timeout to 10 seconds
 ping :: Int->TCPConnection->IO(Maybe String)
 ping timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
   = timeout timelimit $ do
-      r <- execWriterT $ do 
-        writeVarUInt Client._PING
+      r <- execWriterT $ writeVarUInt Client._PING
       TCP.sendLazy sock (toLazyByteString r)
       buf <- createBuffer 1024 sock
       (packet_type,_) <- runStateT (iterateWhile ( == Server._PROGRESS) readVarInt) buf
@@ -264,22 +262,20 @@ receiveResult info = do
     receivePacket = do
       packet_type <- readVarInt
       case packet_type of
-        1 -> do  -- Data
-          result <- receiveData info
-          return $ Block result
-
-        3 -> do --Progress
-          progress <- readProgress (revision info)
-          return Progress {prog = progress}
-          
-        6 -> do --Profile
-          profile_info <- readBlockStreamProfileInfo
-          return StreamProfileInfo {profile = profile_info}
-
-        5 -> do --End of stream
-          return EndOfStream
-
-        _ -> return Exception {message = "error"}
+        1 -> (receiveData info) >>= (return . Block) -- Data
+        2 -> (Error.readException Nothing) >>= (return . Exception) -- Exception
+        3 -> (readProgress $ revision info) >>= (return . Progress) -- Progress
+        5 -> return EndOfStream -- End of Stream
+        6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo)  --Profile
+        7 -> (receiveData info) >>= (return . Block) -- Total
+        8 -> (receiveData info) >>= (return . Block) -- Extreme
+        _ -> do
+          closeBufferSocket
+          return Exception {message = Error.ServerException{
+                                    code = Error._UNKNOWN_PACKET_FROM_SERVER,
+                                    message = "Unknown packet from server",
+                                    nested = Nothing
+                              }}
 
 closeConnection :: Either String TCPConnection->IO ()
 closeConnection (Right TCPConnection{tcpSocket=sock}) = TCP.closeSock sock
@@ -327,3 +323,12 @@ writeInfo
       if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
         then writeVarUInt client_version_patch
         else return ()
+
+-------------------------------------------------------------------------------------------------------------------
+---Helpers 
+
+closeBufferSocket :: Reader ()
+closeBufferSocket = do
+  buf <- get
+  let sock = ClickHouseDriver.IO.BufferedReader.socket buf
+  TCP.closeSock sock

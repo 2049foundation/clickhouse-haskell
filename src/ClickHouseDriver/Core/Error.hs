@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module ClickHouseDriver.Core.Error where
 
 import Data.ByteString (ByteString)
@@ -14,6 +15,26 @@ data ClickhouseException
 instance Show ClickhouseException where
     show (ServerException message code nested)
         = "Code " ++ show code ++ "." ++ show nested ++ " " ++ message
+
+readException :: Maybe String ->Reader ClickhouseException
+readException additional = do
+    code <- readBinaryInt32
+    name <- readBinaryStr
+    messange <- readBinaryStr
+    stack_trace <- readBinaryStr
+    has_nested <- ( == 1) <$> readBinaryUInt8
+    let new_message = (case additional of
+            Nothing->""
+            Just msg-> msg ++ ".") ++ 
+                if name /= "DB::Exception" 
+                    then unpack name  
+                    else "" ++ "."
+    if has_nested
+        then do
+            nested <- readException Nothing
+            return $ ServerException new_message (fromIntegral code) (Just nested)
+        else do
+            return $ ServerException new_message (fromIntegral code) Nothing 
 
 _UNSUPPORTED_METHOD = 1
 _UNSUPPORTED_PARAMETER = 2

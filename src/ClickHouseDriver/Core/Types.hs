@@ -20,6 +20,7 @@ import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
 import Data.ByteString
 import Network.Socket
+import qualified ClickHouseDriver.Core.Error as Error
 
 -- Debug 
 import Debug.Trace
@@ -92,7 +93,7 @@ data Context = Context
 
 data Packet
   = Block {queryData :: Block}
-  | Exception {message :: ByteString}
+  | Exception {message :: Error.ClickhouseException}
   | Progress {prog :: Progress}
   | StreamProfileInfo {profile :: BlockStreamProfileInfo}
   | EndOfStream
