@@ -17,6 +17,7 @@ where
 
 import qualified ClickHouseDriver.Core.Block as Block
 import qualified ClickHouseDriver.Core.Block as Block
+import qualified ClickHouseDriver.Core.Error as Error
 import qualified ClickHouseDriver.Core.ClientProtocol as Client
 import ClickHouseDriver.Core.Column
 import ClickHouseDriver.Core.Defines
@@ -40,7 +41,8 @@ import Data.Word
 import Network.HTTP.Client
 import qualified Network.Simple.TCP as TCP
 import Network.Socket
-
+import System.Timeout
+import Control.Monad.Loops (iterateWhile)
 
 --Debug 
 import Debug.Trace 
@@ -51,6 +53,29 @@ import Debug.Trace
 
 versionTuple :: ServerInfo -> (Word, Word, Word)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
+
+
+-- | set timeout to 10 seconds
+ping :: Int->TCPConnection->IO(Maybe String)
+ping timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
+  = timeout timelimit $ do
+      r <- execWriterT $ do 
+        writeVarUInt Client._PING
+      TCP.sendLazy sock (toLazyByteString r)
+      buf <- createBuffer 1024 sock
+      (packet_type,_) <- runStateT (iterateWhile ( == Server._PROGRESS) readVarInt) buf
+      if packet_type /= Server._PONG
+        then do
+          let p_type = Server.toString $ fromIntegral packet_type
+          let report = "Unexpected packet from server " <> show host <> ":" 
+                      <> show port <> ", expected " <> "Pong!" <> ", got " 
+                      <> show p_type
+          return $ show Error.ServerException{
+                      code = Error._UNEXPECTED_PACKET_FROM_SERVER,
+                      message = report,
+                      nested = Nothing
+                  }
+        else return "PONG!"
 
 sendHello :: (ByteString, ByteString, ByteString) -> Socket -> IO ()
 sendHello (database, usrname, password) sock = do

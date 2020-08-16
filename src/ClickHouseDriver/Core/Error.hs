@@ -1,6 +1,4 @@
-module ClickHouseDriver.Core.Error (
-
-) where
+module ClickHouseDriver.Core.Error where
 
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 (unpack)
@@ -8,14 +6,14 @@ import ClickHouseDriver.IO.BufferedReader
 
 data ClickhouseException 
     = ServerException {
-        message :: ByteString,
-        code :: !Word,
-        nested :: ClickhouseException
+        message :: String,
+        code :: !Integer,
+        nested :: Maybe ClickhouseException
     } 
 
 instance Show ClickhouseException where
     show (ServerException message code nested)
-        = "Code " ++ show code ++ "." ++ show nested ++ " " ++ unpack message
+        = "Code " ++ show code ++ "." ++ show nested ++ " " ++ message
 
 _UNSUPPORTED_METHOD = 1
 _UNSUPPORTED_PARAMETER = 2

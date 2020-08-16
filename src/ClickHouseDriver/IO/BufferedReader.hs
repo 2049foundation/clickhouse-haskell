@@ -17,7 +17,7 @@ module ClickHouseDriver.IO.BufferedReader
     readBinaryUInt32,
     readBinaryUInt16,
     Reader,
-    Buffer,
+    Buffer(..),
     createBuffer
   )
 where
