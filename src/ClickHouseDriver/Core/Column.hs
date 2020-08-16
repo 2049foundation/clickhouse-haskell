@@ -1,6 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module ClickHouseDriver.Core.Column where
+module ClickHouseDriver.Core.Column(
+  getColumnWithSpec,
+  ClickhouseType(..),
+  transpose
+) where
 
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
@@ -21,7 +25,8 @@ import qualified Data.Map as Map
 import Data.Time (Day, addDays, fromGregorian, toGregorian)
 import Network.IP.Addr (IP4(..), IP6(..))
 --Debug 
-import Debug.Trace 
+import Debug.Trace
+import Data.Bits
 
 data ClickhouseType
   = CKBool Bool
@@ -63,7 +68,7 @@ getColumnWithSpec n_rows spec
   | "Date"     `isPrefixOf` spec = readDate n_rows spec
   | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
-  | "LowCardinality" `isPrefixOf` spec = undefined--TODO
+  | "LowCardinality" `isPrefixOf` spec = readLowCadinality n_rows spec
   | "Decimal" `isPrefixOf` spec = readDecimal n_rows spec
   | "Enum" `isPrefixOf` spec = readEnum n_rows spec
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
@@ -72,12 +77,6 @@ getColumnWithSpec n_rows spec
   | "IPv6" `isPrefixOf` spec = readIPv6 n_rows
   | "SimpleAggregateFunction" `isPrefixOf` spec = readSimpleAggregateFunction n_rows spec
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
-
-readStatePrefix :: Reader Word64
-readStatePrefix = readBinaryUInt64
-
-readNull :: Reader Word8
-readNull = readBinaryUInt8
 
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
@@ -104,10 +103,26 @@ readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKFixedLengthString strlen) <$> (readBinaryStrWithLength strlen)
 
 readDateTime ::  Int -> ByteString -> Reader (Vector ClickhouseType)
-readDateTime n_rows spec
-          | "DateTime64" `isPrefixOf` spec = undefined
-          |  otherwise = undefined 
-
+readDateTime n_rows spec = undefined
+  
+readLowCadinality :: Int->ByteString->Reader (Vector ClickhouseType)
+readLowCadinality 0 _ = return (V.fromList [])
+readLowCadinality n spec = do
+  let l = BS.length spec
+  let inner = BS.take (l - 16) (BS.drop 15 spec)
+  serialization_type <- readBinaryUInt64
+  -- Lowest bytes contains info about key type
+  let key_type = serialization_type .&. 0xf
+  index_size <- readBinaryUInt64
+  -- TODO need to consider Nullable cases 
+  index <- getColumnWithSpec (fromIntegral index_size) inner
+  readBinaryUInt64
+  keys <- case key_type of
+            0 ->V.map fromIntegral <$> V.replicateM n readBinaryUInt8
+            1 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt16
+            2 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt32
+            3 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt64
+  return (fmap (\k->index ! k) keys)
 {-
           Informal description for this config:
           (\Null | \SOH)^{n_rows}
