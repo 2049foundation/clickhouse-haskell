@@ -327,6 +327,7 @@ writeInfo
 -------------------------------------------------------------------------------------------------------------------
 ---Helpers 
 
+{-# INLINE closeBufferSocket #-}
 closeBufferSocket :: Reader ()
 closeBufferSocket = do
   buf <- get
