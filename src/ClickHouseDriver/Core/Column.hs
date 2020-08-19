@@ -27,6 +27,10 @@ import Network.IP.Addr (IP4(..), IP6(..))
 --Debug 
 import Debug.Trace
 import Data.Bits
+import Data.UnixTime (formatUnixTimeGMT, UnixTime(..), webDateFormat)
+import Foreign.C.Types (CTime(..))
+import Data.Maybe
+import Data.Int
 
 data ClickhouseType
   = CKBool Bool
@@ -102,9 +106,43 @@ readFixed n_rows spec = do
 readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKFixedLengthString strlen) <$> (readBinaryStrWithLength strlen)
 
+
 readDateTime ::  Int -> ByteString -> Reader (Vector ClickhouseType)
-readDateTime n_rows spec = undefined
-  
+readDateTime n_rows spec = do
+  let (scale, spc) = readTimeSpec spec
+  case spc of
+    Nothing -> error "Error : can't read localzone"
+    Just tz_name -> readDateTimeWithSpec n_rows scale tz_name
+    where 
+      readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
+      readTimeSpec spec'
+                  | "DateTime64" `isPrefixOf` spec' = do
+                        let l = BS.length spec'
+                        let innerspecs = BS.take (l - 11) (BS.drop 10 spec')
+                        let splited = getSpecs innerspecs
+                        case splited of
+                          [] -> (Nothing, Nothing)
+                          [x] -> (Just $ fst $ fromJust $ readInt x, Just "")
+                          [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
+                  | otherwise = do
+                        let l = BS.length spec'
+                        let innerspecs = BS.take (l - 9) (BS.drop 8 spec')
+                        (Nothing, Just innerspecs)
+
+      readDateTimeWithSpec :: Int -> Maybe Int->ByteString->Reader (Vector ClickhouseType)
+      readDateTimeWithSpec n_rows Nothing tz_name = do
+        data32 <- readIntColumn n_rows "Int32"
+        let toDateTimeString = V.map (\(CKInt32 x) -> 
+                formatUnixTimeGMT webDateFormat $
+                UnixTime (CTime $ fromIntegral x) 0) data32
+        return $ V.map CKString toDateTimeString
+      readDateTimeWithSpec n_rows (Just scl) tz_name = do
+        data64 <- readIntColumn n_rows "Int64"
+        let toDateTimeString = V.map (\(CKInt64 x) ->
+                formatUnixTimeGMT webDateFormat $
+                UnixTime (CTime (x / 2)) 0) data64
+        return $ V.map CKString toDateTimeString
+
 readLowCadinality :: Int->ByteString->Reader (Vector ClickhouseType)
 readLowCadinality 0 _ = return (V.fromList [])
 readLowCadinality n spec = do

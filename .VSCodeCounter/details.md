@@ -1,10 +1,10 @@
 # Details
 
-Date : 2020-08-16 08:29:18
+Date : 2020-08-19 16:31:33
 
 Directory /home/darth/EMQX/clickhouse-haskell-1/src
 
-Total : 19 files,  1883 codes, 120 comments, 314 blanks, all 2317 lines
+Total : 19 files,  1929 codes, 124 comments, 312 blanks, all 2365 lines
 
 [summary](results.md)
 
@@ -16,17 +16,17 @@ Total : 19 files,  1883 codes, 120 comments, 314 blanks, all 2317 lines
 | [src/ClickHouseDriver/Core/Block.hs](/src/ClickHouseDriver/Core/Block.hs) | Haskell | 82 | 3 | 19 | 104 |
 | [src/ClickHouseDriver/Core/Client.hs](/src/ClickHouseDriver/Core/Client.hs) | Haskell | 70 | 11 | 18 | 99 |
 | [src/ClickHouseDriver/Core/ClientProtocol.hs](/src/ClickHouseDriver/Core/ClientProtocol.hs) | Haskell | 22 | 7 | 17 | 46 |
-| [src/ClickHouseDriver/Core/Column.hs](/src/ClickHouseDriver/Core/Column.hs) | Haskell | 234 | 32 | 33 | 299 |
-| [src/ClickHouseDriver/Core/Connection.hs](/src/ClickHouseDriver/Core/Connection.hs) | Haskell | 292 | 8 | 27 | 327 |
+| [src/ClickHouseDriver/Core/Column.hs](/src/ClickHouseDriver/Core/Column.hs) | Haskell | 269 | 32 | 35 | 336 |
+| [src/ClickHouseDriver/Core/Connection.hs](/src/ClickHouseDriver/Core/Connection.hs) | Haskell | 299 | 11 | 25 | 335 |
 | [src/ClickHouseDriver/Core/Defines.hs](/src/ClickHouseDriver/Core/Defines.hs) | Haskell | 34 | 4 | 31 | 69 |
-| [src/ClickHouseDriver/Core/Error.hs](/src/ClickHouseDriver/Core/Error.hs) | Haskell | 398 | 0 | 11 | 409 |
+| [src/ClickHouseDriver/Core/Error.hs](/src/ClickHouseDriver/Core/Error.hs) | Haskell | 401 | 1 | 9 | 411 |
 | [src/ClickHouseDriver/Core/HTTP/Client.hs](/src/ClickHouseDriver/Core/HTTP/Client.hs) | Haskell | 161 | 20 | 27 | 208 |
 | [src/ClickHouseDriver/Core/HTTP/Connection.hs](/src/ClickHouseDriver/Core/HTTP/Connection.hs) | Haskell | 29 | 3 | 9 | 41 |
 | [src/ClickHouseDriver/Core/HTTP/Helpers.hs](/src/ClickHouseDriver/Core/HTTP/Helpers.hs) | Haskell | 60 | 4 | 10 | 74 |
 | [src/ClickHouseDriver/Core/HTTP/Types.hs](/src/ClickHouseDriver/Core/HTTP/Types.hs) | Haskell | 18 | 1 | 5 | 24 |
 | [src/ClickHouseDriver/Core/QueryProcessingStage.hs](/src/ClickHouseDriver/Core/QueryProcessingStage.hs) | Haskell | 4 | 0 | 4 | 8 |
 | [src/ClickHouseDriver/Core/ServerProtocol.hs](/src/ClickHouseDriver/Core/ServerProtocol.hs) | Haskell | 36 | 14 | 16 | 66 |
-| [src/ClickHouseDriver/Core/Types.hs](/src/ClickHouseDriver/Core/Types.hs) | Haskell | 131 | 2 | 18 | 151 |
+| [src/ClickHouseDriver/Core/Types.hs](/src/ClickHouseDriver/Core/Types.hs) | Haskell | 132 | 2 | 18 | 152 |
 | [src/ClickHouseDriver/IO/BufferedReader.hs](/src/ClickHouseDriver/IO/BufferedReader.hs) | Haskell | 150 | 2 | 39 | 191 |
 | [src/ClickHouseDriver/IO/BufferedWriter.hs](/src/ClickHouseDriver/IO/BufferedWriter.hs) | Haskell | 82 | 6 | 21 | 109 |
 | [src/ClickHouseDriver/Include/varuint.h](/src/ClickHouseDriver/Include/varuint.h) | C++ | 9 | 0 | 3 | 12 |

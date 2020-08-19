@@ -49,6 +49,7 @@ library
       src
   build-depends:
       aeson
+    , unix-time
     , data-dword
     , network-ip
     , io-streams
