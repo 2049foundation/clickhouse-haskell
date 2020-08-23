@@ -189,7 +189,7 @@ So far the native interface does not support insertion query. Query results usin
 ```Haskell
 main :: IO ()
 main = do
-    env <- defaultClient
+    env <- defaultClient --localhost 9000
     res <- execute "SHOW TABLES" env
     print res
 ```
