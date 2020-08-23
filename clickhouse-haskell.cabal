@@ -27,7 +27,8 @@ source-repository head
 
 library
   exposed-modules:
-      ClickHouseDriver
+      ClickHouseDriver.Core
+      ClickHouseDriver.Core.HTTP
       ClickHouseDriver.Core.HTTP.Helpers
       ClickHouseDriver.Core.HTTP.Client
       ClickHouseDriver.Core.HTTP.Types

@@ -4,7 +4,8 @@
 
 module Main where
 
-import           ClickHouseDriver
+import           ClickHouseDriver.Core
+import           ClickHouseDriver.Core.HTTP
 import           Control.Monad.ST
 import           Data.Text
 import qualified Data.Text.IO as TIO
@@ -120,7 +121,7 @@ readManyVarInt = do
         else do
             next <- readManyVarInt
             return (int : next)
-    
+{-
 mainTest :: IO()
 mainTest = do
     print "Test Section"
@@ -130,6 +131,7 @@ mainTest = do
     res <- execute "select * from crd2" env
     closeConnection conn
     print res
+-}
 
 writes ::ByteString->IO (ByteString)
 writes str = do
@@ -142,25 +144,6 @@ data SocketReader = SocketReader {
     readFromSock :: Socket->IO(ByteString)
 }
 
-manualTCP :: IO()
-manualTCP = do
-    print "manual"
-    conn <- defaultClient
-    case conn of
-        Left e -> print e
-        Right settings->do
-            print "connected"
-            sendQuery "select * from crd2" Nothing settings
-            sendData "" settings
-            case settings of
-                TCPConnection {tcpSocket=sock}-> do
-                    x <- TCP.recv sock 2048
-                    print x
-                    y <- TCP.recv sock 2048
-                    print y
-                    z <- TCP.recv sock 2048
-                    print z
-                    TCP.closeSock sock
 main' :: IO()
 main' = do
     env <- httpClient "default" "12345612341"
@@ -171,8 +154,8 @@ main' = do
     result <- runQuery env (getText "select * from test")
     TIO.putStr result
 
-main :: IO()
-main = do
+main'' :: IO()
+main'' = do
     env <- httpClient "default" "12345612341"
     isSuccess <- insertFromFile "test_table" CSV "./test/example.csv" env
     putStr (case isSuccess of
@@ -180,3 +163,9 @@ main = do
         Left x -> CL8.unpack x)
     query <- runQuery env (getText "SELECT * FROM test_table")
     TIO.putStr query
+
+main :: IO ()
+main = do
+    env <- defaultClient
+    res <- execute "SHOW TABLES" env
+    print res

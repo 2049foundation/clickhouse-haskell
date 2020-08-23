@@ -5,7 +5,6 @@
 
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
-    defaultClient,
     TCPConnection (..),
     sendQuery,
     receiveData,
@@ -142,9 +141,6 @@ receiveHello' = do
           e3 <- readBinaryStr
           return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
         else return $ Left "Error"
-
-defaultClient :: IO (Either String TCPConnection)
-defaultClient = tcpConnect "localhost" "9000" "default" "12345612341" "default" False
 
 tcpConnect ::
   ByteString ->

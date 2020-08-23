@@ -185,5 +185,18 @@ stdout:
 
 So far the native interface does not support insertion query.
 
+## **Example of showing how to make query with the native interface**
+```Haskell
+main :: IO ()
+main = do
+    env <- defaultClient
+    res <- execute "SHOW TABLES" env
+    print res
+```
+stdout:
+```
+[[CKString "test"],[CKString "test_table"],[CKString "test_table2"]]
+```
+
 
 
