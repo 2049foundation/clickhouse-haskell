@@ -96,6 +96,7 @@ data Packet
   | Exception {message :: Error.ClickhouseException}
   | Progress {prog :: Progress}
   | StreamProfileInfo {profile :: BlockStreamProfileInfo}
+  | MultiString (ByteString, ByteString)
   | EndOfStream
   deriving (Show)
 

@@ -11,6 +11,7 @@ import qualified Data.Text.IO as TIO
 import           Network.HTTP.Client
 import           Data.ByteString      hiding (putStr)  
 import qualified Data.ByteString.Char8 as C8
+import qualified Data.ByteString.Lazy.Char8 as CL8
 import           Foreign.C
 import           ClickHouseDriver.IO.BufferedWriter
 import           ClickHouseDriver.IO.BufferedReader
@@ -160,8 +161,22 @@ manualTCP = do
                     z <- TCP.recv sock 2048
                     print z
                     TCP.closeSock sock
+main' :: IO()
+main' = do
+    env <- httpClient "default" "12345612341"
+    create <- exec "CREATE TABLE test (x Int32) ENGINE = Memory" env
+    print create
+    isSuccess <- insertOneRow "test" [CKInt32 100] env
+    print isSuccess
+    result <- runQuery env (getText "select * from test")
+    TIO.putStr result
+
 main :: IO()
 main = do
     env <- httpClient "default" "12345612341"
-    result <- runQuery env (getText "show tables")
-    TIO.putStr result
+    isSuccess <- insertFromFile "test_table" CSV "./test/example.csv" env
+    putStr (case isSuccess of
+        Right y -> y
+        Left x -> CL8.unpack x)
+    query <- runQuery env (getText "SELECT * FROM test_table")
+    TIO.putStr query

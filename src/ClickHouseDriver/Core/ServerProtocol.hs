@@ -61,6 +61,7 @@ typeStr =
     ]
 
 toString :: Int -> ByteString
-toString n
-  | n > 11 || n < 0 = "Unknown Packet"
-  | otherwise = typeStr ! n
+toString n = 
+  case typeStr !? n of
+    Nothing -> "Unknown Packet"
+    Just t -> t

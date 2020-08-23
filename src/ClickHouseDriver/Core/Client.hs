@@ -79,7 +79,6 @@ fetchData settings fetch = do
     let sock = tcpSocket settings
     buf <- createBuffer _BUFFER_SIZE sock
     (res, _) <- runStateT (receiveResult server_info) buf
-    ---TCP.closeSock sock -- will change it later.
     return res
   either
     (putFailure var)
@@ -93,8 +92,8 @@ client :: Either String TCPConnection -> IO(Env () w)
 client (Left e) = error e
 client (Right tcp) = initEnv (stateSet (settings tcp) stateEmpty) ()
 
-executeQuery :: String -> GenHaxl u w (Vector (Vector ClickhouseType))
-executeQuery = dataFetch . FetchData
-
 execute :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
 execute query env = runHaxl env (executeQuery query)
+  where
+    executeQuery :: String -> GenHaxl u w (Vector (Vector ClickhouseType))
+    executeQuery = dataFetch . FetchData

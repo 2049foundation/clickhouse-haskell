@@ -270,7 +270,10 @@ receiveResult info = do
         7 -> (receiveData info) >>= (return . Block) -- Total
         8 -> (receiveData info) >>= (return . Block) -- Extreme
        -- 10 -> return undefined
-       -- 11 -> return undefined
+        11 -> do
+          first <- readBinaryStr
+          second <- readBinaryStr
+          return $ MultiString (first, second)
        -- 0 -> return undefined
         _ -> do
          -- closeBufferSocket

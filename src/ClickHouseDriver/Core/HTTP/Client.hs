@@ -25,7 +25,8 @@ module ClickHouseDriver.Core.HTTP.Client
     ping,
     insertFromFile,
     defaultHttpClient,
-    httpClient
+    httpClient,
+    exec
   )
 where
 
@@ -67,7 +68,6 @@ import ClickHouseDriver.Core.Column
 import qualified System.IO.Streams as Streams
 import System.IO hiding (char8)
 import System.FilePath
-
 
 {-Implementation in Haxl-}
 --
@@ -131,8 +131,6 @@ fetchData settings fetches = do
     (putSuccess var)
     (e :: Either SomeException (BS.ByteString))
       
-
-
 -- | Fetch data from ClickHouse client in the text format.
 getByteString :: String -> GenHaxl u w BS.ByteString
 getByteString = dataFetch . FetchByteString
@@ -151,13 +149,26 @@ getTextM = mapM getText
 getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m JSONResult)
 getJsonM = mapM getJSON
 
+exec :: String->Env HttpConnection w->IO (Either C8.ByteString String)
+exec cmd' env = do
+  let cmd = C8.pack cmd'
+  let settings@(HttpConnection _ _ _ _ mng) = userEnv env
+  url <- genURL settings ""
+  req <- parseRequest url
+  ans <- responseBody <$> httpLbs req{ method = "POST"
+  , requestBody = RequestBodyLBS cmd} mng
+  if ans /= ""
+    then return $ Left ans -- error message
+    else return $ Right "Created successfully"
+
 insertOneRow :: String
              -> [ClickhouseType]
-             -> HttpConnection
+             -> Env HttpConnection w
              -> IO (Either C8.ByteString String)
-insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
+insertOneRow table_name arr environment = do
   let row = toString arr
   let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
+  let settings@(HttpConnection _ _ _ _ mng) = userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
@@ -168,13 +179,14 @@ insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
 
 insertMany :: String
            -> [[ClickhouseType]]
-           -> HttpConnection
+           -> Env HttpConnection w
            -> IO(Either C8.ByteString String)
-insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
+insertMany table_name rows environment = do
   let rowsString = map (lazyByteString . C8.pack . toString) rows
       comma =  char8 ','
       preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
       togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
+  let settings@(HttpConnection _ _ _ _ mng) = userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{method = "POST"
@@ -184,14 +196,15 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
     then return $ Left ans
     else return $ Right "Successful insertion"
 
-insertFromFile :: String->Format->FilePath->HttpConnection->IO(Either C8.ByteString String)
-insertFromFile table_name format file settings@(HttpConnection _ _ _ _ mng) = do
+insertFromFile :: String->Format->FilePath->Env HttpConnection w->IO(Either C8.ByteString String)
+insertFromFile table_name format file environment = do
   fileReqBody <- streamFile file
-  url <- genURL settings ("INSERT INTO " <> table_name <> " VALUES " 
+  let settings@(HttpConnection _ _ _ _ mng) = userEnv environment
+  url <- genURL settings ("INSERT INTO " <> table_name 
     <> case format of
-          CSV->"FORMAT CSV"
-          JSON->"FORMAT JSON"
-          TUPLE->"")
+          CSV->" FORMAT CSV"
+          JSON->" FORMAT JSON"
+          TUPLE->" VALUES")
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req {method = "POST"
   , requestBody = fileReqBody} mng
@@ -203,16 +216,16 @@ ping :: GenHaxl u w BS.ByteString
 ping = dataFetch $ Ping
 
 -- | Default environment
-setupEnv ::HttpConnection -> IO (Env () w)
-setupEnv csetting = initEnv (stateSet (settings csetting) stateEmpty) ()
+setupEnv :: (MonadIO m)=>HttpConnection -> m (Env HttpConnection w)
+setupEnv csetting = liftIO $ initEnv (stateSet (settings csetting) stateEmpty) csetting
 
-defaultHttpClient :: IO (Env () w)
-defaultHttpClient = defaultHttpConnection >>= setupEnv
+defaultHttpClient :: (MonadIO m)=>m (Env HttpConnection w)
+defaultHttpClient = liftIO $ defaultHttpConnection >>= setupEnv
 
-httpClient :: String->String->IO(Env () w)
-httpClient user password = httpConnect user password Defines._DEFAULT_HTTP_PORT Defines._DEFAULT_HOST >>= setupEnv
+httpClient :: (MonadIO m)=> String->String-> m(Env HttpConnection w)
+httpClient user password = liftIO $ httpConnect user password Defines._DEFAULT_HTTP_PORT Defines._DEFAULT_HOST >>= setupEnv
 
 -- | rename runHaxl function.
 {-# INLINE runQuery #-}
-runQuery :: Env u w -> GenHaxl u w a -> IO a
-runQuery = runHaxl
+runQuery :: (MonadIO m)=> Env u w -> GenHaxl u w a -> m a
+runQuery env haxl = liftIO $ runHaxl env haxl

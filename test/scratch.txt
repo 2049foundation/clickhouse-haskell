@@ -6,3 +6,7 @@ Just "\SOH\NUL\SOH\NUL\STX\255\255\255\255\NUL\SOH\EOT\EOTitem\DLENullable(Strin
 
 [[CKArray []],[CKArray [CKArray [CKInt16 45,CKInt16 45,CKInt16 45],CKArray [CKInt16 1,CKInt16 2,CKInt16 3,CKInt16 4],
 CKArray [CKInt16 0,CKInt16 1,CKInt16 2,CKInt16 3,CKInt16 121,CKInt16 2],CKArray [CKInt16 42,CKInt16 (-10988),CKInt16 66,CKInt16 676,CKInt16 0]]]]
+
+
+
+Left "Code: 27, e.displayText() = DB::Exception: Cannot parse input: expected ',' before: '\\n\\n': (at row 5)\n\nRow 4:\nColumn 0,   name: id,       type: FixedString(10), parsed text: \"0000000014\"\nColumn 1,   name: item,     type: String,          parsed text: \"Bob\"\nColumn 2,   name: number,   type: Int16,           parsed text: \"126\"\nColumn 3,   name: numArray, type: Array(Int16),    parsed text: \"<SINGLE QUOTE>[11,12,13]<SINGLE QUOTE>\"\n\nRow 5:\nColumn 0,   name: id,       type: FixedString(10), parsed text: <EMPTY>\nERROR: Line feed found where delimiter (,) is expected. It's like your file has less columns than expected.\nAnd if your file have right number of columns, maybe it have unescaped quotes in values.\n\n (version 20.6.3.28 (official build))\n"
