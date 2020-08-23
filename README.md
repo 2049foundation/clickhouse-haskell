@@ -183,7 +183,7 @@ stdout:
 **Usage of the Native(TCP) interface**
 ==========================
 
-So far the native interface does not support insertion query.
+So far the native interface does not support insertion query. Query results using this interface will only display in the form of the ADT mentioned above. 
 
 ## **Example of showing how to make query with the native interface**
 ```Haskell
@@ -194,9 +194,6 @@ main = do
     print res
 ```
 stdout:
-```
+``` Haskell
 [[CKString "test"],[CKString "test_table"],[CKString "test_table2"]]
 ```
-
-
-
