@@ -53,7 +53,8 @@ genURL HttpConnection {
            writeIn host
            writeIn ":"
            writeIn $ show port   
-           --writeIn "/?query="
+           writeIn "/"
+           if cmd == "ping" then return () else writeIn "?query="
          let res = basicUrl ++ NE.encode cmd
          return res
 

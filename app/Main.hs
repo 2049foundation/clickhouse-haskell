@@ -6,11 +6,10 @@ module Main where
 
 import           ClickHouseDriver
 import           Control.Monad.ST
-import           Haxl.Core
-import           Haxl.Core.Monad
 import           Data.Text
+import qualified Data.Text.IO as TIO
 import           Network.HTTP.Client
-import           Data.ByteString        
+import           Data.ByteString      hiding (putStr)  
 import qualified Data.ByteString.Char8 as C8
 import           Foreign.C
 import           ClickHouseDriver.IO.BufferedWriter
@@ -32,7 +31,9 @@ import           ClickHouseDriver.Core.Column
 import           ClickHouseDriver.Core.HTTP.Helpers
 import qualified Network.URI.Encode as NE
 import qualified System.IO.Streams as Streams
-import           System.IO
+import           System.IO hiding (putStr)
+import           Data.Int
+import           Data.Bits
 
 someReader :: R.Reader Int Int
 someReader = do
@@ -122,10 +123,10 @@ readManyVarInt = do
 mainTest :: IO()
 mainTest = do
     print "Test Section"
-    conn <- defaultTCPConnection
+    conn <- defaultClient
     env <- client conn
     print "connected"
-    res <- execute "select * from big" env
+    res <- execute "select * from crd2" env
     closeConnection conn
     print res
 
@@ -143,12 +144,12 @@ data SocketReader = SocketReader {
 manualTCP :: IO()
 manualTCP = do
     print "manual"
-    conn <- defaultTCPConnection
+    conn <- defaultClient
     case conn of
         Left e -> print e
         Right settings->do
             print "connected"
-            sendQuery "select * from dt" Nothing settings
+            sendQuery "select * from crd2" Nothing settings
             sendData "" settings
             case settings of
                 TCPConnection {tcpSocket=sock}-> do
@@ -159,49 +160,8 @@ manualTCP = do
                     z <- TCP.recv sock 2048
                     print z
                     TCP.closeSock sock
-
-writeNulls :: IO ByteString
-writeNulls = do
-    (_, r) <- runWriterT $ do
-        writeVarUInt 0
-        writeVarUInt 0
-        writeVarUInt 1
-    return r
-
-
-testWrie = do
-    str <- writeNulls
-    print str
-    print (Data.ByteString.unpack str)
-    let nullable = "Nullable(Int8)" :: ByteString
-    let l = Data.ByteString.length nullable
-    let s = Data.ByteString.take (l - 10) (Data.ByteString.drop 9 nullable)
-    print s
-
-
-testInt16 :: IO ByteString
-testInt16 = do
-    (_, r) <- runWriterT $ do
-        writeBinaryInt16 1
-        writeBinaryInt16 2
-        writeBinaryInt16 3
-        writeBinaryInt16 1024
-    return r
-
-x = if (Prelude.length x > 100) then x else 0 : x
-
-comma :: ByteString
-comma = " "
-
-testparse = do
-    let ck = [CKString "0987654321", CKString "Connan", CKInt32 9984, CKArray $ V.fromList [CKInt32 24]]
-    let str = toString ck
-    print str
-    return str
-
-cat :: FilePath -> IO(Maybe ByteString)
-cat file = withFile file ReadMode $ \h->do
-    is <- Streams.handleToInputStream h
-    Streams.read is
-
-main = manualTCP
+main :: IO()
+main = do
+    env <- httpClient "default" "12345612341"
+    result <- runQuery env (getText "show tables")
+    TIO.putStr result

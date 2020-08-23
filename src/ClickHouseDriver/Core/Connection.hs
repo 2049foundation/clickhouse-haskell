@@ -5,7 +5,7 @@
 
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
-    defaultTCPConnection,
+    defaultClient,
     TCPConnection (..),
     sendQuery,
     receiveData,
@@ -143,8 +143,8 @@ receiveHello' = do
           return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
         else return $ Left "Error"
 
-defaultTCPConnection :: IO (Either String TCPConnection)
-defaultTCPConnection = tcpConnect "localhost" "9000" "default" "12345612341" "default" False
+defaultClient :: IO (Either String TCPConnection)
+defaultClient = tcpConnect "localhost" "9000" "default" "12345612341" "default" False
 
 tcpConnect ::
   ByteString ->
@@ -269,13 +269,18 @@ receiveResult info = do
         6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo)  --Profile
         7 -> (receiveData info) >>= (return . Block) -- Total
         8 -> (receiveData info) >>= (return . Block) -- Extreme
+       -- 10 -> return undefined
+       -- 11 -> return undefined
+       -- 0 -> return undefined
         _ -> do
-          closeBufferSocket
+         -- closeBufferSocket
           return Exception {message = Error.ServerException{
                                     code = Error._UNKNOWN_PACKET_FROM_SERVER,
                                     message = "Unknown packet from server",
                                     nested = Nothing
                               }}
+
+
 
 closeConnection :: Either String TCPConnection->IO ()
 closeConnection (Right TCPConnection{tcpSocket=sock}) = TCP.closeSock sock

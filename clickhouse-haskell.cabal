@@ -32,6 +32,7 @@ library
       ClickHouseDriver.Core.HTTP.Client
       ClickHouseDriver.Core.HTTP.Types
       ClickHouseDriver.Core.HTTP.Connection
+      ClickHouseDriver.Core.Error
       ClickHouseDriver.Core.QueryProcessingStage
       ClickHouseDriver.Core.Defines
       ClickHouseDriver.Core.ServerProtocol
@@ -49,6 +50,10 @@ library
       src
   build-depends:
       aeson
+    , io-streams
+    , uri-encode
+    , attoparsec
+    , mtl
     , unix-time
     , data-dword
     , network-ip
@@ -96,6 +101,8 @@ executable clickhouse-haskell-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , io-streams
+    , uri-encode
     , mtl
     , array
     , attoparsec
@@ -139,6 +146,8 @@ test-suite clickhouse-haskell-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , io-streams
+    , uri-encode 
     , mtl
     , HUnit
     , array

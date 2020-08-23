@@ -17,7 +17,7 @@ import Data.ByteString.Builder
 import Data.ByteString.Char8 (readInt)
 import Data.Int
 import Data.Traversable
-import Data.Vector (Vector, (!))
+import Data.Vector (Vector, (!), (!?))
 import qualified Data.Vector as V
 import Data.Word
 import qualified Data.List as List
@@ -68,7 +68,7 @@ getColumnWithSpec n_rows spec
   | "String" `isPrefixOf` spec = V.replicateM n_rows (CKString <$> readBinaryStr)
   | "Array" `isPrefixOf` spec = readArray n_rows spec
   | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
-  | "DateTime" `isPrefixOf` spec = undefined --TODO
+  | "DateTime" `isPrefixOf` spec = readDateTime n_rows spec
   | "Date"     `isPrefixOf` spec = readDate n_rows spec
   | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
@@ -106,7 +106,6 @@ readFixed n_rows spec = do
 readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKFixedLengthString strlen) <$> (readBinaryStrWithLength strlen)
 
-
 readDateTime ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTime n_rows spec = do
   let (scale, spc) = readTimeSpec spec
@@ -138,29 +137,38 @@ readDateTime n_rows spec = do
         return $ V.map CKString toDateTimeString
       readDateTimeWithSpec n_rows (Just scl) tz_name = do
         data64 <- readIntColumn n_rows "Int64"
+        let scale = 10 ^ fromIntegral scl
         let toDateTimeString = V.map (\(CKInt64 x) ->
                 formatUnixTimeGMT webDateFormat $
-                UnixTime (CTime (x / 2)) 0) data64
+                UnixTime (CTime $ x `div` scale) 0) data64
         return $ V.map CKString toDateTimeString
 
 readLowCadinality :: Int->ByteString->Reader (Vector ClickhouseType)
 readLowCadinality 0 _ = return (V.fromList [])
 readLowCadinality n spec = do
+  readBinaryUInt64 --prefix
   let l = BS.length spec
   let inner = BS.take (l - 16) (BS.drop 15 spec)
   serialization_type <- readBinaryUInt64
   -- Lowest bytes contains info about key type
   let key_type = serialization_type .&. 0xf
   index_size <- readBinaryUInt64
-  -- TODO need to consider Nullable cases 
+  -- TODO need to consider Nullable cases
   index <- getColumnWithSpec (fromIntegral index_size) inner
-  readBinaryUInt64
+  readBinaryUInt64 -- #keys
   keys <- case key_type of
             0 ->V.map fromIntegral <$> V.replicateM n readBinaryUInt8
             1 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt16
             2 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt32
             3 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt64
-  return (fmap (\k->index ! k) keys)
+  if "Nullable" `isPrefixOf` inner
+    then do 
+      let nullable' = fmap (\k->index !? (k - 1)) keys
+          nullable = fmap (\s->case s of
+                            Nothing->CKNull
+                            Just a-> a) nullable'
+      return nullable
+    else return $ fmap (\k->index ! k) keys
 {-
           Informal description for this config:
           (\Null | \SOH)^{n_rows}

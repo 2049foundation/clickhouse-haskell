@@ -1,50 +1,90 @@
-<<<<<<< HEAD
-# clickhouse-haskell
+**Clickhouse-haskell**
+======================
+ClickHouse Haskell Driver with HTTP and native (TCP) interface support.
+However, the native interface does not support insertion, i.e. read only.
 
-Haskell driver for ClickHouse
-=======
-# clickhouse-haskell-
-This project is Haskell driver for ClickHouse.
-## Example
+Features
+========
 
+* External Data for query processing
+* Types support
+    * [U]Int8/16/32/64
+    * String/FixedString(N)
+    * Array(T)
+    * Nullable(T)
+    * Decimal
+    * SimpleAggregateFunction(F, T)
+    * Tuple(T1, T2, ...)
+    * Date/DateTime('timezone')/DateTime64('timezone')
+    * Enum8/16
+    * Nested
+* Query progress information.
+* Block by block results streaming.
+* Reading query profile info.
+* Receiving server logs.
 
-Let's see the names of the databases in the clickhouse server.
-```haskell
-module Main where
+Usage
+=====
 
-import ClickHouseDriver
+In the HTTP client, data can be fetched from Clickhouse server in the format of pure text string, and structured JSON in which user can read the value according to a given key.
+
+## **Example of data fetch using http client**
+```Haskell
+import ClickHouseDriver.Core
+import qualified Data.Text.IO as TIO
 
 main :: IO()
 main = do
-    let deSetting = ClickHouseConnectionSettings {
-        ciHost = "localhost",
-        ciPassword = "",
-        ciPort = 8123,
-        ciUsername = "default"
-    }
-    env <- defaultEnv deSetting --set up environment (i.e. username, password etc.).
-    result <- runQuery env (getJSON "SHOW DATABASES")
-    print result
+    env <- httpClient "default" "" --username and password
+    showtables <- runQuery env (getText "SHOW TABLES")
+    TIO.putStr showtables
+    --Fetching 1 queries.
+    --array0
+    --array1
+    --array_t
+    --array_test
+    --array_test2
+    --big
+    --cardin
+    --crd
+    --crd2
+    --dt
+    --int_test
+    --ip
+    --t
+    --tande
+    --tande2
+    --tande3
+    --test_table
+    --test_table2
+    --test_table3
+    --test_table4
+    --test_table5
+    --test_table6
+    --tuple
+    --tuple2
+
+    puretext <- runQuery env (getText "SELECT * FROM test_table")
+    TIO.putStr puretext
+    -- Fetching 1 queries.
+    --9987654321      Suzuki  12507   [667]
+    --9987654321      Suzuki  12507   [667]
+    --0000000001      JOHN    1557    [45,45,45]
+    --1234567890      CONNOR  533     [1,2,3,4]
+    --3543364534      MARRY   220     [0,1,2,3,121,2]
+    --2258864346      JAME    4452    [42,-10988,66,676,0]
+    --0987654321      Connan  9984    [24]
+    --0987654321      Connan  9984    [24]
+    --9987654321      Suzuki  12507   [667]
+    json <- runQuery env (getJSON "SELECT * FROM test_table")
+    print json
+    -- Right [fromList [("numArray",Array [Number 45.0,Number 45.0,Number 45.0]),("item",   String "JOHN"),("id",String "0000000001"),("number",Number 1557.0)],fromList [("numArray",Array [Number 1.0,Number 2.0,Number 3.0,Number 4.0]),("item",String "CONNOR"),("id",String "1234567890"),("number",Number 533.0)],fromList [("numArray",Array [Number 0.0,Number 1.0,Number 2.0,Number 3.0,Number 121.0,Number 2.0]),("item",String "MARRY"),("id",String "3543364534"),("number",Number 220.0)],fromList [("numArray",Array [Number 42.0,Number -10988.0,Number 66.0,Number 676.0,Number 0.0]),("item",String "JAME"),("id",String "2258864346"),("number",Number 4452.0)],fromList [("numArray",Array [Number 24.0]),("item",String "Connan"),("id",String "0987654321"),("number",Number 9984.0)],fromList [("numArray",Array [Number 24.0]),("item",String "Connan"),("id",String "0987654321"),("number",Number 9984.0)],fromList [("numArray",Array [Number 667.0]),("item",String "Suzuki"),("id",String "9987654321"),("number",Number 12507.0)],fromList [("numArray",Array [Number 667.0]),("item",String "Suzuki"),("id",String "9987654321"),("number",Number 12507.0)],fromList [("numArray",Array [Number 667.0]),("item",String "Suzuki"),("id",String "9987654321"),("number",Number 12507.0)]]
+```
+
+There is also a built-in Clickhouse type for user to send data in rows to Clickhouse server.
+
+## **Example of how to send data from memory**
+```Haskell
 
 ```
-Outputs:
-```
-Right [fromList [("name",String "DEMO")],fromList [("name",String "_temporary_and_external_tables")],fromList [("name",String "default")],fromList [("name",String "system")]]
-```
-The 'result' variable is in type strict hashmap wrapped in Either.
 
-We can fetch values by keys. For example:
-```haskell
-case result of
-    Left _-> print "err"
-    Right (v:values)-> print $ HM.lookup "name" v
-```
-
-which returns
-
-```
-String "DEMO"
-```
-
-Three datatypes of query result are in support; they are CSV, JSON, and Text which are all implemented in the Hackage library. Also support Multiple fetches. 
->>>>>>> docs(README.md): add some docs

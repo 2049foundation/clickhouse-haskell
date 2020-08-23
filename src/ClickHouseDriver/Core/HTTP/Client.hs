@@ -23,13 +23,16 @@ module ClickHouseDriver.Core.HTTP.Client
     insertOneRow,
     insertMany,
     ping,
-    insertFromFile
+    insertFromFile,
+    defaultHttpClient,
+    httpClient
   )
 where
 
 import ClickHouseDriver.Core.HTTP.Connection
 import ClickHouseDriver.Core.HTTP.Helpers
 import ClickHouseDriver.Core.HTTP.Types
+import ClickHouseDriver.Core.Defines as Defines
 import Control.Concurrent.Async
 import Control.Exception
 import qualified Data.ByteString as BS
@@ -55,7 +58,6 @@ import Network.HTTP.Client
     RequestBody(..),
     streamFile
   )
-import Network.HTTP.Types.Status (statusCode)
 import qualified Network.Simple.TCP as TCP 
 import Network.Socket (SockAddr, Socket)
 import Text.Printf
@@ -88,6 +90,7 @@ instance Hashable (HttpClient a) where
   hashWithSalt salt (FetchByteString cmd) = hashWithSalt salt cmd
   hashWithSalt salt (FetchJSON cmd) = hashWithSalt salt cmd
   hashWithSalt salt (FetchCSV cmd) = hashWithSalt salt cmd
+  hashWithSalt salt Ping = hashWithSalt salt ("ok"::BS.ByteString)
 
 instance DataSourceName HttpClient where
   dataSourceName _ = "ClickhouseDataSource"
@@ -112,10 +115,10 @@ fetchData ::
   IO ()
 fetchData settings fetches = do
   let (queryWithType, var) = case fetches of
-        BlockedFetch (FetchJSON query) var' -> ("/?query=" ++ query ++ " FORMAT JSON", var')
-        BlockedFetch (FetchCSV query) var' -> ("/?query=" ++ query ++ " FORMAT CSV", var')
-        BlockedFetch (FetchByteString query) var' -> ("/?query=" ++ query, var')
-        BlockedFetch Ping var' -> ("/ping", var')
+        BlockedFetch (FetchJSON query) var' -> (query ++ " FORMAT JSON", var')
+        BlockedFetch (FetchCSV query) var' -> (query ++ " FORMAT CSV", var')
+        BlockedFetch (FetchByteString query) var' -> (query, var')
+        BlockedFetch Ping var' -> ("ping", var')
   e <- Control.Exception.try $ do
     case settings of
       HttpConnection _ _ _ _ mng -> do
@@ -155,7 +158,7 @@ insertOneRow :: String
 insertOneRow table_name arr settings@(HttpConnection _ _ _ _ mng) = do
   let row = toString arr
   let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
-  url <- genURL settings "/?query="
+  url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
   , requestBody = RequestBodyLBS cmd} mng
@@ -172,7 +175,7 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
       comma =  char8 ','
       preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
       togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
-  url <- genURL settings "/?query="
+  url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{method = "POST"
   , requestBody = RequestBodyLBS $ toLazyByteString togo} mng
@@ -184,7 +187,7 @@ insertMany table_name rows settings@(HttpConnection _ _ _ _ mng) = do
 insertFromFile :: String->Format->FilePath->HttpConnection->IO(Either C8.ByteString String)
 insertFromFile table_name format file settings@(HttpConnection _ _ _ _ mng) = do
   fileReqBody <- streamFile file
-  url <- genURL settings ("/?query=INSERT INTO " <> table_name <> " VALUES " 
+  url <- genURL settings ("INSERT INTO " <> table_name <> " VALUES " 
     <> case format of
           CSV->"FORMAT CSV"
           JSON->"FORMAT JSON"
@@ -203,6 +206,13 @@ ping = dataFetch $ Ping
 setupEnv ::HttpConnection -> IO (Env () w)
 setupEnv csetting = initEnv (stateSet (settings csetting) stateEmpty) ()
 
+defaultHttpClient :: IO (Env () w)
+defaultHttpClient = defaultHttpConnection >>= setupEnv
+
+httpClient :: String->String->IO(Env () w)
+httpClient user password = httpConnect user password Defines._DEFAULT_HTTP_PORT Defines._DEFAULT_HOST >>= setupEnv
+
 -- | rename runHaxl function.
+{-# INLINE runQuery #-}
 runQuery :: Env u w -> GenHaxl u w a -> IO a
 runQuery = runHaxl
