@@ -15,7 +15,8 @@ module ClickHouseDriver.Core.Client
   ( execute,
     deploySettings,
     client,
-    defaultClient
+    defaultClient,
+    closeClient
   )
 where
 
@@ -101,3 +102,8 @@ execute query env = runHaxl env (executeQuery query)
   where
     executeQuery :: String -> GenHaxl u w (Vector (Vector ClickhouseType))
     executeQuery = dataFetch . FetchData
+  
+closeClient :: Env TCPConnection w -> IO()
+closeClient env = do
+  let TCPConnection{tcpSocket=sock} = userEnv env
+  TCP.closeSock sock

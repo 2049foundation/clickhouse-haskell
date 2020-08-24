@@ -97,6 +97,7 @@ data Packet
   | Progress {prog :: Progress}
   | StreamProfileInfo {profile :: BlockStreamProfileInfo}
   | MultiString (ByteString, ByteString)
+  | Hello
   | EndOfStream
   deriving (Show)
 

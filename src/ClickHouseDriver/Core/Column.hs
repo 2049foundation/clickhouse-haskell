@@ -154,7 +154,9 @@ readLowCadinality n spec = do
   let key_type = serialization_type .&. 0xf
   index_size <- readBinaryUInt64
   -- TODO need to consider Nullable cases
+  trace (C8.unpack inner) return 0
   index <- getColumnWithSpec (fromIntegral index_size) inner
+  trace "index2" return 0
   readBinaryUInt64 -- #keys
   keys <- case key_type of
             0 ->V.map fromIntegral <$> V.replicateM n readBinaryUInt8
@@ -163,6 +165,7 @@ readLowCadinality n spec = do
             3 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt64
   if "Nullable" `isPrefixOf` inner
     then do 
+      trace "nullable" return 0
       let nullable' = fmap (\k->index !? (k - 1)) keys
           nullable = fmap (\s->case s of
                             Nothing->CKNull
@@ -341,5 +344,24 @@ transpose cdata =
        in toVector
 
 -- | print in format
-format :: Vector (Vector ClickhouseType) -> String
-format = undefined
+
+{-
+format :: Vector (Vector ClickhouseType) -> ByteString
+format v = foldl1 () V.map tostr v
+  where
+    tostr :: Vector ClickhouseType -> ByteString
+    tostr row = V.map help row
+
+    help :: ClickhouseType->ByteString
+    help (CKString s) = s
+    help (CKInt8 n) = C8.pack $ show n
+    help (CKInt16 n) = C8.pack $ show n
+    help (CKInt32 n) = C8.pack $ show n
+    help (CKInt64 n) = C8.pack $ show n
+    help (CKUInt8 n) = C8.pack $ show n
+    help (CKUInt16 n) = C8.pack $ show n
+    help (CKUInt32 n) = C8.pack $ show n
+    help (CKUInt64 n) = C8.pack $ show n
+    help (CKFixedLengthString _ s) = s
+    help _ = ""
+-}

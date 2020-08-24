@@ -90,7 +90,7 @@ stdout:
     print json
 ```
 stdout:
-```
+```Haskell
     Right [fromList [("numArray",Array [Number 45.0,Number 45.0,Number 45.0]),("item",   String "JOHN"),("id",String "0000000001"),("number",Number 1557.0)],fromList [("numArray",Array [Number 1.0,Number 2.0,Number 3.0,Number 4.0]),("item",String "CONNOR"),("id",String "1234567890"),("number",Number 533.0)],fromList [("numArray",Array [Number 0.0,Number 1.0,Number 2.0,Number 3.0,Number 121.0,Number 2.0]),("item",String "MARRY"),("id",String "3543364534"),("number",Number 220.0)],fromList [("numArray",Array [Number 42.0,Number -10988.0,Number 66.0,Number 676.0,Number 0.0]),("item",String "JAME"),("id",String "2258864346"),("number",Number 4452.0)],fromList [("numArray",Array [Number 24.0]),("item",String "Connan"),("id",String "0987654321"),("number",Number 9984.0)],fromList [("numArray",Array [Number 24.0]),("item",String "Connan"),("id",String "0987654321"),("number",Number 9984.0)],fromList [("numArray",Array [Number 667.0]),("item",String "Suzuki"),("id",String "9987654321"),("number",Number 12507.0)],fromList [("numArray",Array [Number 667.0]),("item",String "Suzuki"),("id",String "9987654321"),("number",Number 12507.0)],fromList [("numArray",Array [Number 667.0]),("item",String "Suzuki"),("id",String "9987654321"),("number",Number 12507.0)]]
 ```
 

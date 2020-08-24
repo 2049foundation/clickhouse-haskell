@@ -42,7 +42,6 @@ import qualified Network.Simple.TCP as TCP
 import Network.Socket
 import System.Timeout
 import Control.Monad.Loops (iterateWhile)
-
 --Debug 
 import Debug.Trace 
 
@@ -265,14 +264,14 @@ receiveResult info = do
         6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo)  --Profile
         7 -> (receiveData info) >>= (return . Block) -- Total
         8 -> (receiveData info) >>= (return . Block) -- Extreme
-       -- 10 -> return undefined
+       -- 10 -> return undefined -- Log
         11 -> do
           first <- readBinaryStr
           second <- readBinaryStr
           return $ MultiString (first, second)
-       -- 0 -> return undefined
+        0 -> return Hello -- Hello
         _ -> do
-         -- closeBufferSocket
+          closeBufferSocket
           return Exception {message = Error.ServerException{
                                     code = Error._UNKNOWN_PACKET_FROM_SERVER,
                                     message = "Unknown packet from server",
@@ -281,9 +280,8 @@ receiveResult info = do
 
 
 
-closeConnection :: Either String TCPConnection->IO ()
-closeConnection (Right TCPConnection{tcpSocket=sock}) = TCP.closeSock sock
-closeConnection (Left e) = print e
+closeConnection :: TCPConnection->IO ()
+closeConnection TCPConnection{tcpSocket=sock} = TCP.closeSock sock
 
 writeInfo ::
   (MonoidMap ByteString w) =>

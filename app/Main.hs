@@ -36,6 +36,7 @@ import qualified System.IO.Streams as Streams
 import           System.IO hiding (putStr)
 import           Data.Int
 import           Data.Bits
+import           Haxl.Core
 
 someReader :: R.Reader Int Int
 someReader = do
@@ -121,6 +122,24 @@ readManyVarInt = do
         else do
             next <- readManyVarInt
             return (int : next)
+
+manualTCP :: IO()
+manualTCP = do
+    print "manual"
+    env <- defaultClient
+    let conn = userEnv env
+    print "connected"
+    sendQuery "select * from crd2" Nothing conn
+    sendData "" conn
+    case conn of
+        TCPConnection {tcpSocket=sock}-> do
+            x <- TCP.recv sock 2048
+            print x
+            y <- TCP.recv sock 2048
+            print y
+            z <- TCP.recv sock 2048
+            print z
+            TCP.closeSock sock
 {-
 mainTest :: IO()
 mainTest = do
@@ -167,5 +186,7 @@ main'' = do
 main :: IO ()
 main = do
     env <- defaultClient
-    res <- execute "SHOW TABLES" env
+    res <- execute "SELECT * from test_table6" env
     print res
+    closeClient env
+    
