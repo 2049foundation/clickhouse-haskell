@@ -11,6 +11,10 @@ module ClickHouseDriver.Core.Types
     Packet (..),
     readProgress,
     readBlockStreamProfileInfo,
+    QueryInfo(..),
+    storeElasped,
+    storeProfile,
+    storeProgress
   )
 where
 
@@ -21,9 +25,6 @@ import ClickHouseDriver.IO.BufferedWriter
 import Data.ByteString
 import Network.Socket
 import qualified ClickHouseDriver.Core.Error as Error
-
--- Debug 
-import Debug.Trace
 
 data ServerInfo = ServerInfo
   { name :: {-# UNPACK #-} !ByteString,
@@ -44,10 +45,11 @@ data TCPConnection = TCPConnection
     tcpSocket :: !Socket,
     tcpSockAdrr :: !SockAddr,
     serverInfo :: {-# UNPACK #-} !ServerInfo,
+    queryInfo :: Maybe QueryInfo,
     tcpCompression :: {-# UNPACK #-} !Word
   }
   deriving (Show)
-
+------------------------------------------------------------------
 data ClientInfo = ClientInfo
   { client_name :: {-# UNPACK #-} !ByteString,
     interface :: Interface,
@@ -78,7 +80,7 @@ getDefaultClientInfo name =
       quota_key = "",
       query_kind = INITIAL_QUERY
     }
-
+-------------------------------------------------------------------
 data Interface = TCP | HTTP
   deriving (Show, Eq)
 
@@ -100,7 +102,7 @@ data Packet
   | Hello
   | EndOfStream
   deriving (Show)
-
+------------------------------------------------------------
 data Progress = Prog
   { rows :: {-# UNPACK #-} !Word,
     bytes :: {-# UNPACK #-} !Word,
@@ -131,7 +133,7 @@ readProgress server_revision = do
       return $ Prog rows bytes total_rows written_rows written_bytes
     else do
       return $ Prog rows bytes total_rows 0 0
-
+----------------------------------------------------------------------
 data BlockStreamProfileInfo = ProfileInfo
   { number_rows :: {-# UNPACK #-} !Word,
     blocks :: {-# UNPACK #-} !Word,
@@ -151,3 +153,21 @@ readBlockStreamProfileInfo = do
   rows_before_limit <- readVarInt
   calculated_rows_before_limit <- (>= 0) <$> readBinaryUInt8
   return $ ProfileInfo rows blocks bytes applied_limit rows_before_limit calculated_rows_before_limit
+-----------------------------------------------------------------------
+data QueryInfo = QueryInfo 
+ { profile_info :: BlockStreamProfileInfo,
+   progress :: Progress,
+   elapsed :: !Word
+ } deriving Show
+
+storeProfile :: QueryInfo->BlockStreamProfileInfo->QueryInfo
+storeProfile (QueryInfo profile progress elapsed) newprofile 
+              = QueryInfo newprofile progress elapsed
+
+storeProgress :: QueryInfo->Progress->QueryInfo
+storeProgress (QueryInfo profile progress elapsed) newprogress 
+              = QueryInfo profile (increment progress newprogress) elapsed
+
+storeElasped :: QueryInfo->Word->QueryInfo
+storeElasped (QueryInfo profile progress elapsed) newelapsed
+              = QueryInfo profile progress newelapsed

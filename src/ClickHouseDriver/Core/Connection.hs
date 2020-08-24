@@ -168,6 +168,7 @@ tcpConnect host port user password database compression = do
               tcpSocket = sock,
               tcpSockAdrr = sockaddr,
               serverInfo = x,
+              queryInfo = Nothing,
               tcpCompression = isCompressed
             }
     Left "Exception" -> return $ Left "exception"
@@ -310,9 +311,7 @@ writeInfo
       writeBinaryStr initial_user
       writeBinaryStr initial_query_id
       writeBinaryStr initial_address
-
       writeVarUInt (if interface == HTTP then 0 else 1)
-
       writeBinaryStr "" -- os_user. Seems that haskell modules don't have support of getting system username yet.
       writeBinaryStr host_name
       writeBinaryStr "haskell" --client_name

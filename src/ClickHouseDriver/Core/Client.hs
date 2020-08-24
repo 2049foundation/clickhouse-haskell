@@ -55,7 +55,7 @@ instance Hashable (Query a) where
   hashWithSalt salt (FetchData cmd) = hashWithSalt salt cmd
 
 instance DataSourceName Query where
-  dataSourceName _ = "ClickhouseDataSource"
+  dataSourceName _ = "ClickhouseServer"
 
 instance DataSource u Query where
   fetch (Settings settings) _flags _usrenv = SyncFetch $ \blockedFetches -> do
@@ -66,9 +66,6 @@ instance DataSource u Query where
 
 instance StateKey Query where
   data State Query = Settings TCPConnection
-
-settings :: TCPConnection -> State Query
-settings = Settings
 
 fetchData :: TCPConnection -> BlockedFetch Query -> IO ()
 fetchData settings fetch = do
@@ -88,14 +85,14 @@ fetchData settings fetch = do
     (e :: Either SomeException (Vector (Vector ClickhouseType)))
 
 deploySettings :: TCPConnection -> IO (Env TCPConnection w)
-deploySettings tcp = initEnv (stateSet (settings tcp) stateEmpty) tcp
+deploySettings tcp = initEnv (stateSet (Settings tcp) stateEmpty) tcp
 
 defaultClient :: IO(Env TCPConnection w)
 defaultClient = tcpConnect "localhost" "9000" "default" "12345612341" "default" False >>= client
 
 client :: Either String TCPConnection -> IO(Env TCPConnection w)
 client (Left e) = error e
-client (Right tcp) = initEnv (stateSet (settings tcp) stateEmpty) tcp
+client (Right tcp) = initEnv (stateSet (Settings tcp) stateEmpty) tcp
 
 execute :: String -> Env TCPConnection w -> IO (Vector (Vector ClickhouseType))
 execute query env = runHaxl env (executeQuery query)
