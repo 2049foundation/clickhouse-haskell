@@ -51,6 +51,7 @@ library
       src
   build-depends:
       aeson
+    , QuickCheck
     , io-streams
     , uri-encode
     , attoparsec
@@ -66,7 +67,6 @@ library
     , monad-loops
     , word8
     , monad-parallel
-    , HUnit
     , async 
     , hashable
     , array
@@ -78,7 +78,6 @@ library
     , exceptions
     , hashmap
     , haxl
-    , hspec
     , http-client
     , network
     , network-simple
