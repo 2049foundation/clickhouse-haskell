@@ -21,22 +21,9 @@ import qualified Data.Vector as V
 import Data.Word
 import ClickHouseDriver.Core.Column
 import qualified Data.List as List
-
+import ClickHouseDriver.Core.Types
 --Debug
 import Debug.Trace
-
-data BlockInfo = Info
-  { is_overflows :: Bool,
-    bucket_num :: Int32
-  } 
-  deriving Show
-
-data Block = ColumnOrientedBlock
-  { columns_with_type :: Vector (ByteString, ByteString),
-    cdata :: Vector (Vector ClickhouseType),
-    info :: BlockInfo
-  }
-  deriving Show
 
 defaultBlockInfo :: BlockInfo
 defaultBlockInfo =

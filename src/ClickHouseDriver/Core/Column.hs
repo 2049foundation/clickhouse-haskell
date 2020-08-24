@@ -31,35 +31,7 @@ import Data.UnixTime (formatUnixTimeGMT, UnixTime(..), webDateFormat)
 import Foreign.C.Types (CTime(..))
 import Data.Maybe
 import Data.Int
-
-data ClickhouseType
-  = CKBool Bool
-  | CKInt8 Int8
-  | CKInt16 Int16
-  | CKInt32 Int32
-  | CKInt64 Int64
-  | CKUInt8 Word8
-  | CKUInt16 Word16
-  | CKUInt32 Word32
-  | CKUInt64 Word64
-  | CKString ByteString
-  | CKFixedLengthString Int ByteString
-  | CKTuple (Vector ClickhouseType)
-  | CKArray (Vector ClickhouseType)
-  | CKDecimal32 Float
-  | CKDecimal64 Float
-  | CKDecimal128 Float
-  | CKDateTime
-  | CKIPv4 IP4
-  | CKIPv6 IP6
-  | CKDate {
-    year :: !Integer,
-    month :: !Int,
-    day :: !Int 
-  }
-  | CKNull
-  deriving (Show, Eq)
-
+import ClickHouseDriver.Core.Types
 ---------------------------------------------------------------------------------------
 ---Readers 
 

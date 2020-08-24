@@ -12,19 +12,73 @@ module ClickHouseDriver.Core.Types
     readProgress,
     readBlockStreamProfileInfo,
     QueryInfo(..),
+    Progress(..),
+    BlockStreamProfileInfo(..),
     storeElasped,
     storeProfile,
-    storeProgress
+    storeProgress,
+    defaultProfile,
+    defaultProgress,
+    defaultQueryInfo,
+    ClickhouseType(..),
+    BlockInfo(..),
+    Block(..),
+    CKResult(..)
   )
 where
 
-import ClickHouseDriver.Core.Block
 import qualified ClickHouseDriver.Core.Defines as Defines
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
 import Data.ByteString
 import Network.Socket
 import qualified ClickHouseDriver.Core.Error as Error
+import Data.Vector (Vector)
+import Data.Int
+import Data.Word
+import Network.IP.Addr (IP4(..), IP6(..))
+
+data BlockInfo = Info
+  { is_overflows :: Bool,
+    bucket_num :: Int32
+  } 
+  deriving Show
+
+data Block = ColumnOrientedBlock
+  { columns_with_type :: Vector (ByteString, ByteString),
+    cdata :: Vector (Vector ClickhouseType),
+    info :: BlockInfo
+  }
+  deriving Show
+
+data ClickhouseType
+  = CKBool Bool
+  | CKInt8 Int8
+  | CKInt16 Int16
+  | CKInt32 Int32
+  | CKInt64 Int64
+  | CKUInt8 Word8
+  | CKUInt16 Word16
+  | CKUInt32 Word32
+  | CKUInt64 Word64
+  | CKString ByteString
+  | CKFixedLengthString Int ByteString
+  | CKTuple (Vector ClickhouseType)
+  | CKArray (Vector ClickhouseType)
+  | CKDecimal32 Float
+  | CKDecimal64 Float
+  | CKDecimal128 Float
+  | CKDateTime
+  | CKIPv4 IP4
+  | CKIPv6 IP6
+  | CKDate {
+    year :: !Integer,
+    month :: !Int,
+    day :: !Int 
+  }
+  | CKNull
+  deriving (Show, Eq)
+
 
 data ServerInfo = ServerInfo
   { name :: {-# UNPACK #-} !ByteString,
@@ -45,7 +99,6 @@ data TCPConnection = TCPConnection
     tcpSocket :: !Socket,
     tcpSockAdrr :: !SockAddr,
     serverInfo :: {-# UNPACK #-} !ServerInfo,
-    queryInfo :: Maybe QueryInfo,
     tcpCompression :: {-# UNPACK #-} !Word
   }
   deriving (Show)
@@ -133,6 +186,9 @@ readProgress server_revision = do
       return $ Prog rows bytes total_rows written_rows written_bytes
     else do
       return $ Prog rows bytes total_rows 0 0
+
+defaultProgress :: Progress
+defaultProgress = Prog 0 0 0 0 0
 ----------------------------------------------------------------------
 data BlockStreamProfileInfo = ProfileInfo
   { number_rows :: {-# UNPACK #-} !Word,
@@ -143,6 +199,9 @@ data BlockStreamProfileInfo = ProfileInfo
     calculated_rows_before_limit :: {-# UNPACK #-} !Bool
   }
   deriving Show
+
+defaultProfile :: BlockStreamProfileInfo
+defaultProfile = ProfileInfo 0 0 0 False 0 False
 
 readBlockStreamProfileInfo :: Reader BlockStreamProfileInfo
 readBlockStreamProfileInfo = do
@@ -171,3 +230,18 @@ storeProgress (QueryInfo profile progress elapsed) newprogress
 storeElasped :: QueryInfo->Word->QueryInfo
 storeElasped (QueryInfo profile progress elapsed) newelapsed
               = QueryInfo profile progress newelapsed
+
+defaultQueryInfo :: QueryInfo
+defaultQueryInfo = 
+  QueryInfo
+  { progress = defaultProgress,
+    profile_info = defaultProfile,
+    elapsed = 0
+  }
+-------------------------------------------------------------------------
+
+data CKResult = CKResult
+ { query_result :: Vector (Vector ClickhouseType),
+   query_info :: QueryInfo
+ }
+ deriving Show

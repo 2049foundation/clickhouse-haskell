@@ -122,7 +122,7 @@ readManyVarInt = do
         else do
             next <- readManyVarInt
             return (int : next)
-
+{-
 manualTCP :: IO()
 manualTCP = do
     print "manual"
@@ -140,6 +140,7 @@ manualTCP = do
             z <- TCP.recv sock 2048
             print z
             TCP.closeSock sock
+-}
 {-
 mainTest :: IO()
 mainTest = do

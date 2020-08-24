@@ -5,7 +5,6 @@
 
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
-    TCPConnection (..),
     sendQuery,
     receiveData,
     sendData,
@@ -168,7 +167,6 @@ tcpConnect host port user password database compression = do
               tcpSocket = sock,
               tcpSockAdrr = sockaddr,
               serverInfo = x,
-              queryInfo = Nothing,
               tcpCompression = isCompressed
             }
     Left "Exception" -> return $ Left "exception"
@@ -234,13 +232,19 @@ receiveData ServerInfo {revision = revision} = do
   block <- Block.readBlockInputStream
   return block
 
-receiveResult :: ServerInfo -> Reader (Vector (Vector ClickhouseType))
-receiveResult info = do
+receiveResult :: ServerInfo->QueryInfo-> Reader CKResult
+receiveResult info queryinfo = do
   packets <- packetGen
   let onlyDataPacket = filter isBlock packets
       dataVectors = (ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData) <$> onlyDataPacket
-  return $ (V.concat dataVectors)
+      newQueryInfo = Prelude.foldl updateQueryInfo queryinfo packets
+  return $ CKResult (V.concat dataVectors) newQueryInfo
   where
+    updateQueryInfo :: QueryInfo->Packet->QueryInfo
+    updateQueryInfo q (Progress prog) = storeProgress q prog
+    updateQueryInfo q (StreamProfileInfo profile) = storeProfile q profile
+    updateQueryInfo q _ = q
+
     isBlock :: Packet -> Bool
     isBlock Block {queryData=Block.ColumnOrientedBlock{cdata=d}} = (V.length d > 0 &&  V.length (d ! 0) > 0)
     isBlock _ = False
@@ -278,8 +282,6 @@ receiveResult info = do
                                     message = "Unknown packet from server",
                                     nested = Nothing
                               }}
-
-
 
 closeConnection :: TCPConnection->IO ()
 closeConnection TCPConnection{tcpSocket=sock} = TCP.closeSock sock
