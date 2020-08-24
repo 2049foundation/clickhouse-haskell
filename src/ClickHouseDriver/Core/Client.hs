@@ -96,11 +96,16 @@ client :: Either String TCPConnection -> IO(Env () w)
 client (Left e) = error e
 client (Right tcp) = initEnv (stateSet (Settings tcp) stateEmpty) ()
 
-execute :: String -> Env () w -> IO (CKResult)
-execute query env = runHaxl env (executeQuery query)
+execute1 :: String->Env () w->IO (CKResult)
+execute1 query env = runHaxl env (executeQuery query)
   where
     executeQuery :: String -> GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
+
+execute :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
+execute query env = do
+  CKResult{query_result=r} <- execute1 query env
+  return r  
   
 closeClient :: Env () w -> IO()
 closeClient env = do
@@ -108,4 +113,5 @@ closeClient env = do
   let get :: Maybe (State Query) = stateGet st
   case get of
     Nothing -> return ()
-    Just (Settings TCPConnection{tcpSocket=sock}) -> TCP.closeSock sock 
+    Just (Settings TCPConnection{tcpSocket=sock})
+     -> TCP.closeSock sock 
