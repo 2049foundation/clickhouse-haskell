@@ -1,7 +1,7 @@
 **Clickhouse-haskell**
 ======================
 ClickHouse Haskell Driver with HTTP and native (TCP) interface support.
-However, the native interface does not support insertion, i.e. read only.
+However, the native interface does not support insertion (read only) so far.
 
 **Features**
 ========
