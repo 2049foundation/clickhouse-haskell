@@ -4,7 +4,7 @@
 module ClickHouseDriver.Core.ServerProtocol where
 
 import Data.ByteString (ByteString)
-import Data.Vector
+import Data.Vector (Vector, (!?), fromList)
 import Data.Word
 
 -- Name, version, revision

@@ -3,8 +3,8 @@
 
 module ClickHouseDriver.Core.ClientProtocol where
 
-import Data.ByteString
-import Data.Vector
+import Data.ByteString (ByteString)
+import Data.Vector (Vector, (!?), fromList)
 
 -- Name, version, revision, default DB
 _HELLO = 0 :: Word

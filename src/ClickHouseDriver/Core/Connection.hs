@@ -24,11 +24,11 @@ import qualified ClickHouseDriver.Core.ServerProtocol as Server
 import ClickHouseDriver.Core.Types
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
-import Control.Monad.State.Lazy
+import Control.Monad.State.Lazy (runStateT, get)
 import Control.Monad.Writer
 import qualified Data.Binary as Binary
 import Data.ByteString hiding (filter, unpack)
-import Data.ByteString.Builder
+import Data.ByteString.Builder (toLazyByteString, Builder)
 import Data.ByteString.Char8 (unpack)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as L
@@ -36,13 +36,12 @@ import Data.Int
 import qualified Data.Vector as V
 import Data.Vector (Vector, (!))
 import Data.Word
-import Network.HTTP.Client
 import qualified Network.Simple.TCP as TCP
-import Network.Socket
+import Network.Socket (Socket)
 import System.Timeout
 import Control.Monad.Loops (iterateWhile)
 --Debug 
-import Debug.Trace 
+import Debug.Trace (trace)
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"

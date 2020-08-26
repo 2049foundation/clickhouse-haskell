@@ -8,20 +8,17 @@ module ClickHouseDriver.Core.Column(
 
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
-import Control.Monad.State.Lazy
 import Data.Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString (ByteString, isPrefixOf)
-import Data.ByteString.Builder
 import Data.ByteString.Char8 (readInt)
 import Data.Int
-import Data.Traversable
 import Data.Vector (Vector, (!), (!?))
 import qualified Data.Vector as V
 import Data.Word
 import qualified Data.List as List
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Time (Day, addDays, fromGregorian, toGregorian)
 import Network.IP.Addr (IP4(..), IP6(..))
 --Debug 
@@ -29,7 +26,7 @@ import Debug.Trace
 import Data.Bits
 import Data.UnixTime (formatUnixTimeGMT, UnixTime(..), webDateFormat)
 import Foreign.C.Types (CTime(..))
-import Data.Maybe
+import Data.Maybe (fromJust)
 import Data.Int
 import ClickHouseDriver.Core.Types
 ---------------------------------------------------------------------------------------
