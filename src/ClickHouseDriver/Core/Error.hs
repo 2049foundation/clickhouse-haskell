@@ -6,42 +6,46 @@ import Data.ByteString.Char8 (unpack)
 import ClickHouseDriver.IO.BufferedReader
 import Debug.Trace
 
-data ClickhouseException 
-    = ServerException {
-        message :: String,
-        code :: !Integer,
-        nested :: Maybe ClickhouseException
-    } 
+data ClickhouseException = ServerException
+  { message :: String,
+    code :: !Integer,
+    nested :: Maybe ClickhouseException
+  }
 
 instance Show ClickhouseException where
-    show (ServerException message code nested)
-        = "Code " ++ show code ++ "." ++ (
-            case nested of
-            Nothing->""
-            Just s-> show s) ++ " " ++ message
+  show (ServerException message code nested) =
+    "Code " ++ show code ++ "."
+      ++ ( case nested of
+             Nothing -> ""
+             Just s -> show s
+         )
+      ++ " "
+      ++ message
 
-readException :: Maybe String ->Reader ClickhouseException
+readException :: Maybe String -> Reader ClickhouseException
 readException additional = do
-    code <- readBinaryInt32
-    name <- readBinaryStr
-    messange <- readBinaryStr
-    stack_trace <- readBinaryStr
-    has_nested <- ( == 1) <$> readBinaryUInt8
-    trace ("name " ++ show name) return 0
-    trace ("message " ++ show messange) return 0
-    let hasAdditional = (case additional of
-            Nothing->""
-            Just msg-> msg ++ ".") ++ 
-                if name /= "DB::Exception" 
-                    then unpack name  
-                    else "" ++ "."
-    let new_message = hasAdditional <> show messange <> ". Stack trace:\n\n" <> show stack_trace
-    if has_nested
-        then do
-            nested <- readException Nothing
-            return $ ServerException new_message (fromIntegral code) (Just nested)
-        else do
-            return $ ServerException new_message (fromIntegral code) Nothing 
+  code <- readBinaryInt32
+  name <- readBinaryStr
+  messange <- readBinaryStr
+  stack_trace <- readBinaryStr
+  has_nested <- (== 1) <$> readBinaryUInt8
+  trace ("name " ++ show name) return 0
+  trace ("message " ++ show messange) return 0
+  let hasAdditional =
+        ( case additional of
+            Nothing -> ""
+            Just msg -> msg ++ "."
+        )
+          ++ if name /= "DB::Exception"
+            then unpack name
+            else "" ++ "."
+  let new_message = hasAdditional <> show messange <> ". Stack trace:\n\n" <> show stack_trace
+  if has_nested
+    then do
+      nested <- readException Nothing
+      return $ ServerException new_message (fromIntegral code) (Just nested)
+    else do
+      return $ ServerException new_message (fromIntegral code) Nothing
 
 _UNSUPPORTED_METHOD = 1
 _UNSUPPORTED_PARAMETER = 2

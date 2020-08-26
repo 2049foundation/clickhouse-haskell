@@ -263,13 +263,13 @@ receiveResult info queryinfo = do
       packet_type <- readVarInt
       case packet_type of
         1 -> (receiveData info) >>= (return . Block) -- Data
-        2 -> (Error.readException Nothing) >>= (\err->error $ show err) -- Exception
+        2 -> (Error.readException Nothing) >>= (\err -> error $ show err) -- Exception
         3 -> (readProgress $ revision info) >>= (return . Progress) -- Progress
         5 -> return EndOfStream -- End of Stream
-        6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo)  --Profile
+        6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo) --Profile
         7 -> (receiveData info) >>= (return . Block) -- Total
         8 -> (receiveData info) >>= (return . Block) -- Extreme
-       -- 10 -> return undefined -- Log
+              -- 10 -> return undefined -- Log
         11 -> do
           first <- readBinaryStr
           second <- readBinaryStr
@@ -277,11 +277,13 @@ receiveResult info queryinfo = do
         0 -> return Hello -- Hello
         _ -> do
           closeBufferSocket
-          return Exception {message = Error.ServerException{
-                                    code = Error._UNKNOWN_PACKET_FROM_SERVER,
-                                    message = "Unknown packet from server",
-                                    nested = Nothing
-                              }}
+          error $
+            show
+              Error.ServerException
+                { code = Error._UNKNOWN_PACKET_FROM_SERVER,
+                  message = "Unknown packet from server",
+                  nested = Nothing
+                }
 
 closeConnection :: TCPConnection->IO ()
 closeConnection TCPConnection{tcpSocket=sock} = TCP.closeSock sock

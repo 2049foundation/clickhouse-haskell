@@ -148,7 +148,6 @@ data Context = Context
 
 data Packet
   = Block {queryData :: Block}
-  | Exception {message :: Error.ClickhouseException}
   | Progress {prog :: Progress}
   | StreamProfileInfo {profile :: BlockStreamProfileInfo}
   | MultiString (ByteString, ByteString)
