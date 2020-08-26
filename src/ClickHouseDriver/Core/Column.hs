@@ -230,7 +230,6 @@ readTuple n_rows spec = do
   let transposed = transpose datas
   return $ CKTuple <$> transposed
 
-
 readEnum :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readEnum n_rows spec = do
   let l = BS.length spec
