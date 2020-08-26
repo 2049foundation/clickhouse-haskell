@@ -83,36 +83,6 @@ instance MyType Bool
 myfunc :: (MyType a)=>a->a
 myfunc a = a
 
-testByteString :: IO ByteString
-testByteString = do
-    (_,res) <- runWriterT $ do
-        writeBinaryStr "hello"
-        writeBinaryStr "world"
-        writeBinaryStr "my"
-        writeBinaryStr "darling"
-    return res
-
-readBinaryStrN = V.replicateM 4 readBinaryStr
-
-testIntStr :: IO ByteString
-testIntStr = do
-    (_,res) <- runWriterT $ do
-        writeVarUInt 2
-        writeVarUInt 4
-        writeVarUInt 8
-        writeVarUInt 10
-        writeVarUInt 12
-    return res
-
-testWriteHybrid :: IO ByteString
-testWriteHybrid = do
-    (_,r) <- runWriterT $ do
-        writeBinaryStr "Hello"
-        writeVarUInt 27
-        writeVarUInt 38
-        writeBinaryStr "World"
-    return r
-
 readManyVarInt :: Reader [Word]
 readManyVarInt = do
     int <- readVarInt
@@ -155,7 +125,7 @@ mainTest = do
 
 writes ::ByteString->IO (ByteString)
 writes str = do
-    (_, r) <- runWriterT $ do
+    r <- execWriterT $ do
         writeBinaryStr str
     return r
 
@@ -184,10 +154,11 @@ main'' = do
     query <- runQuery env (getText "SELECT * FROM test_table")
     TIO.putStr query
 
+
 main :: IO ()
 main = do
     env <- defaultClient
-    res <- execute "SELECT * from test_table6" env
+    res <- execute "SELECT * from wrong" env
     print res
     closeClient env
     

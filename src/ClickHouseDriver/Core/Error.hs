@@ -4,6 +4,7 @@ module ClickHouseDriver.Core.Error where
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 (unpack)
 import ClickHouseDriver.IO.BufferedReader
+import Debug.Trace
 
 data ClickhouseException 
     = ServerException {
@@ -14,7 +15,10 @@ data ClickhouseException
 
 instance Show ClickhouseException where
     show (ServerException message code nested)
-        = "Code " ++ show code ++ "." ++ show nested ++ " " ++ message
+        = "Code " ++ show code ++ "." ++ (
+            case nested of
+            Nothing->""
+            Just s-> show s) ++ " " ++ message
 
 readException :: Maybe String ->Reader ClickhouseException
 readException additional = do
@@ -23,12 +27,15 @@ readException additional = do
     messange <- readBinaryStr
     stack_trace <- readBinaryStr
     has_nested <- ( == 1) <$> readBinaryUInt8
-    let new_message = (case additional of
+    trace ("name " ++ show name) return 0
+    trace ("message " ++ show messange) return 0
+    let hasAdditional = (case additional of
             Nothing->""
             Just msg-> msg ++ ".") ++ 
                 if name /= "DB::Exception" 
                     then unpack name  
                     else "" ++ "."
+    let new_message = hasAdditional <> show messange <> ". Stack trace:\n\n" <> show stack_trace
     if has_nested
         then do
             nested <- readException Nothing

@@ -263,7 +263,7 @@ receiveResult info queryinfo = do
       packet_type <- readVarInt
       case packet_type of
         1 -> (receiveData info) >>= (return . Block) -- Data
-        2 -> (Error.readException Nothing) >>= (return . Exception) -- Exception
+        2 -> (Error.readException Nothing) >>= (\err->error $ show err) -- Exception
         3 -> (readProgress $ revision info) >>= (return . Progress) -- Progress
         5 -> return EndOfStream -- End of Stream
         6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo)  --Profile
