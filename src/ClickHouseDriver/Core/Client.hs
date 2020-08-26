@@ -13,6 +13,7 @@
 
 module ClickHouseDriver.Core.Client
   ( execute,
+    execute1,
     deploySettings,
     client,
     defaultClient,

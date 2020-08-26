@@ -158,7 +158,7 @@ main'' = do
 main :: IO ()
 main = do
     env <- defaultClient
-    res <- execute "SELECT * from wrong" env
+    res <- execute1 "SELECT * from test_table" env
     print res
     closeClient env
     

@@ -159,7 +159,7 @@ data Progress = Prog
   { rows :: {-# UNPACK #-} !Word,
     bytes :: {-# UNPACK #-} !Word,
     total_rows :: {-# UNPACK #-} !Word,
-    written_tows :: {-# UNPACK #-} !Word,
+    written_rows :: {-# UNPACK #-} !Word,
     written_bytes :: {-# UNPACK #-} !Word
   }
   deriving (Show)
