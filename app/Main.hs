@@ -92,36 +92,38 @@ readManyVarInt = do
         else do
             next <- readManyVarInt
             return (int : next)
-{-
+
 manualTCP :: IO()
 manualTCP = do
     print "manual"
-    env <- defaultClient
-    let conn = userEnv env
-    print "connected"
-    sendQuery "select * from crd2" Nothing conn
-    sendData "" conn
-    case conn of
-        TCPConnection {tcpSocket=sock}-> do
-            x <- TCP.recv sock 2048
-            print x
-            y <- TCP.recv sock 2048
-            print y
-            z <- TCP.recv sock 2048
-            print z
-            TCP.closeSock sock
--}
-{-
+    conn' <- tcpConnect "localhost" "9000" "default" "12345612341" "default" False
+    case conn' of
+        Left _ -> return ()
+        Right conn -> do
+            print "connected"
+            sendQuery "select * from crd2" Nothing conn
+            sendData "" conn
+            case conn of
+                TCPConnection {tcpSocket=sock}-> do
+                    x <- TCP.recv sock 2048
+                    print x
+                    y <- TCP.recv sock 2048
+                    print y
+                    z <- TCP.recv sock 2048
+                    print z
+                    TCP.closeSock sock
+        
+
+
 mainTest :: IO()
 mainTest = do
     print "Test Section"
     conn <- defaultClient
-    env <- client conn
     print "connected"
-    res <- execute "select * from crd2" env
-    closeConnection conn
+    res <- execute "select * from crd3" conn
+ --   closeConnection conn
     print res
--}
+
 
 writes ::ByteString->IO (ByteString)
 writes str = do
@@ -156,9 +158,5 @@ main'' = do
 
 
 main :: IO ()
-main = do
-    env <- defaultClient
-    res <- execute1 "SELECT * from test_table" env
-    print res
-    closeClient env
+main = mainTest
     

@@ -119,13 +119,11 @@ readLowCadinality n spec = do
   let l = BS.length spec
   let inner = BS.take (l - 16) (BS.drop 15 spec)
   serialization_type <- readBinaryUInt64
-  -- Lowest bytes contains info about key type
+  -- Lowest bytes contains info about key type.
   let key_type = serialization_type .&. 0xf
   index_size <- readBinaryUInt64
-  -- TODO need to consider Nullable cases
-  trace (C8.unpack inner) return 0
-  index <- getColumnWithSpec (fromIntegral index_size) inner
-  trace "index2" return 0
+  -- Strip the 'Nullable' tag to avoid null map reading. 
+  index <- getColumnWithSpec (fromIntegral index_size) (stripNullable inner)
   readBinaryUInt64 -- #keys
   keys <- case key_type of
             0 ->V.map fromIntegral <$> V.replicateM n readBinaryUInt8
@@ -134,13 +132,16 @@ readLowCadinality n spec = do
             3 ->V.map fromIntegral <$>  V.replicateM n readBinaryUInt64
   if "Nullable" `isPrefixOf` inner
     then do 
-      trace "nullable" return 0
-      let nullable' = fmap (\k->index !? (k - 1)) keys
-          nullable = fmap (\s->case s of
-                            Nothing->CKNull
-                            Just a-> a) nullable'
+      let nullable = fmap (\k->if k == 0 then CKNull else index ! k) keys
       return nullable
     else return $ fmap (\k->index ! k) keys
+    where
+      stripNullable :: ByteString->ByteString
+      stripNullable spec
+        | "Nullable" `isPrefixOf` spec = BS.take (l - 10) (BS.drop 9 spec)
+        | otherwise = spec
+        where
+          l = BS.length spec
 {-
           Informal description for this config:
           (\Null | \SOH)^{n_rows}
