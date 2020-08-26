@@ -30,8 +30,8 @@ where
 import qualified ClickHouseDriver.Core.Defines as Defines
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
-import Data.ByteString
-import Network.Socket
+import Data.ByteString (ByteString)
+import Network.Socket (Socket, SockAddr)
 import qualified ClickHouseDriver.Core.Error as Error
 import Data.Vector (Vector)
 import Data.Int
