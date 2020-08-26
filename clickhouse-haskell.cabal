@@ -9,12 +9,12 @@ cabal-version: 1.12
 name:           clickhouse-haskell
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/clickhouse-haskell#readme>
-homepage:       https://github.com/githubuser/clickhouse-haskell#readme
-bug-reports:    https://github.com/githubuser/clickhouse-haskell/issues
-author:         Shi You
+homepage:       https://github.com/MaboroshiChan/clickhouse-haskell-1/blob/master/README.md
+bug-reports:    https://github.com/2049foundation/clickhouse-haskell/issues
+author:         MaboroshiChan
 maintainer:     youshi@emqx.io
-copyright:      2020 Author name here
-license:        BSD3
+copyright:      2020 Shi You
+license:        MIT
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
