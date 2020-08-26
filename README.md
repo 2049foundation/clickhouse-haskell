@@ -18,6 +18,7 @@ However, the native interface does not support insertion (read only) so far.
     * Date/DateTime('timezone')/DateTime64('timezone')
     * Enum8/16
     * Nested
+    * LowCardinality(T)
 * Query progress information.
 * Block by block results streaming.
 * Reading query profile info.
