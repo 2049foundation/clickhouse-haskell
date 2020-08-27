@@ -183,7 +183,7 @@ stdout:
 **Usage of the Native(TCP) interface**
 ==========================
 
-So far the native interface does not support insertion query. Query results using this interface will only display in the form of the ADT mentioned above. 
+So far the native interface does not support insertion query. Query results will display only in the form of the ADT mentioned above. 
 
 ## **Example of showing how to make query with the native interface**
 ```Haskell
@@ -200,7 +200,7 @@ stdout:
 
 ## **Stream profile and process infomation**
 
-The native interface support reading infomations coming from server. Originally they come with the queried data wrapped in the algebraic data types:
+The native interface supports reading infomations coming from server. Originally they come with the queried data wrapped in the algebraic data types:
 
 ```Haskell
 data CKResult = CKResult
