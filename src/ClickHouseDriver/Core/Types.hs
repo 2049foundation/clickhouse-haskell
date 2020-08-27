@@ -37,7 +37,7 @@ import Data.Vector (Vector)
 import Data.Int
 import Data.Word
 import Network.IP.Addr (IP4(..), IP6(..))
-
+-----------------------------------------------------------
 data BlockInfo = Info
   { is_overflows :: Bool,
     bucket_num :: Int32
@@ -50,7 +50,7 @@ data Block = ColumnOrientedBlock
     info :: BlockInfo
   }
   deriving Show
-
+------------------------------------------------------------
 data ClickhouseType
   = CKBool Bool
   | CKInt8 Int8

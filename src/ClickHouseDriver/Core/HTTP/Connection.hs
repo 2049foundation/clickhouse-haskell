@@ -17,11 +17,11 @@ import Network.HTTP.Client
 
 data HttpConnection
   = HttpConnection
-      { httpHost ::                    !String,
+      { httpHost :: {-# UNPACK #-}     !String,
         httpPort :: {-# UNPACK #-}     !Int,
-        httpUsername ::                !String,
+        httpUsername :: {-# UNPACK #-}  !String,
         httpPassword :: {-# UNPACK #-} !String,
-        httpManager ::                 !Manager
+        httpManager ::  {-# UNPACK #-} !Manager
       }
 
 defaultHttpConnection :: IO (HttpConnection)
