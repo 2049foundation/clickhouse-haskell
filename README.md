@@ -204,14 +204,14 @@ The native interface supports reading infomations coming from server. Originally
 
 ```Haskell
 data CKResult = CKResult
- { query_result :: Vector (Vector ClickhouseType),
-   query_info :: QueryInfo
+ { query_result ::  Vector (Vector ClickhouseType),
+   query_info :: {-# UNPACK #-} ! QueryInfo
  }
 
- data QueryInfo = QueryInfo 
- { profile_info :: BlockStreamProfileInfo,
-   progress :: Progress,
-   elapsed :: !Word
+data QueryInfo = QueryInfo 
+ { profile_info :: {-# UNPACK #-} !BlockStreamProfileInfo,
+   progress :: {-# UNPACK #-} !Progress,
+   elapsed :: {-# UNPACK #-} !Word
  }
 
  data BlockStreamProfileInfo = ProfileInfo
