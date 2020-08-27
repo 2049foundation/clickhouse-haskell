@@ -13,7 +13,7 @@
 
 module ClickHouseDriver.Core.Client
   ( execute,
-    execute1,
+    executeWithInfo,
     deploySettings,
     client,
     defaultClient,
@@ -97,15 +97,15 @@ client :: Either String TCPConnection -> IO(Env () w)
 client (Left e) = error e
 client (Right tcp) = initEnv (stateSet (Settings tcp) stateEmpty) ()
 
-execute1 :: String->Env () w->IO (CKResult)
-execute1 query env = runHaxl env (executeQuery query)
+executeWithInfo :: String->Env () w->IO (CKResult)
+executeWithInfo query env = runHaxl env (executeQuery query)
   where
     executeQuery :: String -> GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
 
 execute :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
 execute query env = do
-  CKResult{query_result=r} <- execute1 query env
+  CKResult{query_result=r} <- executeWithInfo query env
   return r  
   
 closeClient :: Env () w -> IO()

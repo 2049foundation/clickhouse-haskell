@@ -117,7 +117,6 @@ data ClickhouseType
   | CKDecimal32 Float
   | CKDecimal64 Float
   | CKDecimal128 Float
-  | CKDateTime
   | CKIPv4 IP4
   | CKIPv6 IP6
   | CKDate {
@@ -198,3 +197,52 @@ stdout:
 ``` Haskell
 [[CKString "test"],[CKString "test_table"],[CKString "test_table2"]]
 ```
+
+## **Stream profile and process infomation**
+
+The native interface support reading infomations coming from server. Originally they come with the queried data wrapped in the algebraic data types:
+
+```Haskell
+data CKResult = CKResult
+ { query_result :: Vector (Vector ClickhouseType),
+   query_info :: QueryInfo
+ }
+
+ data QueryInfo = QueryInfo 
+ { profile_info :: BlockStreamProfileInfo,
+   progress :: Progress,
+   elapsed :: !Word
+ }
+
+ data BlockStreamProfileInfo = ProfileInfo
+  { number_rows :: {-# UNPACK #-} !Word,
+    blocks :: {-# UNPACK #-} !Word,
+    number_bytes :: {-# UNPACK #-} !Word,
+    applied_limit :: {-# UNPACK #-} !Bool,
+    rows_before_limit :: {-# UNPACK #-} !Word,
+    calculated_rows_before_limit :: {-# UNPACK #-} !Bool
+  }
+
+data Progress = Prog
+  { rows :: {-# UNPACK #-} !Word,
+    bytes :: {-# UNPACK #-} !Word,
+    total_rows :: {-# UNPACK #-} !Word,
+    written_rows :: {-# UNPACK #-} !Word,
+    written_bytes :: {-# UNPACK #-} !Word
+  }
+```
+One can use executeWithInfo to get results that come with those information.
+For example:
+```Haskell
+main = do
+    conn <- defaultClient
+    res <- executeWithInfo "show databases" conn
+    print $ query_info res
+```
+The code above prints:
+```Haskell
+[[CKString "_temporary_and_external_tables"],[CKString "default"],[CKString "system"]]
+
+QueryInfo {profile_info = ProfileInfo {number_rows = 3, blocks = 1, number_bytes = 4224, applied_limit = True, rows_before_limit = 0, calculated_rows_before_limit = True}, progress = Prog {rows = 3, bytes = 331, total_rows = 0, written_rows = 0, written_bytes = 0}, elapsed = 0}
+```
+

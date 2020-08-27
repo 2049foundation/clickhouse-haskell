@@ -68,7 +68,6 @@ data ClickhouseType
   | CKDecimal32 Float
   | CKDecimal64 Float
   | CKDecimal128 Float
-  | CKDateTime
   | CKIPv4 IP4
   | CKIPv6 IP6
   | CKDate {

@@ -158,5 +158,10 @@ main'' = do
 
 
 main :: IO ()
-main = mainTest
+main = do
+    conn <- defaultClient
+    res <- executeWithInfo "show databases" conn
+    print $ query_result res
+    print $ query_info res
+
     
