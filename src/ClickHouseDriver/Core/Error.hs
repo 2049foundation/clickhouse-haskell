@@ -29,8 +29,6 @@ readException additional = do
   messange <- readBinaryStr
   stack_trace <- readBinaryStr
   has_nested <- (== 1) <$> readBinaryUInt8
-  trace ("name " ++ show name) return 0
-  trace ("message " ++ show messange) return 0
   let hasAdditional =
         ( case additional of
             Nothing -> ""
