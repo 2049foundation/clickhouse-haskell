@@ -237,6 +237,7 @@ For example:
 main = do
     conn <- defaultClient
     res <- executeWithInfo "show databases" conn
+    print $ query_result res
     print $ query_info res
 ```
 The code above prints:
