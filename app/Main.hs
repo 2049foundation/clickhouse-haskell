@@ -121,7 +121,7 @@ mainTest = do
     conn <- defaultClient
     print "connected"
     res <- execute "select * from crd3" conn
- --   closeConnection conn
+    closeClient conn
     print res
 
 
@@ -160,8 +160,6 @@ main'' = do
 main :: IO ()
 main = do
     conn <- defaultClient
-    res <- executeWithInfo "show databases" conn
-    print $ query_result res
-    print $ query_info res
-
-    
+    res <- execute "select * from big" conn
+    print res
+    closeClient conn

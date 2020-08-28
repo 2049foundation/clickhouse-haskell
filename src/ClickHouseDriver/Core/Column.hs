@@ -50,7 +50,7 @@ getColumnWithSpec n_rows spec
   | "IPv6" `isPrefixOf` spec = readIPv6 n_rows
   | "SimpleAggregateFunction" `isPrefixOf` spec = readSimpleAggregateFunction n_rows spec
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
-
+---------------------------------------------------------------------------------------------
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
 readIntColumn n_rows "Int16" = V.replicateM n_rows (CKInt16 <$> readBinaryInt16)
@@ -62,6 +62,7 @@ readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt
 readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
 readIntColumn _ _ = error "Not an integer type"
 
+---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
   let l = BS.length spec
