@@ -101,8 +101,8 @@ manualTCP = do
         Left _ -> return ()
         Right conn -> do
             print "connected"
-            sendQuery "select * from crd2" Nothing conn
-            sendData "" conn
+            sendQuery conn "select * from crd2" Nothing
+            sendData conn "" Nothing
             case conn of
                 TCPConnection {tcpSocket=sock}-> do
                     x <- TCP.recv sock 2048

@@ -3,6 +3,9 @@
 module ClickHouseDriver.Core.Types
   ( ServerInfo (..),
     TCPConnection (..),
+    getServerInfo,
+    getClientInfo,
+    getClientSetting,
     ClientInfo (..),
     Context (..),
     Interface (..),
@@ -72,7 +75,6 @@ data ClickhouseType
   | CKUInt32 Word32
   | CKUInt64 Word64
   | CKString ByteString
-  | CKFixedLengthString Int ByteString
   | CKTuple (Vector ClickhouseType)
   | CKArray (Vector ClickhouseType)
   | CKDecimal32 Float
@@ -88,7 +90,7 @@ data ClickhouseType
   | CKNull
   deriving (Show, Eq)
 
-
+----------------------------------------------------------
 data ServerInfo = ServerInfo
   { name :: {-# UNPACK #-} !ByteString,
     version_major :: {-# UNPACK #-} !Word,
@@ -100,6 +102,10 @@ data ServerInfo = ServerInfo
   }
   deriving (Show)
 
+setServerInfo :: Maybe ServerInfo->TCPConnection->TCPConnection
+setServerInfo server_info tcp@TCPConnection{context=ctx} 
+  = tcp{context=ctx{server_info=server_info}}
+---------------------------------------------------------
 data TCPConnection = TCPConnection
   { tcpHost :: {-# UNPACK #-} !ByteString,
     tcpPort :: {-# UNPACK #-} !ByteString,
@@ -111,6 +117,15 @@ data TCPConnection = TCPConnection
     tcpCompression :: {-# UNPACK #-} !Word
   }
   deriving (Show)
+
+getServerInfo :: TCPConnection->Maybe ServerInfo
+getServerInfo TCPConnection{context=Context{server_info=server_info}} = server_info
+
+getClientInfo :: TCPConnection->Maybe ClientInfo
+getClientInfo TCPConnection{context=Context{client_info=client_info}} = client_info
+
+getClientSetting :: TCPConnection->Maybe ClientSetting
+getClientSetting TCPConnection{context=Context{client_setting=client_setting}} = client_setting
 ------------------------------------------------------------------
 data ClientInfo = ClientInfo
   { client_name :: {-# UNPACK #-} !ByteString,
@@ -264,7 +279,6 @@ defaultQueryInfo =
     elapsed = 0
   }
 -------------------------------------------------------------------------
-
 data CKResult = CKResult
  { query_result ::  Vector (Vector ClickhouseType),
    query_info :: {-# UNPACK #-} !QueryInfo

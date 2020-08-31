@@ -76,10 +76,12 @@ fetchData tcpconn fetch = do
   e <- Control.Exception.try $ do
     sendQuery tcpconn queryStr Nothing 
     sendData tcpconn "" Nothing
-    let server_info = serverInfo tcpconn
+    let serverInfo = case getServerInfo tcpconn of
+          Just info -> info
+          Nothing -> error "Empty server information"
     let sock = tcpSocket tcpconn
     buf <- createBuffer _BUFFER_SIZE sock
-    (res, _) <- runStateT (receiveResult server_info defaultQueryInfo) buf
+    (res, _) <- runStateT (receiveResult serverInfo defaultQueryInfo) buf
     return res
   either
     (putFailure var)
@@ -106,7 +108,19 @@ executeWithInfo query env = runHaxl env (executeQuery query)
 execute :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
 execute query env = do
   CKResult{query_result=r} <- executeWithInfo query env
-  return r  
+  return r
+
+insertMany :: Env () w->String->[[ClickhouseType]]->IO(BS.ByteString)
+insertMany env cmd items = do
+  let st :: Maybe (State Query) = stateGet $ states env
+  let tcp = 
+        case st of
+          Nothing -> error "No Connection."
+          Just (Settings tcp) -> tcp
+  processInsertQuery tcp (C8.pack cmd) Nothing items
+
+insertOneRow :: Env () w->String->[ClickhouseType]->IO(BS.ByteString)
+insertOneRow env cmd items = insertMany env cmd [items]
   
 closeClient :: Env () w -> IO()
 closeClient env = do

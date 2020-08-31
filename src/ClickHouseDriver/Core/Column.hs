@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
 module ClickHouseDriver.Core.Column(
   readColumn,
   ClickhouseType(..),
@@ -61,18 +62,24 @@ writeColumn :: Context
              ->Vector ClickhouseType
              -- ^ items
              ->IOWriter Builder
-writeColumn ctx col_name col_type items = undefined
----------------------------------------------------------------------------------------------
-readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
-readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
-readIntColumn n_rows "Int16" = V.replicateM n_rows (CKInt16 <$> readBinaryInt16)
-readIntColumn n_rows "Int32" = V.replicateM n_rows (CKInt32 <$> readBinaryInt32)
-readIntColumn n_rows "Int64" = V.replicateM n_rows (CKInt64 <$> readBinaryInt64)
-readIntColumn n_rows "UInt8" = V.replicateM n_rows (CKUInt8 <$> readBinaryUInt8)
-readIntColumn n_rows "UInt16" = V.replicateM n_rows (CKUInt16 <$> readBinaryUInt16)
-readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt32)
-readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
-readIntColumn _ _ = error "Not an integer type"
+writeColumn ctx col_name "String" items = writeStringColumn col_name items
+writeColumn ctx col_name int items
+  | "Int" `isPrefixOf` int || "UInt" `isPrefixOf` int = do
+    let Just (indicator, _) = readInt $ BS.drop 3 int
+    writeIntColumn indicator col_name items
+writeColumn ctx col_name null items
+  | "Nullable(" `isPrefixOf` null = do
+    let l = BS.length null
+    let inner = BS.take (l - 10) (BS.drop 9 null)
+    writeNullsMap items
+    let filterNulls =
+          V.filter
+            ( \case
+                CKNull -> True
+                _ -> False
+            )
+            items
+    writeColumn ctx col_name inner filterNulls
 
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
@@ -86,8 +93,64 @@ readFixed n_rows spec = do
   return result
 
 readFixedLengthString :: Int -> Reader ClickhouseType
-readFixedLengthString strlen = (CKFixedLengthString strlen) <$> (readBinaryStrWithLength strlen)
+readFixedLengthString strlen = (CKString) <$> (readBinaryStrWithLength strlen)
 
+writeStringColumn :: ByteString->Vector ClickhouseType -> IOWriter Builder
+writeStringColumn col_name = V.mapM_ 
+  (\case CKString s -> writeBinaryStr s; 
+          _ -> error (("Type mismatch in the column " ++ show col_name) ++ show col_name))
+---------------------------------------------------------------------------------------------
+readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
+readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
+readIntColumn n_rows "Int16" = V.replicateM n_rows (CKInt16 <$> readBinaryInt16)
+readIntColumn n_rows "Int32" = V.replicateM n_rows (CKInt32 <$> readBinaryInt32)
+readIntColumn n_rows "Int64" = V.replicateM n_rows (CKInt64 <$> readBinaryInt64)
+readIntColumn n_rows "UInt8" = V.replicateM n_rows (CKUInt8 <$> readBinaryUInt8)
+readIntColumn n_rows "UInt16" = V.replicateM n_rows (CKUInt16 <$> readBinaryUInt16)
+readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt32)
+readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
+readIntColumn _ _ = error "Not an integer type"
+
+writeIntColumn :: Int->ByteString->Vector ClickhouseType -> IOWriter Builder
+writeIntColumn indicator col_name =
+  case indicator of 
+    8 -> V.mapM_ 
+        (\case CKInt8 x -> writeBinaryInt8 x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+    16 -> V.mapM_ 
+        (\case CKInt16 x -> writeBinaryInt16 x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+    32 -> V.mapM_ 
+        (\case CKInt32 x -> writeBinaryInt32 x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+    64 -> V.mapM_ 
+        (\case CKInt64 x -> writeBinaryInt64 x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+  
+writeUIntColumn :: Int->ByteString->Vector ClickhouseType -> IOWriter Builder
+writeUIntColumn indicator col_name =
+  case indicator of 
+    8 -> V.mapM_ 
+        (\case CKUInt8 x -> writeBinaryUInt8 x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+    16 -> V.mapM_ 
+        (\case CKUInt16 x -> writeBinaryInt16 $ fromIntegral x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+    32 -> V.mapM_ 
+        (\case CKUInt32 x -> writeBinaryInt32 $ fromIntegral x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+    64 -> V.mapM_ 
+        (\case CKUInt64 x -> writeBinaryInt64 $ fromIntegral x
+               _ -> error ("Type mismatch in the column " ++ show col_name)
+        )
+---------------------------------------------------------------------------------------------
 readDateTime :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTime n_rows spec = do
   let (scale, spc) = readTimeSpec spec
@@ -161,24 +224,33 @@ readLowCadinality n spec = do
       | "Nullable" `isPrefixOf` spec = BS.take (l - 10) (BS.drop 9 spec)
       | otherwise = spec
     l = BS.length spec
+---------------------------------------------------------------------------------------------------------------------------------
 {-
           Informal description for this config:
           (\Null | \SOH)^{n_rows}
 -}
 readNullable :: Int->ByteString->Reader (Vector ClickhouseType)
 readNullable n_rows spec = do
-    let l = BS.length spec
-    let cktype = BS.take (l - 10) (BS.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
-    config <- readNullableConfig n_rows spec
-    items <- readColumn n_rows cktype
-    let result = V.generate n_rows (\i->if config ! i == 1 then CKNull else items ! i)
-    return result
-      where
-        readNullableConfig :: Int->ByteString->Reader (Vector Word8)
-        readNullableConfig n_rows spec = do
-          config <- readBinaryStrWithLength n_rows
-          (return . V.fromList . BS.unpack) config
+  let l = BS.length spec
+  let cktype = BS.take (l - 10) (BS.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
+  config <- readNullableConfig n_rows spec
+  items <- readColumn n_rows cktype
+  let result = V.generate n_rows (\i->if config ! i == 1 then CKNull else items ! i)
+  return result
+    where
+      readNullableConfig :: Int->ByteString->Reader (Vector Word8)
+      readNullableConfig n_rows spec = do
+        config <- readBinaryStrWithLength n_rows
+        (return . V.fromList . BS.unpack) config
 
+writeNullsMap :: Vector ClickhouseType -> IOWriter Builder
+writeNullsMap = V.mapM_ 
+  (\case CKNull-> writeBinaryInt8 1
+         _ -> writeBinaryInt8 0)
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------
 {-
   Format:
   "
@@ -324,7 +396,6 @@ transpose cdata =
        in toVector
 
 -- | print in format
-
 {-
 format :: Vector (Vector ClickhouseType) -> ByteString
 format v = foldl1 () V.map tostr v

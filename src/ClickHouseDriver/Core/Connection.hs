@@ -10,7 +10,8 @@ module ClickHouseDriver.Core.Connection
     receiveData,
     sendData,
     receiveResult,
-    closeConnection
+    closeConnection,
+    processInsertQuery,
   )
 where
 
@@ -233,20 +234,22 @@ sendCancel TCPConnection {tcpSocket = sock} = do
   TCP.sendLazy sock (toLazyByteString c)
 
 processInsertQuery :: TCPConnection
-                      ->ServerInfo
                       ->ByteString
                       ->Maybe ByteString
                       ->[[ClickhouseType]]
                       ->IO ByteString
-processInsertQuery tcp@TCPConnection{tcpSocket=sock} server_info query_without_data query_id items = do
+processInsertQuery tcp@TCPConnection{tcpSocket=sock} query_without_data query_id items = do
   sendQuery tcp query_without_data query_id
   buf <- createBuffer 1024 sock
+  let info = case getServerInfo tcp of
+        Nothing -> error "empty server info"
+        Just s -> s 
   (sample_block,_) <- runStateT 
     (iterateWhile (\case Block{..} -> True
                          MultiString _ -> False
                          _ -> error "unexpected packet type"
                   )
-     $ receivePacket server_info) buf
+     $ receivePacket info) buf
   let vectorized = V.map V.fromList (V.fromList $ List.transpose items)
   let dataBlock = case sample_block of
         Block typeinfo@ColumnOrientedBlock{
@@ -258,7 +261,7 @@ processInsertQuery tcp@TCPConnection{tcpSocket=sock} server_info query_without_d
         _ -> error "unexpected packet type"
   -- TODO add slicer for blocks
   sendData tcp "" (Just dataBlock)
-  runStateT (receivePacket server_info) buf
+  runStateT (receivePacket info) buf
   return "1"
 
 receiveData :: ServerInfo -> Reader Block.Block
