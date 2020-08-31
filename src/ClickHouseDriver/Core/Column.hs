@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module ClickHouseDriver.Core.Column(
-  getColumnWithSpec,
+  readColumn,
   ClickhouseType(..),
-  transpose
+  transpose,
+  writeColumn
 ) where
 
 import ClickHouseDriver.IO.BufferedReader
@@ -29,11 +30,12 @@ import Foreign.C.Types (CTime(..))
 import Data.Maybe (fromJust)
 import Data.Int
 import ClickHouseDriver.Core.Types
+import Data.ByteString.Builder (Builder)
 ---------------------------------------------------------------------------------------
 ---Readers 
 
-getColumnWithSpec ::  Int -> ByteString -> Reader (Vector ClickhouseType)
-getColumnWithSpec n_rows spec
+readColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
+readColumn n_rows spec
   | "String" `isPrefixOf` spec = V.replicateM n_rows (CKString <$> readBinaryStr)
   | "Array" `isPrefixOf` spec = readArray n_rows spec
   | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
@@ -50,6 +52,16 @@ getColumnWithSpec n_rows spec
   | "IPv6" `isPrefixOf` spec = readIPv6 n_rows
   | "SimpleAggregateFunction" `isPrefixOf` spec = readSimpleAggregateFunction n_rows spec
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
+
+writeColumn :: Context
+             ->ByteString
+             -- ^ column name
+             ->ByteString
+             -- ^ column type
+             ->Vector ClickhouseType
+             -- ^ items
+             ->IOWriter Builder
+writeColumn ctx col_name col_type items = undefined
 ---------------------------------------------------------------------------------------------
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
@@ -131,7 +143,7 @@ readLowCadinality n spec = do
   let key_type = serialization_type .&. 0xf
   index_size <- readBinaryUInt64
   -- Strip the 'Nullable' tag to avoid null map reading.
-  index <- getColumnWithSpec (fromIntegral index_size) (stripNullable inner)
+  index <- readColumn (fromIntegral index_size) (stripNullable inner)
   readBinaryUInt64 -- #keys
   keys <- case key_type of
     0 -> V.map fromIntegral <$> V.replicateM n readBinaryUInt8
@@ -158,7 +170,7 @@ readNullable n_rows spec = do
     let l = BS.length spec
     let cktype = BS.take (l - 10) (BS.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
     config <- readNullableConfig n_rows spec
-    items <- getColumnWithSpec n_rows cktype
+    items <- readColumn n_rows cktype
     let result = V.generate n_rows (\i->if config ! i == 1 then CKNull else items ! i)
     return result
       where
@@ -190,7 +202,7 @@ readArray :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readArray n_rows spec = do
   (lastSpec, x : xs) <- genSpecs spec [V.fromList [fromIntegral n_rows]]
   let numElem = fromIntegral $ V.sum x
-  elems <- getColumnWithSpec numElem lastSpec
+  elems <- readColumn numElem lastSpec
   let result' = foldl combine elems (x : xs)
   let result = case (result' ! 0) of
         CKArray arr -> arr
@@ -227,7 +239,7 @@ readTuple n_rows spec = do
   let l = BS.length spec
   let innerSpecString = BS.take(l - 7) (BS.drop 6 spec)
   let arr = V.fromList (getSpecs innerSpecString) 
-  datas <- V.mapM (getColumnWithSpec n_rows) arr
+  datas <- V.mapM (readColumn n_rows) arr
   let transposed = transpose datas
   return $ CKTuple <$> transposed
 
@@ -293,7 +305,7 @@ readSimpleAggregateFunction :: Int->ByteString->Reader (Vector ClickhouseType)
 readSimpleAggregateFunction n_rows spec = do
    let l = BS.length spec
    let [func, cktype] = getSpecs $ BS.take(l - 25) (BS.drop 24 spec)
-   getColumnWithSpec n_rows cktype
+   readColumn n_rows cktype
 
 ---------------------------------------------------------------------------------------------
 ---Helpers 

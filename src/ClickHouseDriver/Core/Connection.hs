@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase #-}
 
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
@@ -40,6 +41,7 @@ import qualified Network.Simple.TCP as TCP
 import Network.Socket (Socket)
 import System.Timeout
 import Control.Monad.Loops (iterateWhile)
+import qualified Data.List as List
 --Debug 
 import Debug.Trace (trace)
 
@@ -165,7 +167,11 @@ tcpConnect host port user password database compression = do
               tcpPassword = password,
               tcpSocket = sock,
               tcpSockAdrr = sockaddr,
-              serverInfo = x,
+              context = Context{
+                server_info = Just x,
+                client_info = Nothing,
+                client_setting = Nothing
+              },
               tcpCompression = isCompressed
             }
     Left "Exception" -> return $ Left "exception"
@@ -174,16 +180,16 @@ tcpConnect host port user password database compression = do
       TCP.closeSock sock
       return $ Left "Connection error"
 
-sendQuery :: ByteString -> Maybe ByteString -> TCPConnection -> IO ()
+sendQuery ::TCPConnection-> ByteString -> Maybe ByteString -> IO ()
+sendQuery TCPConnection{context=Context{server_info=Nothing}} _ _ = error "Empty server info"
 sendQuery
-  query
-  query_id
   env@TCPConnection
     { tcpCompression = comp,
       tcpSocket = sock,
-      serverInfo = info
-    } = do
-    print (info)
+      context = Context{server_info=Just info}
+    } 
+  query
+  query_id = do
     (_, r) <- runWriterT $ do
       writeVarUInt Client._QUERY
       writeBinaryStr
@@ -204,23 +210,56 @@ sendQuery
     let res = toLazyByteString r
     TCP.sendLazy sock (toLazyByteString r)
 
-sendData :: ByteString -> TCPConnection -> IO ()
-sendData table_name TCPConnection {tcpSocket = sock} = do
+sendData :: TCPConnection -> ByteString -> Maybe Block -> IO ()
+sendData TCPConnection {tcpSocket = sock, context=ctx} table_name maybe_block = do
   -- TODO: ADD REVISION
   let info = Block.defaultBlockInfo
-  (_, r) <- runWriterT $ do
+  r <- execWriterT $ do
     writeVarUInt Client._DATA
     writeBinaryStr table_name
     Block.writeInfo info
-    -- TODO need to support sending columns
-    writeVarUInt 0 -- #col
-    writeVarUInt 0 -- #row
-  TCP.sendLazy sock (toLazyByteString r)
+    case maybe_block of
+      Nothing -> do
+        writeVarUInt 0 -- #col
+        writeVarUInt 0 -- #row
+      Just block -> do
+        Block.writeBlockOutputStream ctx block
+
+  TCP.sendLazy sock $ toLazyByteString r
 
 sendCancel :: TCPConnection -> IO ()
 sendCancel TCPConnection {tcpSocket = sock} = do
-  (_, c) <- runWriterT $ writeVarUInt Client._CANCEL
+  c <- execWriterT $ writeVarUInt Client._CANCEL
   TCP.sendLazy sock (toLazyByteString c)
+
+processInsertQuery :: TCPConnection
+                      ->ServerInfo
+                      ->ByteString
+                      ->Maybe ByteString
+                      ->[[ClickhouseType]]
+                      ->IO ByteString
+processInsertQuery tcp@TCPConnection{tcpSocket=sock} server_info query_without_data query_id items = do
+  sendQuery tcp query_without_data query_id
+  buf <- createBuffer 1024 sock
+  (sample_block,_) <- runStateT 
+    (iterateWhile (\case Block{..} -> True
+                         MultiString _ -> False
+                         _ -> error "unexpected packet type"
+                  )
+     $ receivePacket server_info) buf
+  let vectorized = V.map V.fromList (V.fromList $ List.transpose items)
+  let dataBlock = case sample_block of
+        Block typeinfo@ColumnOrientedBlock{
+          columns_with_type = cwt
+        } -> 
+          typeinfo{
+            cdata = vectorized
+          }
+        _ -> error "unexpected packet type"
+  -- TODO add slicer for blocks
+  sendData tcp "" (Just dataBlock)
+  runStateT (receivePacket server_info) buf
+  return "1"
 
 receiveData :: ServerInfo -> Reader Block.Block
 receiveData ServerInfo {revision = revision} = do
@@ -240,49 +279,52 @@ receiveResult info queryinfo = do
   return $ CKResult (V.concat dataVectors) newQueryInfo
   where
     updateQueryInfo :: QueryInfo->Packet->QueryInfo
-    updateQueryInfo q (Progress prog) = storeProgress q prog
-    updateQueryInfo q (StreamProfileInfo profile) = storeProfile q profile
+    updateQueryInfo q (Progress prog) 
+      = storeProgress q prog
+    updateQueryInfo q (StreamProfileInfo profile) 
+      = storeProfile q profile
     updateQueryInfo q _ = q
 
     isBlock :: Packet -> Bool
-    isBlock Block {queryData=Block.ColumnOrientedBlock{cdata=d}} = (V.length d > 0 &&  V.length (d ! 0) > 0)
+    isBlock Block {queryData=Block.ColumnOrientedBlock{cdata=d}} 
+            = (V.length d > 0 &&  V.length (d ! 0) > 0)
     isBlock _ = False
 
     packetGen :: Reader [Packet]
     packetGen = do
-      packet <- receivePacket
+      packet <- receivePacket info
       case packet of
         EndOfStream -> return []
         _ -> do
           next <- packetGen
           return (packet : next)
   
-    receivePacket :: Reader Packet
-    receivePacket = do
-      packet_type <- readVarInt
-      case packet_type of
-        1 -> (receiveData info) >>= (return . Block) -- Data
-        2 -> (Error.readException Nothing) >>= (error . show) -- Exception
-        3 -> (readProgress $ revision info) >>= (return . Progress) -- Progress
-        5 -> return EndOfStream -- End of Stream
-        6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo) --Profile
-        7 -> (receiveData info) >>= (return . Block) -- Total
-        8 -> (receiveData info) >>= (return . Block) -- Extreme
-              -- 10 -> return undefined -- Log
-        11 -> do -- MutiStrings message
-          first <- readBinaryStr
-          second <- readBinaryStr
-          return $ MultiString (first, second)
-        0 -> return Hello -- Hello
-        _ -> do
-          closeBufferSocket
-          error $
-            show
-              Error.ServerException
-                { code = Error._UNKNOWN_PACKET_FROM_SERVER,
-                  message = "Unknown packet from server",
-                  nested = Nothing
-                }
+receivePacket :: ServerInfo->Reader Packet
+receivePacket info = do
+  packet_type <- readVarInt
+  case packet_type of
+    1 -> (receiveData info) >>= (return . Block) -- Data
+    2 -> (Error.readException Nothing) >>= (error . show) -- Exception
+    3 -> (readProgress $ revision info) >>= (return . Progress) -- Progress
+    5 -> return EndOfStream -- End of Stream
+    6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo) --Profile
+    7 -> (receiveData info) >>= (return . Block) -- Total
+    8 -> (receiveData info) >>= (return . Block) -- Extreme
+          -- 10 -> return undefined -- Log
+    11 -> do -- MutiStrings message
+      first <- readBinaryStr
+      second <- readBinaryStr
+      return $ MultiString (first, second)
+    0 -> return Hello -- Hello
+    _ -> do
+      closeBufferSocket
+      error $
+        show
+          Error.ServerException
+            { code = Error._UNKNOWN_PACKET_FROM_SERVER,
+              message = "Unknown packet from server",
+              nested = Nothing
+            }
 
 closeConnection :: TCPConnection->IO ()
 closeConnection TCPConnection{tcpSocket=sock} = TCP.closeSock sock

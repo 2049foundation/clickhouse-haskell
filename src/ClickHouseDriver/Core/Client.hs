@@ -74,8 +74,8 @@ fetchData tcpconn fetch = do
   let (queryStr, var) = case fetch of
         BlockedFetch (FetchData q) var' -> (C8.pack q, var')
   e <- Control.Exception.try $ do
-    sendQuery queryStr Nothing tcpconn
-    sendData "" tcpconn
+    sendQuery tcpconn queryStr Nothing 
+    sendData tcpconn "" Nothing
     let server_info = serverInfo tcpconn
     let sock = tcpSocket tcpconn
     buf <- createBuffer _BUFFER_SIZE sock

@@ -6,7 +6,8 @@ module ClickHouseDriver.Core.Block
     readInfo,
     readBlockInputStream,
     Block (..),
-    defaultBlockInfo
+    defaultBlockInfo,
+    writeBlockOutputStream
   )
 where
 
@@ -22,6 +23,8 @@ import Data.Word
 import ClickHouseDriver.Core.Column
 import qualified Data.List as List
 import ClickHouseDriver.Core.Types
+import ClickHouseDriver.Core.Defines as Defines
+import Data.Vector ((!))
 --Debug
 import Debug.Trace
 
@@ -73,7 +76,7 @@ readBlockInputStream = do
         column_name <- readBinaryStr
         column_type <- readBinaryStr
 
-        column <- getColumnWithSpec (fromIntegral n_rows) column_type
+        column <- readColumn (fromIntegral n_rows) column_type
 
         return (column, column_name, column_type)
 
@@ -89,3 +92,24 @@ readBlockInputStream = do
         info = info,
         columns_with_type = V.zip names types
       }
+
+writeBlockOutputStream :: Context->Block->IOWriter Builder
+writeBlockOutputStream ctx@(Context client_info server_info client_settings) 
+  (ColumnOrientedBlock columns_with_type cdata info) = do
+  let revis = fromIntegral $ 
+        revision $ 
+        (case server_info of
+        Nothing -> error ""
+        Just info -> info)
+  if revis >= Defines._DBMS_MIN_REVISION_WITH_BLOCK_INFO
+    then writeBlockInfo info
+    else return ()
+  let n_rows = fromIntegral $ V.length cdata
+      n_columns = fromIntegral $ V.length (cdata ! 0)
+  writeVarUInt n_columns
+  writeVarUInt n_rows
+  V.imapM_ (\i (col, t)->do 
+       writeBinaryStr col
+       writeBinaryStr t
+       writeColumn ctx col t (cdata ! i)
+       ) columns_with_type

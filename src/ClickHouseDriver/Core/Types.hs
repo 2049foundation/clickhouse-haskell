@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE NamedFieldPuns    #-}
 module ClickHouseDriver.Core.Types
   ( ServerInfo (..),
     TCPConnection (..),
@@ -23,7 +23,8 @@ module ClickHouseDriver.Core.Types
     ClickhouseType(..),
     BlockInfo(..),
     Block(..),
-    CKResult(..)
+    CKResult(..),
+    writeBlockInfo
   )
 where
 
@@ -37,12 +38,21 @@ import Data.Vector (Vector)
 import Data.Int
 import Data.Word
 import Network.IP.Addr (IP4(..), IP6(..))
+import Data.ByteString.Builder
 -----------------------------------------------------------
 data BlockInfo = Info
   { is_overflows :: Bool,
     bucket_num :: Int32
   } 
   deriving Show
+
+writeBlockInfo :: BlockInfo->IOWriter Builder
+writeBlockInfo Info{is_overflows, bucket_num} = do
+  writeVarUInt 1
+  writeBinaryUInt8 (if is_overflows then 1 else 0)
+  writeVarUInt 2
+  writeBinaryInt32 bucket_num
+  writeVarUInt 0
 
 data Block = ColumnOrientedBlock
   { columns_with_type :: Vector (ByteString, ByteString),
@@ -97,7 +107,7 @@ data TCPConnection = TCPConnection
     tcpPassword :: {-# UNPACK #-} !ByteString,
     tcpSocket :: {-# UNPACK #-}  !Socket,
     tcpSockAdrr :: {-# UNPACK #-} !SockAddr,
-    serverInfo :: {-# UNPACK #-} !ServerInfo,
+    context :: !Context,
     tcpCompression :: {-# UNPACK #-} !Word
   }
   deriving (Show)
@@ -132,6 +142,22 @@ getDefaultClientInfo name =
       quota_key = "",
       query_kind = INITIAL_QUERY
     }
+
+setClientInfo :: Maybe ClientInfo -> TCPConnection -> TCPConnection
+setClientInfo client_info tcp@TCPConnection{context=ctx}
+  = tcp{context=ctx{client_info=client_info}}
+-------------------------------------------------------------------
+data ClientSetting 
+  = ClientSetting {
+      insert_block_size :: Word,
+      strings_as_bytes :: Bool,
+      strings_encoding :: ByteString
+  }
+  deriving Show
+
+setClientSetting ::Maybe ClientSetting->TCPConnection->TCPConnection
+setClientSetting client_setting tcp@TCPConnection{context=ctx} 
+  = tcp{context=ctx{client_setting=client_setting}}
 -------------------------------------------------------------------
 data Interface = TCP | HTTP
   deriving (Show, Eq)
@@ -140,10 +166,11 @@ data QueryKind = NO_QUERY | INITIAL_QUERY | SECOND_QUERY
   deriving (Show, Eq)
 
 data Context = Context
-  { client_info :: ClientInfo,
-    server_info :: ServerInfo
+  { client_info :: Maybe ClientInfo,
+    server_info :: Maybe ServerInfo,
+    client_setting :: Maybe ClientSetting
   }
-  deriving (Show)
+  deriving Show
 
 data Packet
   = Block {queryData :: Block}

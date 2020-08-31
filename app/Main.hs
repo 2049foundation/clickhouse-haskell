@@ -156,10 +156,10 @@ main'' = do
     query <- runQuery env (getText "SELECT * FROM test_table")
     TIO.putStr query
 
-
 main :: IO ()
 main = do
+    cmd <- System.IO.getLine
     conn <- defaultClient
-    res <- execute "select * from big" conn
+    res <- execute cmd conn
     print res
     closeClient conn
