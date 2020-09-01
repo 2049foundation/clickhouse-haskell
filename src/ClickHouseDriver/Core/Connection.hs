@@ -227,6 +227,7 @@ sendData TCPConnection {tcpSocket = sock, context=ctx} table_name maybe_block = 
         writeVarUInt 0 -- #row
       Just block -> do
         Block.writeBlockOutputStream ctx block
+  print (toLazyByteString r)
   TCP.sendLazy sock $ toLazyByteString r
 
 sendCancel :: TCPConnection -> IO ()

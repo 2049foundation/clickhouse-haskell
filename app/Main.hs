@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
-
 module Main where
 
 import           ClickHouseDriver.Core
@@ -160,7 +159,10 @@ insertTest :: IO()
 insertTest = do
     print "insertion test"
     conn <- defaultClient
-    s <- ClickHouseDriver.Core.insertOneRow conn "INSERT INTO simple_table VALUES" [CKString "0000000000", CKString "Clickhouse-Haskell", CKInt16 1]
+    s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO simple_table VALUES" 
+            [[CKString "0000000000", CKString "Clickhouse-Haskell", CKInt16 1]
+            ,[CKString "1000000000", CKString "Clickhouse-Haskell2", CKInt16 12]
+            ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKInt16 15]]
     print s
     q <- execute "SELECT * FROM simple_table" conn
     print q
@@ -173,11 +175,19 @@ readTest = do
     res <- execute cmd conn
     print res
     closeClient conn
-
-createTable :: IO()
-createTable = do
+--INSERT INTO nulls_table (`id`, `item`,`number`) VALUES (null, 'JOHN',1557),('1234567890', null,533),('3543364534', 'MARRY',null),('2258864346', 'JAME',4452)
+insertTest2 :: IO()
+insertTest2 = do
     conn <- defaultClient
+    s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO nulls_table VALUES" 
+            [[CKNull, CKString "Clickhouse-Haskell", CKInt16 1]
+            ,[CKString "1000000000", CKNull, CKInt16 12]
+            ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKNull]
+            ,[CKString "2258864346", CKString "Jame", CKInt16 4452]]
+    q <- execute "SELECT * FROM nulls_table" conn
+    print q 
     print "conn"
+    closeClient conn
 
 main = do
-     insertTest
+     insertTest2

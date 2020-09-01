@@ -78,16 +78,8 @@ writeColumn ctx col_name null items
     let l = BS.length null
     let inner = BS.take (l - 10) (BS.drop 9 null)
     writeNullsMap items
-    let filterNulls =
-          V.filter
-            ( \case
-                CKNull -> True
-                _ -> False
-            )
-            items
-    writeColumn ctx col_name inner filterNulls
+    writeColumn ctx col_name inner items
 writeColumn _ _ _ _ = undefined
-
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
@@ -104,13 +96,15 @@ readFixedLengthString strlen = (CKString) <$> (readBinaryStrWithLength strlen)
 
 writeStringColumn :: ByteString->Vector ClickhouseType->IOWriter Builder
 writeStringColumn col_name = V.mapM_ 
-  (\case CKString s -> writeBinaryStr s; 
-          _ -> error (typeMismatchError col_name))
+  (\case CKString s -> writeBinaryStr s;
+         CKNull-> writeVarUInt 0;
+         _ -> error (typeMismatchError col_name))
 
 writeFixedLengthString :: ByteString->Word->Vector ClickhouseType->IOWriter Builder
 writeFixedLengthString col_name len items = do
   V.mapM_ (\case CKString s->writeBinaryFixedLengthStr len s
-                 _ -> error (typeMismatchError col_name)) items
+                 CKNull-> (\x->()) <$> V.replicateM (fromIntegral len) (writeVarUInt 0)
+                 x -> error (typeMismatchError col_name ++ " got: " ++ show x)) items
 ---------------------------------------------------------------------------------------------
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
@@ -128,18 +122,22 @@ writeIntColumn indicator col_name =
   case indicator of 
     8 -> V.mapM_ 
         (\case CKInt8 x -> writeBinaryInt8 x
+               CKNull -> writeBinaryInt8 0
                _ -> error (typeMismatchError col_name)
         )
     16 -> V.mapM_ 
         (\case CKInt16 x -> writeBinaryInt16 x
+               CKNull -> writeBinaryInt16 0
                _ -> error (typeMismatchError col_name)
         )
     32 -> V.mapM_ 
         (\case CKInt32 x -> writeBinaryInt32 x
+               CKNull -> writeBinaryInt32 0
                _ -> error (typeMismatchError col_name)
         )
     64 -> V.mapM_ 
         (\case CKInt64 x -> writeBinaryInt64 x
+               CKNull -> writeBinaryInt64 0
                _ -> error (typeMismatchError col_name)
         )
   
@@ -148,18 +146,22 @@ writeUIntColumn indicator col_name =
   case indicator of 
     8 -> V.mapM_ 
         (\case CKUInt8 x -> writeBinaryUInt8 x
+               CKNull -> writeBinaryUInt8 0
                _ -> error (typeMismatchError col_name)
         )
     16 -> V.mapM_ 
         (\case CKUInt16 x -> writeBinaryInt16 $ fromIntegral x
+               CKNull -> writeBinaryInt16 0
                _ -> error (typeMismatchError col_name)
         )
     32 -> V.mapM_ 
         (\case CKUInt32 x -> writeBinaryInt32 $ fromIntegral x
+               CKNull -> writeBinaryInt32 0
                _ -> error (typeMismatchError col_name)
         )
     64 -> V.mapM_ 
         (\case CKUInt64 x -> writeBinaryInt64 $ fromIntegral x
+               CKNull -> writeBinaryInt64 0
                _ -> error (typeMismatchError col_name)
         )
 ---------------------------------------------------------------------------------------------
