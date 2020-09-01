@@ -141,7 +141,7 @@ main' = do
     env <- httpClient "default" "12345612341"
     create <- exec "CREATE TABLE test (x Int32) ENGINE = Memory" env
     print create
-    isSuccess <- insertOneRow "test" [CKInt32 100] env
+    isSuccess <- ClickHouseDriver.Core.HTTP.insertOneRow "test" [CKInt32 100] env
     print isSuccess
     result <- runQuery env (getText "select * from test")
     TIO.putStr result
@@ -156,10 +156,28 @@ main'' = do
     query <- runQuery env (getText "SELECT * FROM test_table")
     TIO.putStr query
 
-main :: IO ()
-main = do
+insertTest :: IO()
+insertTest = do
+    print "insertion test"
+    conn <- defaultClient
+    s <- ClickHouseDriver.Core.insertOneRow conn "INSERT INTO simple_table VALUES" [CKString "0000000000", CKString "Clickhouse-Haskell", CKInt16 1]
+    print s
+    q <- execute "SELECT * FROM simple_table" conn
+    print q
+    closeClient conn
+
+readTest :: IO ()
+readTest = do
     cmd <- System.IO.getLine
     conn <- defaultClient
     res <- execute cmd conn
     print res
     closeClient conn
+
+createTable :: IO()
+createTable = do
+    conn <- defaultClient
+    print "conn"
+
+main = do
+     insertTest

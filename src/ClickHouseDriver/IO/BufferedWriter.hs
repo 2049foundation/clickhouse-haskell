@@ -6,6 +6,7 @@
 
 module ClickHouseDriver.IO.BufferedWriter
   ( writeBinaryStr,
+    writeBinaryFixedLengthStr,
     writeVarUInt,
     c_write_varint,
     writeBinaryInt8,
@@ -67,6 +68,14 @@ instance (Monoid w)=>MonoidMap w w where
 
 type IOWriter w = WriterT w IO ()
 
+writeBinaryFixedLengthStr :: (MonoidMap ByteString w)=>Word->ByteString->IOWriter w
+writeBinaryFixedLengthStr len str = do
+  let l = fromIntegral $ BS.length str
+  if (len /= l) 
+    then error "Error: the length of the given bytestring does not equal to the given length"
+    else do
+      writeIn str
+
 writeBinaryStr :: (MonoidMap ByteString w)=>ByteString->IOWriter w
 writeBinaryStr str = do
   let l = BS.length str
@@ -89,19 +98,19 @@ writeVarUInt n = do
         return ostr
 
 writeBinaryUInt8 :: (MonoidMap L.ByteString w)=>Word8->IOWriter w
-writeBinaryUInt8 = tell . transform . Binary.encode
+writeBinaryUInt8 = tell . transform . L.reverse . Binary.encode
 
 writeBinaryInt8 :: (MonoidMap L.ByteString w)=>Int8->IOWriter w
-writeBinaryInt8 = tell . transform . Binary.encode
+writeBinaryInt8 = tell . transform . L.reverse . Binary.encode
 
 writeBinaryInt16 :: (MonoidMap L.ByteString w)=>Int16->IOWriter w
-writeBinaryInt16 = tell . transform . Binary.encode
+writeBinaryInt16 = tell . transform . L.reverse . Binary.encode
 
 writeBinaryInt32 :: (MonoidMap L.ByteString w)=>Int32->IOWriter w
-writeBinaryInt32 = tell . transform . Binary.encode
+writeBinaryInt32 = tell . transform . L.reverse . Binary.encode
 
 writeBinaryInt64 :: (MonoidMap L.ByteString w)=>Int64->IOWriter w
-writeBinaryInt64 = tell . transform . Binary.encode
+writeBinaryInt64 = tell . transform . L.reverse . Binary.encode
 
 writeIn :: (MonoidMap m w)=>m->IOWriter w
 writeIn = tell . transform

@@ -170,9 +170,15 @@ data ClientSetting
   }
   deriving Show
 
-setClientSetting ::Maybe ClientSetting->TCPConnection->TCPConnection
+setClientSetting :: Maybe ClientSetting->TCPConnection->TCPConnection
 setClientSetting client_setting tcp@TCPConnection{context=ctx} 
   = tcp{context=ctx{client_setting=client_setting}}
+
+writeSettings :: ClientSetting->IOWriter Builder
+writeSettings ClientSetting{insert_block_size,strings_as_bytes,strings_encoding} = do
+  writeVarUInt insert_block_size
+  
+
 -------------------------------------------------------------------
 data Interface = TCP | HTTP
   deriving (Show, Eq)

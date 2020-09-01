@@ -55,6 +55,7 @@ readColumn n_rows spec
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
 
 writeColumn :: Context
+             -- ^ context
              ->ByteString
              -- ^ column name
              ->ByteString
@@ -63,6 +64,11 @@ writeColumn :: Context
              -- ^ items
              ->IOWriter Builder
 writeColumn ctx col_name "String" items = writeStringColumn col_name items
+writeColumn ctx col_name fix items
+  | "FixedString(" `isPrefixOf` fix = do
+    let l = BS.length fix
+    let Just (len, _) = readInt $ BS.take(l - 13) (BS.drop 12 fix)
+    writeFixedLengthString col_name (fromIntegral len) items
 writeColumn ctx col_name int items
   | "Int" `isPrefixOf` int || "UInt" `isPrefixOf` int = do
     let Just (indicator, _) = readInt $ BS.drop 3 int
@@ -80,6 +86,7 @@ writeColumn ctx col_name null items
             )
             items
     writeColumn ctx col_name inner filterNulls
+writeColumn _ _ _ _ = undefined
 
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
@@ -95,10 +102,15 @@ readFixed n_rows spec = do
 readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKString) <$> (readBinaryStrWithLength strlen)
 
-writeStringColumn :: ByteString->Vector ClickhouseType -> IOWriter Builder
+writeStringColumn :: ByteString->Vector ClickhouseType->IOWriter Builder
 writeStringColumn col_name = V.mapM_ 
   (\case CKString s -> writeBinaryStr s; 
-          _ -> error (("Type mismatch in the column " ++ show col_name) ++ show col_name))
+          _ -> error (typeMismatchError col_name))
+
+writeFixedLengthString :: ByteString->Word->Vector ClickhouseType->IOWriter Builder
+writeFixedLengthString col_name len items = do
+  V.mapM_ (\case CKString s->writeBinaryFixedLengthStr len s
+                 _ -> error (typeMismatchError col_name)) items
 ---------------------------------------------------------------------------------------------
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
@@ -116,19 +128,19 @@ writeIntColumn indicator col_name =
   case indicator of 
     8 -> V.mapM_ 
         (\case CKInt8 x -> writeBinaryInt8 x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
     16 -> V.mapM_ 
         (\case CKInt16 x -> writeBinaryInt16 x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
     32 -> V.mapM_ 
         (\case CKInt32 x -> writeBinaryInt32 x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
     64 -> V.mapM_ 
         (\case CKInt64 x -> writeBinaryInt64 x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
   
 writeUIntColumn :: Int->ByteString->Vector ClickhouseType -> IOWriter Builder
@@ -136,19 +148,19 @@ writeUIntColumn indicator col_name =
   case indicator of 
     8 -> V.mapM_ 
         (\case CKUInt8 x -> writeBinaryUInt8 x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
     16 -> V.mapM_ 
         (\case CKUInt16 x -> writeBinaryInt16 $ fromIntegral x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
     32 -> V.mapM_ 
         (\case CKUInt32 x -> writeBinaryInt32 $ fromIntegral x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
     64 -> V.mapM_ 
         (\case CKUInt64 x -> writeBinaryInt64 $ fromIntegral x
-               _ -> error ("Type mismatch in the column " ++ show col_name)
+               _ -> error (typeMismatchError col_name)
         )
 ---------------------------------------------------------------------------------------------
 readDateTime :: Int -> ByteString -> Reader (Vector ClickhouseType)
@@ -247,9 +259,6 @@ writeNullsMap :: Vector ClickhouseType -> IOWriter Builder
 writeNullsMap = V.mapM_ 
   (\case CKNull-> writeBinaryInt8 1
          _ -> writeBinaryInt8 0)
-
-
-
 ---------------------------------------------------------------------------------------------------------------------------------
 {-
   Format:
@@ -395,6 +404,8 @@ transpose cdata =
           toVector = V.fromList <$> (V.fromList transposedList)
        in toVector
 
+typeMismatchError :: ByteString->String
+typeMismatchError col_name = "Type mismatch in the column " ++ (show col_name)
 -- | print in format
 {-
 format :: Vector (Vector ClickhouseType) -> ByteString

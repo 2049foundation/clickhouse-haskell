@@ -187,7 +187,10 @@ sendQuery
   env@TCPConnection
     { tcpCompression = comp,
       tcpSocket = sock,
-      context = Context{server_info=Just info}
+      context = Context{
+        server_info=Just info,
+        client_setting=client_setting
+      }
     } 
   query
   query_id = do
@@ -204,11 +207,10 @@ sendQuery
           let client_info = getDefaultClientInfo (_DBMS_NAME <> " " <> _CLIENT_NAME)
           writeInfo client_info info
         else return ()
-      writeVarUInt 0
+      writeVarUInt 0 -- TODO add write settings
       writeVarUInt Stage._COMPLETE
       writeVarUInt comp
       writeBinaryStr query
-    let res = toLazyByteString r
     TCP.sendLazy sock (toLazyByteString r)
 
 sendData :: TCPConnection -> ByteString -> Maybe Block -> IO ()
@@ -218,14 +220,13 @@ sendData TCPConnection {tcpSocket = sock, context=ctx} table_name maybe_block = 
   r <- execWriterT $ do
     writeVarUInt Client._DATA
     writeBinaryStr table_name
-    Block.writeInfo info
     case maybe_block of
       Nothing -> do
+        Block.writeInfo info
         writeVarUInt 0 -- #col
         writeVarUInt 0 -- #row
       Just block -> do
         Block.writeBlockOutputStream ctx block
-
   TCP.sendLazy sock $ toLazyByteString r
 
 sendCancel :: TCPConnection -> IO ()
@@ -240,14 +241,16 @@ processInsertQuery :: TCPConnection
                       ->IO ByteString
 processInsertQuery tcp@TCPConnection{tcpSocket=sock} query_without_data query_id items = do
   sendQuery tcp query_without_data query_id
-  buf <- createBuffer 1024 sock
+  sendData tcp "" Nothing
+  buf <- createBuffer 2048 sock
   let info = case getServerInfo tcp of
         Nothing -> error "empty server info"
         Just s -> s 
   (sample_block,_) <- runStateT 
-    (iterateWhile (\case Block{..} -> True
-                         MultiString _ -> False
-                         _ -> error "unexpected packet type"
+    (iterateWhile (\case Block{..} -> False
+                         MultiString _ -> True
+                         Hello -> True
+                         x -> error ("unexpected packet type: " ++ show x)
                   )
      $ receivePacket info) buf
   let vectorized = V.map V.fromList (V.fromList $ List.transpose items)
@@ -258,10 +261,12 @@ processInsertQuery tcp@TCPConnection{tcpSocket=sock} query_without_data query_id
           typeinfo{
             cdata = vectorized
           }
-        _ -> error "unexpected packet type"
+        x -> error ("unexpected packet type: " ++ show x)
   -- TODO add slicer for blocks
   sendData tcp "" (Just dataBlock)
-  runStateT (receivePacket info) buf
+  sendData tcp "" Nothing
+  buf2 <- refill buf
+  runStateT (receivePacket info) buf2
   return "1"
 
 receiveData :: ServerInfo -> Reader Block.Block
@@ -372,10 +377,8 @@ writeInfo
       if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
         then writeVarUInt client_version_patch
         else return ()
-
 -------------------------------------------------------------------------------------------------------------------
 ---Helpers 
-
 {-# INLINE closeBufferSocket #-}
 closeBufferSocket :: Reader ()
 closeBufferSocket = do

@@ -17,7 +17,9 @@ module ClickHouseDriver.Core.Client
     deploySettings,
     client,
     defaultClient,
-    closeClient
+    closeClient,
+    insertMany,
+    insertOneRow
   )
 where
 
@@ -124,8 +126,7 @@ insertOneRow env cmd items = insertMany env cmd [items]
   
 closeClient :: Env () w -> IO()
 closeClient env = do
-  let st = states env
-  let get :: Maybe (State Query) = stateGet st
+  let get :: Maybe (State Query) = stateGet $ states env
   case get of
     Nothing -> return ()
     Just (Settings TCPConnection{tcpSocket=sock})

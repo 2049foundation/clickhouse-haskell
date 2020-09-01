@@ -7,7 +7,8 @@ module ClickHouseDriver.Core.Block
     readBlockInputStream,
     Block (..),
     defaultBlockInfo,
-    writeBlockOutputStream
+    writeBlockOutputStream,
+    defaultBlock
   )
 where
 
@@ -35,6 +36,13 @@ defaultBlockInfo =
       bucket_num = -1
     }
 
+defaultBlock :: Block
+defaultBlock =
+   ColumnOrientedBlock {
+     columns_with_type=V.empty,
+     cdata = V.empty,
+     info = defaultBlockInfo
+   }
 
 writeInfo :: BlockInfo->IOWriter Builder
 writeInfo (Info is_overflows bucket_num) = do
@@ -106,8 +114,8 @@ writeBlockOutputStream ctx@(Context client_info server_info client_settings)
     else return ()
   let n_rows = fromIntegral $ V.length cdata
       n_columns = fromIntegral $ V.length (cdata ! 0)
-  writeVarUInt n_columns
   writeVarUInt n_rows
+  writeVarUInt n_columns
   V.imapM_ (\i (col, t)->do 
        writeBinaryStr col
        writeBinaryStr t
