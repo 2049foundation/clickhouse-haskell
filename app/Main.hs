@@ -100,7 +100,7 @@ manualTCP = do
         Left _ -> return ()
         Right conn -> do
             print "connected"
-            sendQuery conn "select * from crd2" Nothing
+            sendQuery conn "select * from tande" Nothing
             sendData conn "" Nothing
             case conn of
                 TCPConnection {tcpSocket=sock}-> do
@@ -119,7 +119,7 @@ mainTest = do
     print "Test Section"
     conn <- defaultClient
     print "connected"
-    res <- execute "select * from crd3" conn
+    res <- execute "select item from array_t" conn
     closeClient conn
     print res
 
@@ -189,5 +189,4 @@ insertTest2 = do
     print "conn"
     closeClient conn
 
-main = do
-     insertTest2
+main = manualTCP

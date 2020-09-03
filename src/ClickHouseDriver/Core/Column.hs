@@ -300,23 +300,49 @@ readArray n_rows spec = do
        in embed
     intervalize :: Vector Int -> Vector (Int, Int)
     intervalize vec = V.drop 1 $ V.scanl' (\(a, b) v -> (b + 1, v + b)) (-1, -1) vec
-    readArraySpec :: Vector Word64 -> Reader (Vector Word64)
-    readArraySpec sizeArr = do
-      let arrSum = (fromIntegral . V.sum) sizeArr
-      offsets <- V.replicateM arrSum readBinaryUInt64
-      let offsets' = V.cons 0 (V.take (arrSum - 1) offsets)
-      let sizes = V.zipWith (-) offsets offsets'
-      return sizes
-    genSpecs :: ByteString -> [Vector Word64] -> Reader (ByteString, [Vector Word64])
-    genSpecs spec rest@(x : xs) = do
-      let l = BS.length spec
-      let cktype = BS.take (l - 7) (BS.drop 6 spec)
-      if "Array" `isPrefixOf` spec
-        then do
-          next <- readArraySpec x
-          genSpecs cktype (next : rest)
-        else return (spec, rest)
 
+readArraySpec :: Vector Word64 -> Reader (Vector Word64)
+readArraySpec sizeArr = do
+  let arrSum = (fromIntegral . V.sum) sizeArr
+  offsets <- V.replicateM arrSum readBinaryUInt64
+  let offsets' = V.cons 0 (V.take (arrSum - 1) offsets)
+  let sizes = V.zipWith (-) offsets offsets'
+  return sizes
+
+genSpecs :: ByteString -> [Vector Word64] -> Reader (ByteString, [Vector Word64])
+genSpecs spec rest@(x : xs) = do
+  let l = BS.length spec
+  let cktype = BS.take (l - 7) (BS.drop 6 spec)
+  if "Array" `isPrefixOf` spec
+    then do
+      next <- readArraySpec x
+      genSpecs cktype (next : rest)
+    else return (spec, rest)
+
+writeArray :: Context->ByteString -> ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeArray ctx col_name spec items = do
+  let lens =
+        V.scanl'
+          ( \total ->
+              ( \case
+                  (CKArray xs) -> total + V.length xs
+                  x ->
+                    error $
+                      "unexpected type in the column: "
+                        ++ show col_name
+                        ++ " with data"
+                        ++ show x
+              )
+          )
+          0
+          items
+  V.mapM_ (writeBinaryInt64 . fromIntegral) lens
+  let innerSpec = BS.take (BS.length spec - 7) (BS.drop 6 spec)
+  let innerVector = V.map (\case CKArray xs -> xs) items
+  let flattenVector = 
+        innerVector >>= \v -> do w <- v; return w
+  writeColumn ctx col_name innerSpec flattenVector
+--------------------------------------------------------------------------------------
 readTuple :: Int->ByteString->Reader (Vector ClickhouseType)
 readTuple n_rows spec = do
   let l = BS.length spec
@@ -326,6 +352,21 @@ readTuple n_rows spec = do
   let transposed = transpose datas
   return $ CKTuple <$> transposed
 
+writeTuple :: Context->ByteString->ByteString->Vector ClickhouseType->IOWriter Builder
+writeTuple ctx col_name spec items = do
+  let inner = BS.take (BS.length spec - 7) (BS.drop 6 spec)
+  let specarr = V.fromList $ getSpecs inner
+  let transposed = transpose 
+        (V.map (\case CKTuple tupleVec -> tupleVec
+                      other -> error ("expected type: " ++ show other 
+                              ++ "in the column:" ++ show col_name)
+        ) items)
+  if V.length specarr /= V.length transposed
+    then error $ "length of the given array does not match, column name = "
+     ++ show col_name
+    else do
+      V.zipWithM_ (writeColumn ctx col_name) specarr transposed
+--------------------------------------------------------------------------------------
 readEnum :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readEnum n_rows spec = do
   let l = BS.length spec
@@ -334,7 +375,8 @@ readEnum n_rows spec = do
           then BS.take (l - 7) (BS.drop 6 spec)
           else BS.take (l - 8) (BS.drop 7 spec)
       prespecs = getSpecs innerSpec
-      specs = (\(name, Just (n, _)) -> (n, name)) <$> ((toTuple . BS.splitWith (== 61)) <$> prespecs) --61 is '='
+      specs = (\(name, Just (n, _)) -> (n, name)) <$> 
+        ((\[x, y]->(x, readInt y)) . BS.splitWith (== 61) <$> prespecs) --61 is '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec
     then do
@@ -343,9 +385,33 @@ readEnum n_rows spec = do
     else do
       vals <- V.replicateM n_rows readBinaryInt16
       return $ (CKString . (specsMap Map.!) . fromIntegral) <$> vals
-  where
-    toTuple [x, y] = (x, readInt y)
 
+writeEnum :: ByteString -> ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeEnum col_name spec items = do
+  let l = BS.length spec
+      innerSpec =
+        if "Enum8" `isPrefixOf` spec
+          then BS.take (l - 7) (BS.drop 6 spec)
+          else BS.take (l - 8) (BS.drop 7 spec)
+      prespecs = getSpecs innerSpec
+      specs =
+        (\(name, Just (n, _)) -> (name, n))
+          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== 61) <$> prespecs) --61 is '='
+      specsMap = Map.fromList specs
+  V.mapM_
+    ( \case
+        CKString str ->
+          ( if "Enum8" `isPrefixOf` spec
+              then writeBinaryInt8 $ fromIntegral $ specsMap Map.! str
+              else writeBinaryInt16 $ fromIntegral $ specsMap Map.! str
+          )
+        CKNull ->
+          if "Enum8" `isPrefixOf` spec
+            then writeBinaryInt8 0
+            else writeBinaryInt16 0
+    )
+    items
+--------------------------------------------------------------------------------------
 readDate :: Int->ByteString->Reader(Vector ClickhouseType)
 readDate n_rows spec = do
   let epoch_start = fromGregorian 1970 1 1
