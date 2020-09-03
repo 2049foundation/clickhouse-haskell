@@ -4,7 +4,7 @@
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Block.hs", "Haskell", 0, 103, 0, 3, 17, 123
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Client.hs", "Haskell", 0, 101, 0, 12, 20, 133
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/ClientProtocol.hs", "Haskell", 0, 23, 0, 7, 19, 49
-"/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Column.hs", "Haskell", 0, 383, 0, 66, 25, 474
+"/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Column.hs", "Haskell", 0, 461, 0, 69, 24, 554
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Connection.hs", "Haskell", 0, 354, 0, 13, 21, 388
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Defines.hs", "Haskell", 0, 34, 0, 20, 32, 86
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Error.hs", "Haskell", 0, 410, 0, 1, 7, 418
@@ -17,6 +17,6 @@
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/ServerProtocol.hs", "Haskell", 0, 37, 0, 14, 16, 67
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Types.hs", "Haskell", 0, 252, 0, 13, 27, 292
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/IO/BufferedReader.hs", "Haskell", 0, 151, 0, 2, 39, 192
-"/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/IO/BufferedWriter.hs", "Haskell", 0, 90, 0, 6, 22, 118
+"/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/IO/BufferedWriter.hs", "Haskell", 0, 104, 0, 6, 26, 136
 "/home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Include/varuint.h", "C++", 9, 0, 0, 0, 3, 12
-"Total", "-", 9, 2253, 57, 187, 310, 2816
+"Total", "-", 9, 2345, 57, 190, 313, 2914

@@ -14,6 +14,10 @@ module ClickHouseDriver.IO.BufferedWriter
     writeBinaryInt32,
     writeBinaryInt64,
     writeBinaryUInt8,
+    writeBinaryUInt16,
+    writeBinaryUInt32,
+    writeBinaryUInt64,
+    writeBinaryUInt128,
     writeIn,
     transform,
     IOWriter,
@@ -39,6 +43,7 @@ import Foreign.Ptr
 import Control.Monad.Writer
 import Data.ByteString.Char8 (unpack)
 import Control.Monad.IO.Class
+import Data.DoubleWord (Word128(..))
 
 
 -- Monoid Homomorphism.
@@ -111,6 +116,20 @@ writeBinaryInt32 = tell . transform . L.reverse . Binary.encode
 
 writeBinaryInt64 :: (MonoidMap L.ByteString w)=>Int64->IOWriter w
 writeBinaryInt64 = tell . transform . L.reverse . Binary.encode
+
+writeBinaryUInt16 :: (MonoidMap L.ByteString w)=>Word16->IOWriter w
+writeBinaryUInt16 = tell . transform . L.reverse . Binary.encode
+
+writeBinaryUInt32 :: (MonoidMap L.ByteString w)=>Word32->IOWriter w
+writeBinaryUInt32 = tell . transform . L.reverse . Binary.encode
+
+writeBinaryUInt64 :: (MonoidMap L.ByteString w)=>Word64->IOWriter w
+writeBinaryUInt64 = tell . transform . L.reverse . Binary.encode
+
+writeBinaryUInt128 :: (MonoidMap L.ByteString w)=>Word128->IOWriter w
+writeBinaryUInt128 (Word128 hi lo) = do
+  writeBinaryUInt64 hi
+  writeBinaryUInt64 lo
 
 writeIn :: (MonoidMap m w)=>m->IOWriter w
 writeIn = tell . transform

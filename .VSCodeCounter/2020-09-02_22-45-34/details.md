@@ -1,10 +1,10 @@
 # Details
 
-Date : 2020-09-02 21:32:25
+Date : 2020-09-02 22:45:34
 
 Directory /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver
 
-Total : 20 files,  2319 codes, 187 comments, 310 blanks, all 2816 lines
+Total : 20 files,  2411 codes, 190 comments, 313 blanks, all 2914 lines
 
 [summary](results.md)
 
@@ -16,7 +16,7 @@ Total : 20 files,  2319 codes, 187 comments, 310 blanks, all 2816 lines
 | [src/ClickHouseDriver/Core/Block.hs](/src/ClickHouseDriver/Core/Block.hs) | Haskell | 103 | 3 | 17 | 123 |
 | [src/ClickHouseDriver/Core/Client.hs](/src/ClickHouseDriver/Core/Client.hs) | Haskell | 101 | 12 | 20 | 133 |
 | [src/ClickHouseDriver/Core/ClientProtocol.hs](/src/ClickHouseDriver/Core/ClientProtocol.hs) | Haskell | 23 | 7 | 19 | 49 |
-| [src/ClickHouseDriver/Core/Column.hs](/src/ClickHouseDriver/Core/Column.hs) | Haskell | 383 | 66 | 25 | 474 |
+| [src/ClickHouseDriver/Core/Column.hs](/src/ClickHouseDriver/Core/Column.hs) | Haskell | 461 | 69 | 24 | 554 |
 | [src/ClickHouseDriver/Core/Connection.hs](/src/ClickHouseDriver/Core/Connection.hs) | Haskell | 354 | 13 | 21 | 388 |
 | [src/ClickHouseDriver/Core/Defines.hs](/src/ClickHouseDriver/Core/Defines.hs) | Haskell | 34 | 20 | 32 | 86 |
 | [src/ClickHouseDriver/Core/Error.hs](/src/ClickHouseDriver/Core/Error.hs) | Haskell | 410 | 1 | 7 | 418 |
@@ -29,7 +29,7 @@ Total : 20 files,  2319 codes, 187 comments, 310 blanks, all 2816 lines
 | [src/ClickHouseDriver/Core/ServerProtocol.hs](/src/ClickHouseDriver/Core/ServerProtocol.hs) | Haskell | 37 | 14 | 16 | 67 |
 | [src/ClickHouseDriver/Core/Types.hs](/src/ClickHouseDriver/Core/Types.hs) | Haskell | 252 | 13 | 27 | 292 |
 | [src/ClickHouseDriver/IO/BufferedReader.hs](/src/ClickHouseDriver/IO/BufferedReader.hs) | Haskell | 151 | 2 | 39 | 192 |
-| [src/ClickHouseDriver/IO/BufferedWriter.hs](/src/ClickHouseDriver/IO/BufferedWriter.hs) | Haskell | 90 | 6 | 22 | 118 |
+| [src/ClickHouseDriver/IO/BufferedWriter.hs](/src/ClickHouseDriver/IO/BufferedWriter.hs) | Haskell | 104 | 6 | 26 | 136 |
 | [src/ClickHouseDriver/Include/varuint.h](/src/ClickHouseDriver/Include/varuint.h) | C++ | 9 | 0 | 3 | 12 |
 
 [summary](results.md)
