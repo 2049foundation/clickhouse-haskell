@@ -46,9 +46,6 @@ import qualified Data.List as List
 --Debug 
 import Debug.Trace (trace)
 
-#define DEFAULT_USERNAME  "default"
-#define DEFAULT_HOST_NAME "localhost"
-#define DEFAULT_PASSWORD  ""
 
 versionTuple :: ServerInfo -> (Word, Word, Word)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)

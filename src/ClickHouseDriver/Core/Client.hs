@@ -44,6 +44,14 @@ import ClickHouseDriver.IO.BufferedReader
 import qualified Network.URI.Encode as NE
 import ClickHouseDriver.Core.Types
 
+#define DEFAULT_USERNAME  "default"
+#define DEFAULT_HOST_NAME "localhost"
+#define DEFAULT_PASSWORD  ""
+#define DEFAULT_PORT_NAME "9000"
+#define DEFAULT_DATABASE "default"
+#define DEFAULT_COMPRESSION_SETTING False
+
+
 data Query a where
   FetchData :: String -> Query (CKResult)
 
@@ -94,8 +102,16 @@ deploySettings :: TCPConnection -> IO (Env () w)
 deploySettings tcp = 
   initEnv (stateSet (Settings tcp) stateEmpty) ()
 
-defaultClient :: IO(Env () w)
-defaultClient = tcpConnect "localhost" "9000" "default" "12345612341" "default" False >>= client
+defaultClient :: IO (Env () w)
+defaultClient =
+  tcpConnect
+    DEFAULT_HOST_NAME
+    DEFAULT_PORT_NAME
+    DEFAULT_USERNAME
+    DEFAULT_PASSWORD
+    DEFAULT_DATABASE
+    DEFAULT_COMPRESSION_SETTING
+    >>= client
 
 client :: Either String TCPConnection -> IO(Env () w)
 client (Left e) = error e
