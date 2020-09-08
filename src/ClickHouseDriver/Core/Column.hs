@@ -106,7 +106,9 @@ writeColumn ctx col_name cktype items
   | "Enum" `isPrefixOf` cktype = writeEnum col_name cktype items
   | "Array" `isPrefixOf` cktype = writeArray ctx col_name cktype items
   | "UUID" `isPrefixOf` cktype = writeUUID col_name items
-
+  | "IPv4" `isPrefixOf` cktype = writeIPv4 col_name items
+  | "IPv6" `isPrefixOf` cktype = writeIPv6 col_name items
+  | "Date" `isPrefixOf` cktype = writeDate col_name items
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
