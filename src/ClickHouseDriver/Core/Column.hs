@@ -5,7 +5,8 @@ module ClickHouseDriver.Core.Column(
   readColumn,
   ClickhouseType(..),
   transpose,
-  writeColumn
+  writeColumn,
+  format
 ) where
 
 import ClickHouseDriver.IO.BufferedReader
@@ -532,13 +533,13 @@ transpose cdata =
 
 typeMismatchError :: ByteString->String
 typeMismatchError col_name = "Type mismatch in the column " ++ (show col_name)
+
 -- | print in format
-{-
 format :: Vector (Vector ClickhouseType) -> ByteString
-format v = foldl1 () V.map tostr v
+format v = BS.intercalate "\n" $ V.toList $ V.map tostr v
   where
     tostr :: Vector ClickhouseType -> ByteString
-    tostr row = V.map help row
+    tostr row = BS.intercalate "," $ V.toList $ V.map help row
 
     help :: ClickhouseType->ByteString
     help (CKString s) = s
@@ -550,6 +551,5 @@ format v = foldl1 () V.map tostr v
     help (CKUInt16 n) = C8.pack $ show n
     help (CKUInt32 n) = C8.pack $ show n
     help (CKUInt64 n) = C8.pack $ show n
-    help (CKFixedLengthString _ s) = s
+    help (CKTuple xs) = "(" <> tostr xs <> ")"
     help _ = ""
--}

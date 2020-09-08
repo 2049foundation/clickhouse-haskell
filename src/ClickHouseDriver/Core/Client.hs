@@ -12,7 +12,7 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 
 module ClickHouseDriver.Core.Client
-  ( execute,
+  ( query,
     executeWithInfo,
     deploySettings,
     client,
@@ -123,8 +123,8 @@ executeWithInfo query env = runHaxl env (executeQuery query)
     executeQuery :: String -> GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
 
-execute :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
-execute query env = do
+query :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
+query query env = do
   CKResult{query_result=r} <- executeWithInfo query env
   return r
 

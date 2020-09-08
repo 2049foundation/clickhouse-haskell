@@ -63,14 +63,6 @@ main3 = do
     (sock, sockaddr) <- TCP.connectSock "localhost" "9000"
     print sock
 
-query :: IO()
-query = do
-    conn <- defaultHttpConnection
-    env <- setupEnv conn
-    res <- runQuery env (getJSON "SHOW DATABASES")
-    print res
-
-
 class MyType a
 
 instance MyType Int
@@ -119,7 +111,7 @@ mainTest = do
     print "Test Section"
     conn <- defaultClient
     print "connected"
-    res <- execute "select item from array_t" conn
+    res <- query "select item from array_t" conn
     closeClient conn
     print res
 
@@ -164,7 +156,7 @@ insertTest = do
             ,[CKString "1000000000", CKString "Clickhouse-Haskell2", CKInt16 12]
             ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKInt16 15]]
     print s
-    q <- execute "SELECT * FROM simple_table" conn
+    q <- query "SELECT * FROM simple_table" conn
     print q
     closeClient conn
 
@@ -172,7 +164,7 @@ readTest :: IO ()
 readTest = do
     cmd <- System.IO.getLine
     conn <- defaultClient
-    res <- execute cmd conn
+    res <- query cmd conn
     print res
     closeClient conn
 --INSERT INTO nulls_table (`id`, `item`,`number`) VALUES (null, 'JOHN',1557),('1234567890', null,533),('3543364534', 'MARRY',null),('2258864346', 'JAME',4452)
@@ -184,9 +176,13 @@ insertTest2 = do
             ,[CKString "1000000000", CKNull, CKInt16 12]
             ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKNull]
             ,[CKString "2258864346", CKString "Jame", CKInt16 4452]]
-    q <- execute "SELECT * FROM nulls_table" conn
+    q <- query "SELECT * FROM nulls_table" conn
     print q 
     print "conn"
     closeClient conn
 
-main = manualTCP
+main = do
+    conn <- defaultClient
+    q <- query "SELECT * FROM test_table" conn
+    print $ format q
+    print ""
