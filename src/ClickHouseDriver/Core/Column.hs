@@ -9,30 +9,51 @@ module ClickHouseDriver.Core.Column(
   ClickHouseDriver.Core.Column.putStrLn
 ) where
 
+import ClickHouseDriver.Core.Types
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
-import Data.Binary
+import Data.Binary (Word64, Word8)
+import Data.Bits ((.&.))
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as C8
+  ( drop,
+    filter,
+    intercalate,
+    length,
+    pack,
+    splitWith,
+    take,
+    unpack,
+  )
 import Data.ByteString (ByteString, isPrefixOf)
+import Data.ByteString.Builder (Builder)
+import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Char8 (readInt)
-import Data.Int
-import Data.Vector (Vector, (!), (!?))
-import qualified Data.Vector as V
-import Data.Word
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
-import Data.Time (Day, addDays, fromGregorian, toGregorian, diffDays)
-import Network.IP.Addr (IP4(..), IP6(..))
-import Data.Bits
-import Data.UnixTime (formatUnixTimeGMT, UnixTime(..), webDateFormat)
-import Foreign.C.Types (CTime(..))
 import Data.Maybe (fromJust)
-import Data.Int
-import ClickHouseDriver.Core.Types
-import Data.ByteString.Builder (Builder)
-import Data.UUID as UUID
-
+import Data.Time (Day, addDays, diffDays, fromGregorian, toGregorian)
+import Data.UUID as UUID (fromString, fromWords, toString, toWords)
+import Data.UnixTime (UnixTime (..), formatUnixTimeGMT, webDateFormat)
+import Data.Vector ((!), (!?), Vector)
+import qualified Data.Vector as V
+  ( cons,
+    drop,
+    fromList,
+    generate,
+    length,
+    map,
+    mapM,
+    mapM_,
+    replicateM,
+    scanl',
+    sum,
+    take,
+    toList,
+    zipWith,
+    zipWithM_,
+  )
+import Foreign.C.Types (CTime (..))
+import Network.IP.Addr (IP4 (..), IP6 (..))
 --Debug 
 import Debug.Trace
 ---------------------------------------------------------------------------------------

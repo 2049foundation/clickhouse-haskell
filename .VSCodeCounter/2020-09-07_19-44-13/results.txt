@@ -1,0 +1,51 @@
+Date : 2020-09-07 19:44:13
+Directory : /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver
+Total : 20 files,  2494 codes, 172 comments, 319 blanks, all 2985 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Haskell  |         18 |      2,428 |        169 |        311 |      2,908 |
+| C        |          1 |         57 |          3 |          5 |         65 |
+| C++      |          1 |          9 |          0 |          3 |         12 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                  | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                     |         20 |      2,494 |        172 |        319 |      2,985 |
+| CBits                                                                                 |          1 |         57 |          3 |          5 |         65 |
+| Core                                                                                  |         15 |      2,161 |        161 |        245 |      2,567 |
+| Core/HTTP                                                                             |          4 |        292 |         27 |         51 |        370 |
+| IO                                                                                    |          2 |        256 |          8 |         65 |        329 |
+| Include                                                                               |          1 |          9 |          0 |          3 |         12 |
++---------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                              | language | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/CBits/varuint.c              | C        |         57 |          3 |          5 |         65 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core.hs                      | Haskell  |         11 |          0 |          1 |         12 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Block.hs                | Haskell  |        103 |          3 |         17 |        123 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Client.hs               | Haskell  |        115 |         12 |         22 |        149 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/ClientProtocol.hs       | Haskell  |         23 |          7 |         19 |         49 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Column.hs               | Haskell  |        533 |         51 |         28 |        612 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Connection.hs           | Haskell  |        350 |         13 |         21 |        384 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Defines.hs              | Haskell  |         34 |         20 |         32 |         86 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Error.hs                | Haskell  |        410 |          1 |          7 |        418 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/HTTP.hs                 | Haskell  |          8 |          0 |          1 |          9 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/HTTP/Client.hs          | Haskell  |        183 |         21 |         27 |        231 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/HTTP/Connection.hs      | Haskell  |         29 |          3 |          9 |         41 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/HTTP/Helpers.hs         | Haskell  |         62 |          3 |         10 |         75 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/HTTP/Types.hs           | Haskell  |         18 |          0 |          5 |         23 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/QueryProcessingStage.hs | Haskell  |          4 |          0 |          4 |          8 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/ServerProtocol.hs       | Haskell  |         37 |         14 |         16 |         67 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Core/Types.hs                | Haskell  |        252 |         13 |         27 |        292 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/IO/BufferedReader.hs         | Haskell  |        151 |          2 |         39 |        192 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/IO/BufferedWriter.hs         | Haskell  |        105 |          6 |         26 |        137 |
+| /home/darth/EMQX/clickhouse-haskell/src/ClickHouseDriver/Include/varuint.h            | C++      |          9 |          0 |          3 |         12 |
+| Total                                                                                 |          |      2,494 |        172 |        319 |      2,985 |
++---------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
