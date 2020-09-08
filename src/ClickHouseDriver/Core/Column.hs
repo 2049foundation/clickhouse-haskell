@@ -13,7 +13,8 @@ import ClickHouseDriver.Core.Types
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
 import Data.Binary (Word64, Word8)
-import Data.Bits ((.&.))
+import Data.Int (Int64)
+import Data.Bits ((.&.), (.|.), shift)
 import qualified Data.ByteString as BS
   ( drop,
     filter,
@@ -29,12 +30,13 @@ import Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Char8 (readInt)
 import qualified Data.List as List
-import qualified Data.Map.Strict as Map
+import qualified Data.HashMap.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Time (Day, addDays, diffDays, fromGregorian, toGregorian)
 import Data.UUID as UUID (fromString, fromWords, toString, toWords)
 import Data.UnixTime (UnixTime (..), formatUnixTimeGMT, webDateFormat)
 import Data.Vector ((!), (!?), Vector)
+import Data.Hashable
 import qualified Data.Vector as V
   ( cons,
     drop,
@@ -51,6 +53,7 @@ import qualified Data.Vector as V
     toList,
     zipWith,
     zipWithM_,
+    foldl'
   )
 import Foreign.C.Types (CTime (..))
 import Network.IP.Addr (IP4 (..), IP6 (..))
@@ -109,6 +112,7 @@ writeColumn ctx col_name cktype items
   | "IPv4" `isPrefixOf` cktype = writeIPv4 col_name items
   | "IPv6" `isPrefixOf` cktype = writeIPv6 col_name items
   | "Date" `isPrefixOf` cktype = writeDate col_name items
+  | "LowCardinality" `isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
@@ -257,7 +261,7 @@ readDateTime n_rows spec = do
 readLowCadinality :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readLowCadinality 0 _ = return (V.fromList [])
 readLowCadinality n spec = do
-  readBinaryUInt64 --prefix
+  readBinaryUInt64 --state prefix
   let l = BS.length spec
   let inner = BS.take (l - 16) (BS.drop 15 spec)
   serialization_type <- readBinaryUInt64
@@ -284,8 +288,66 @@ readLowCadinality n spec = do
       | otherwise = spec
     l = BS.length spec
 
-writeLowCardinality :: ByteString->ByteString->Vector ClickhouseType->IOWriter Builder
-writeLowCardinality col_name spec items = undefined
+writeLowCardinality :: Context->ByteString->ByteString->Vector ClickhouseType->IOWriter Builder
+writeLowCardinality ctx col_name spec items = do
+  let inner = BS.take (BS.length spec - 16) (BS.drop 15 spec)
+  (index, keys) <- if "Nullable" `isPrefixOf` inner
+        then do
+          let nullInner = BS.take (BS.length inner - 10) (BS.drop 9 spec)
+          let hashedItem = hashItems True items
+          let key_by_index_element = V.foldl' (\m x ->insertKeys m x) Map.empty hashedItem
+          let keys = V.map (\k->key_by_index_element Map.! k + 1) hashedItem
+          let index = V.fromList $  0 : (Map.keys $ key_by_index_element)
+          return (keys, index)
+        -- let index = 
+        else do
+          let hashedItem = hashItems False items
+          let key_by_index_element = V.foldl' (\m x ->insertKeys m x) Map.empty hashedItem
+          let keys = V.map (\k->key_by_index_element Map.! k) hashedItem
+          let index = V.fromList $ Map.keys $ key_by_index_element
+          return (keys, index)
+  if V.length index == 0
+    then return ()
+    else do
+      let int_type = 0 :: Int64
+      let has_additional_keys_bit = 1 `shift` 9
+      let need_update_dictionary = 1 `shift` 10
+      let serialization_type = has_additional_keys_bit 
+            .|. need_update_dictionary .|. int_type
+      let nullsInner = 
+            if "Nullable" `isPrefixOf` inner
+              then BS.take (BS.length inner - 10) (BS.drop 9 spec)
+              else inner
+      writeBinaryUInt64 1 --state prefix
+      writeBinaryInt64 serialization_type
+      writeBinaryInt64 $ fromIntegral $ V.length index
+      writeColumn ctx col_name nullsInner items
+      writeBinaryInt64 $ fromIntegral $ V.length items
+      case int_type of
+        0 -> V.mapM_ (writeBinaryUInt8 . fromIntegral) keys
+        1 -> V.mapM_ (writeBinaryUInt16 . fromIntegral) keys
+        2 -> V.mapM_ (writeBinaryUInt32 . fromIntegral) keys
+        3 -> V.mapM_ (writeBinaryUInt64 . fromIntegral) keys
+  where
+    insertKeys ::(Hashable a, Eq a)=> Map.HashMap a Int->a->Map.HashMap a Int
+    insertKeys m a = if Map.member a m then m else Map.insert a (Map.size m) m
+
+    hashItems :: Bool->Vector ClickhouseType->Vector Int
+    hashItems isNullable items = V.map (
+                 \case CKInt16 x-> hash x
+                       CKInt8 x -> hash x
+                       CKInt32 x -> hash x
+                       CKInt64 x -> hash x
+                       CKUInt8 x -> hash x
+                       CKUInt16 x -> hash x
+                       CKUInt32 x -> hash x
+                       CKUInt64 x -> hash x
+                       CKString str -> hash str
+                       CKNull -> if isNullable
+                         then hash (0 :: Int) 
+                         else error $ typeMismatchError col_name 
+                       _ -> error $ typeMismatchError col_name
+                 ) items
 ---------------------------------------------------------------------------------------------------------------------------------
 {-
           Informal description for this config:

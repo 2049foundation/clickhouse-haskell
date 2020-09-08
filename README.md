@@ -19,6 +19,7 @@ However, the native interface does not support insertion (read only) so far.
     * Enum8/16
     * Nested
     * LowCardinality(T)
+    * UUID
 * Query progress information.
 * Block by block results streaming.
 * Reading query profile info.
