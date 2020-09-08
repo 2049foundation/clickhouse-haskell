@@ -34,15 +34,13 @@ import Data.ByteString.Builder (toLazyByteString, Builder)
 import Data.ByteString.Char8 (unpack)
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as L
-import Data.Int
-import qualified Data.Vector as V
+import qualified Data.Vector as V (fromList, map, concat,length)
 import Data.Vector (Vector, (!))
-import Data.Word
-import qualified Network.Simple.TCP as TCP
+import qualified Network.Simple.TCP as TCP (recv, sendLazy, connectSock, closeSock)
 import Network.Socket (Socket)
-import System.Timeout
+import System.Timeout (timeout)
 import Control.Monad.Loops (iterateWhile)
-import qualified Data.List as List
+import qualified Data.List as List (transpose)
 --Debug 
 import Debug.Trace (trace)
 
