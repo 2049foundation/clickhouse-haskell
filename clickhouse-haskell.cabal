@@ -51,6 +51,7 @@ library
       src
   build-depends:
       aeson
+    , uuid
     , QuickCheck
     , io-streams
     , uri-encode
