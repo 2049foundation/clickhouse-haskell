@@ -44,7 +44,7 @@ defaultBlock =
      info = defaultBlockInfo
    }
 
-writeInfo :: BlockInfo->IOWriter Builder
+writeInfo :: BlockInfo->Writer Builder
 writeInfo (Info is_overflows bucket_num) = do
     writeVarUInt 1 
     writeBinaryUInt8 (if is_overflows then 1 else 0)
@@ -101,7 +101,7 @@ readBlockInputStream = do
         columns_with_type = V.zip names types
       }
 
-writeBlockOutputStream :: Context->Block->IOWriter Builder
+writeBlockOutputStream :: Context->Block->Writer Builder
 writeBlockOutputStream ctx@(Context client_info server_info client_settings) 
   (ColumnOrientedBlock columns_with_type cdata info) = do
   let revis = fromIntegral $ 

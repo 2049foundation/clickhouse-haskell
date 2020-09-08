@@ -49,7 +49,7 @@ data BlockInfo = Info
   } 
   deriving Show
 
-writeBlockInfo :: BlockInfo->IOWriter Builder
+writeBlockInfo :: BlockInfo->Writer Builder
 writeBlockInfo Info{is_overflows, bucket_num} = do
   writeVarUInt 1
   writeBinaryUInt8 (if is_overflows then 1 else 0)
@@ -174,7 +174,7 @@ setClientSetting :: Maybe ClientSetting->TCPConnection->TCPConnection
 setClientSetting client_setting tcp@TCPConnection{context=ctx} 
   = tcp{context=ctx{client_setting=client_setting}}
 
-writeSettings :: ClientSetting->IOWriter Builder
+writeSettings :: ClientSetting->Writer Builder
 writeSettings ClientSetting{insert_block_size,strings_as_bytes,strings_encoding} = do
   writeVarUInt insert_block_size
   

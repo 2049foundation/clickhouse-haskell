@@ -27,7 +27,7 @@ import ClickHouseDriver.Core.Types
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
 import Control.Monad.State.Lazy (runStateT, get)
-import Control.Monad.Writer
+import Control.Monad.Writer hiding (Writer)
 import qualified Data.Binary as Binary
 import Data.ByteString hiding (filter, unpack)
 import Data.ByteString.Builder (toLazyByteString, Builder)
@@ -74,7 +74,7 @@ sendHello (database, usrname, password) sock = do
   (_, w) <- runWriterT writeHello
   TCP.sendLazy sock (toLazyByteString w)
   where
-    writeHello :: IOWriter Builder
+    writeHello :: Writer Builder
     writeHello = do
       writeVarUInt Client._HELLO
       writeBinaryStr ("ClickHouse " <> _CLIENT_NAME)
@@ -336,7 +336,7 @@ writeInfo ::
   (MonoidMap ByteString w) =>
   ClientInfo ->
   ServerInfo ->
-  IOWriter w
+  Writer w
 writeInfo
   ( ClientInfo
       client_name

@@ -35,6 +35,7 @@ import Data.Maybe (fromJust)
 import Data.Time (Day, addDays, diffDays, fromGregorian, toGregorian)
 import Data.UUID as UUID (fromString, fromWords, toString, toWords)
 import Data.UnixTime (UnixTime (..), formatUnixTimeGMT, webDateFormat)
+import Data.Time.LocalTime
 import Data.Vector ((!), (!?), Vector)
 import Data.Hashable
 import qualified Data.Vector as V
@@ -90,7 +91,7 @@ writeColumn :: Context
              -- ^ column type
              ->Vector ClickhouseType
              -- ^ items
-             ->IOWriter Builder
+             ->Writer Builder
 writeColumn ctx col_name cktype items
   | "String" `isPrefixOf` cktype = writeStringColumn col_name items
   | "FixedString(" `isPrefixOf` cktype = do
@@ -127,13 +128,13 @@ readFixed n_rows spec = do
 readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKString) <$> (readBinaryStrWithLength strlen)
 
-writeStringColumn :: ByteString->Vector ClickhouseType->IOWriter Builder
+writeStringColumn :: ByteString->Vector ClickhouseType->Writer Builder
 writeStringColumn col_name = V.mapM_ 
   (\case CKString s -> writeBinaryStr s;
          CKNull-> writeVarUInt 0;
          _ -> error (typeMismatchError col_name))
 
-writeFixedLengthString :: ByteString->Word->Vector ClickhouseType->IOWriter Builder
+writeFixedLengthString :: ByteString->Word->Vector ClickhouseType->Writer Builder
 writeFixedLengthString col_name len items = do
   V.mapM_ (\case CKString s->writeBinaryFixedLengthStr len s
                  CKNull-> (\x->()) <$> V.replicateM (fromIntegral len) (writeVarUInt 0)
@@ -150,7 +151,7 @@ readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt
 readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
 readIntColumn _ _ = error "Not an integer type"
 
-writeIntColumn :: Int -> ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeIntColumn :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeIntColumn indicator col_name =
   case indicator of
     8 ->
@@ -182,7 +183,7 @@ writeIntColumn indicator col_name =
             _ -> error (typeMismatchError col_name)
         )
 
-writeUIntColumn :: Int -> ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeUIntColumn :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeUIntColumn indicator col_name =
   case indicator of
     8 ->
@@ -288,7 +289,7 @@ readLowCadinality n spec = do
       | otherwise = spec
     l = BS.length spec
 
-writeLowCardinality :: Context->ByteString->ByteString->Vector ClickhouseType->IOWriter Builder
+writeLowCardinality :: Context->ByteString->ByteString->Vector ClickhouseType->Writer Builder
 writeLowCardinality ctx col_name spec items = do
   let inner = BS.take (BS.length spec - 16) (BS.drop 15 spec)
   (index, keys) <- if "Nullable" `isPrefixOf` inner
@@ -367,7 +368,7 @@ readNullable n_rows spec = do
         config <- readBinaryStrWithLength n_rows
         (return . V.fromList . BS.unpack) config
 
-writeNullsMap :: Vector ClickhouseType -> IOWriter Builder
+writeNullsMap :: Vector ClickhouseType -> Writer Builder
 writeNullsMap = V.mapM_ 
   (\case CKNull-> writeBinaryInt8 1
          _ -> writeBinaryInt8 0)
@@ -429,7 +430,7 @@ genSpecs spec rest@(x : xs) = do
       genSpecs cktype (next : rest)
     else return (spec, rest)
 
-writeArray :: Context->ByteString -> ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeArray :: Context->ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeArray ctx col_name spec items = do
   let lens =
         V.scanl'
@@ -462,7 +463,7 @@ readTuple n_rows spec = do
   let transposed = transpose datas
   return $ CKTuple <$> transposed
 
-writeTuple :: Context -> ByteString -> ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeTuple :: Context -> ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeTuple ctx col_name spec items = do
   let inner = BS.take (BS.length spec - 7) (BS.drop 6 spec)
   let specarr = V.fromList $ getSpecs inner
@@ -507,7 +508,7 @@ readEnum n_rows spec = do
       vals <- V.replicateM n_rows readBinaryInt16
       return $ (CKString . (specsMap Map.!) . fromIntegral) <$> vals
 
-writeEnum :: ByteString -> ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeEnum :: ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeEnum col_name spec items = do
   let l = BS.length spec
       innerSpec =
@@ -542,7 +543,7 @@ readDate n_rows = do
       toCK = fmap (\(y, m, d)->CKDate y m d) toTriple
   return toCK
 
-writeDate :: ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeDate :: ByteString -> Vector ClickhouseType -> Writer Builder
 writeDate col_name items = do
   let epoch_start = fromGregorian 1970 1 1
   let serialize =
@@ -579,6 +580,9 @@ readDecimal n_rows spec = do
     trans :: Int->ClickhouseType->ClickhouseType
     trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
     trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
+
+writeDecimal :: ByteString->Vector ClickhouseType -> Writer Builder
+writeDecimal col_name items = undefined
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int->Reader (Vector ClickhouseType)
 readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)
@@ -586,14 +590,14 @@ readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)
 readIPv6 :: Int->Reader (Vector ClickhouseType)
 readIPv6 n_rows = V.replicateM n_rows (CKIPv6 . IP6  <$> readBinaryUInt128)
 
-writeIPv4 :: ByteString->Vector ClickhouseType->IOWriter Builder
+writeIPv4 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv4 col_name items = V.mapM_ (
           \case CKIPv4 ip4 -> writeBinaryUInt32 $ unIP4 ip4
                 CKNull -> writeBinaryInt32 0
                 x -> error $ typeMismatchError col_name
           ) items
 
-writeIPv6 :: ByteString->Vector ClickhouseType->IOWriter Builder
+writeIPv6 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv6 col_name items = V.mapM_ (
           \case CKIPv6 ip6 -> writeBinaryUInt128 $ unIP6 ip6
                 CKNull -> writeBinaryUInt64 0
@@ -616,7 +620,7 @@ readUUID n_rows = do
     return $ CKString  $ C8.pack $
      UUID.toString $ UUID.fromWords w1 w2 w3 w4
 
-writeUUID :: ByteString -> Vector ClickhouseType -> IOWriter Builder
+writeUUID :: ByteString -> Vector ClickhouseType -> Writer Builder
 writeUUID col_name items =
   V.mapM_
     ( \case CKString uuidstr -> do
