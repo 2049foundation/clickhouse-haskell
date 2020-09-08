@@ -609,4 +609,8 @@ putStrLn v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map tostr v
     help (CKTuple xs) = "(" <> tostr xs <> ")"
     help (CKArray xs) = "[" <> tostr xs <> "]"
     help (CKNull) = "null"
-    help _ = ""
+    help (CKIPv4 ip4) = C8.pack $ show ip4
+    help (CKIPv6 ip6) = C8.pack $ show ip6
+    help (CKDate y m d) = (C8.pack $ show y) 
+                        <> "-" <> (C8.pack $ show m) 
+                        <> "-" <> (C8.pack $ show d)
