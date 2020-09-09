@@ -1,11 +1,4 @@
 cabal-version: 1.12
-
--- This file has been generated from package.yaml by hpack version 0.33.0.
---
--- see: https://github.com/sol/hpack
---
--- hash: 1809303c08fde6bcec5abe72b5db23882e6f3f466db3144deed14217b72f1357
-
 name:           clickhouse-haskell
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/clickhouse-haskell#readme>
