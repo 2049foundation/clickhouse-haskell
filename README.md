@@ -1,7 +1,7 @@
 **Clickhouse-haskell**
 ======================
 ClickHouse Haskell Driver with HTTP and native (TCP) interface support.
-However, the native interface does not support insertion (read only) so far.
+Support both insert and ordinary query. 
 
 **Features**
 ========
@@ -184,14 +184,22 @@ stdout:
 **Usage of the Native(TCP) interface**
 ==========================
 
-So far the native interface does not support insertion query. Query results will display only in the form of the ADT mentioned above. 
+## **Ping**
+```Haskell
+    conn <- defaultClient
+    ClickHouseDriver.Core.ping conn
+```
+stdout:
+```
+Just "PONG!"
+```
 
-## **Example of showing how to make query with the native interface**
+## **Example of making query with the native interface**
 ```Haskell
 main :: IO ()
 main = do
     env <- defaultClient --localhost 9000
-    res <- execute "SHOW TABLES" env
+    res <- query "SHOW TABLES" env
     print res
 ```
 stdout:
@@ -199,6 +207,21 @@ stdout:
 [[CKString "test"],[CKString "test_table"],[CKString "test_table2"]]
 ```
 
+## **Example of making insert query with the native interface**
+```
+conn <- defaultClient
+insertMany conn "INSERT INTO crd VALUES"
+          [
+            [CKString "123", CKString "hi"],
+            [CKString "456", CKString "lo"]
+          ]
+```
+In the terminal interface of clickhouse it will show:
+```
+id──┬─card─┐
+│ 123 │ hi   │
+│ 456 │ lo   │
+```
 ## **Stream profile and process infomation**
 
 The native interface supports reading infomations coming from server. Originally they come with the queried data wrapped in the algebraic data types:

@@ -231,8 +231,8 @@ insertTest7 = do
     conn <- defaultClient
     q <- ClickHouseDriver.Core.insertMany conn "INSERT INTO crd VALUES"
             [
-                [CKString "ooo", CKString "ggo"],
-                [CKString "ffp", CKString "lo"]
+                [CKString "123", CKString "hi"],
+                [CKString "456", CKString "lo"]
             ]
     closeClient conn
 
@@ -240,5 +240,5 @@ pingTest = do
     conn <- defaultClient
     ClickHouseDriver.Core.ping conn
 
-main = pingTest
+main = insertTest7
 
