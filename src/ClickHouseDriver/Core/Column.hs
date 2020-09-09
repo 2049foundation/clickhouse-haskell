@@ -226,9 +226,9 @@ readDateTime n_rows spec = do
   let (scale, spc) = readTimeSpec spec
   case spc of
     Nothing -> do
-      tz <- liftIO $ getCurrentTimeZone
-      
-      undefined
+      --tz <- liftIO $ getCurrentTimeZone
+      --undefined
+      error $ "Implementation error: Can't read current time zone so far."
     Just tz_name -> readDateTimeWithSpec n_rows scale tz_name
 
 readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
