@@ -19,7 +19,8 @@ module ClickHouseDriver.Core.Client
     defaultClient,
     closeClient,
     insertMany,
-    insertOneRow
+    insertOneRow,
+    ping
   )
 where
 
@@ -139,7 +140,15 @@ insertMany env cmd items = do
 
 insertOneRow :: Env () w->String->[ClickhouseType]->IO(BS.ByteString)
 insertOneRow env cmd items = insertMany env cmd [items]
-  
+
+ping :: Env () w->IO()
+ping env = do
+  let get :: Maybe (State Query) = stateGet $ states env
+  case get of
+    Nothing -> print "empty env"
+    Just (Settings tcp) 
+     -> ping' 10000 tcp >>= print
+
 closeClient :: Env () w -> IO()
 closeClient env = do
   let get :: Maybe (State Query) = stateGet $ states env

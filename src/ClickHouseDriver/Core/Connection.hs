@@ -12,6 +12,7 @@ module ClickHouseDriver.Core.Connection
     receiveResult,
     closeConnection,
     processInsertQuery,
+    ping'
   )
 where
 
@@ -42,15 +43,15 @@ import System.Timeout (timeout)
 import Control.Monad.Loops (iterateWhile)
 import qualified Data.List as List (transpose)
 --Debug 
-import Debug.Trace (trace)
+--import Debug.Trace (trace)
 
 
 versionTuple :: ServerInfo -> (Word, Word, Word)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
 
 -- | set timeout to 10 seconds
-ping :: Int->TCPConnection->IO(Maybe String)
-ping timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
+ping' :: Int->TCPConnection->IO(Maybe String)
+ping' timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
   = timeout timelimit $ do
       r <- execWriterT $ writeVarUInt Client._PING
       TCP.sendLazy sock (toLazyByteString r)

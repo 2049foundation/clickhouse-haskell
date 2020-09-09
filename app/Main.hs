@@ -227,9 +227,18 @@ insertTest6 = do
     Col.putStrLn q
     closeClient conn
 
-main = do
+insertTest7 = do
     conn <- defaultClient
-    q <- query "SELECT * FROM dt" conn
-    Col.putStrLn q
+    q <- ClickHouseDriver.Core.insertMany conn "INSERT INTO crd VALUES"
+            [
+                [CKString "ooo", CKString "ggo"],
+                [CKString "ffp", CKString "lo"]
+            ]
     closeClient conn
+
+pingTest = do
+    conn <- defaultClient
+    ClickHouseDriver.Core.ping conn
+
+main = pingTest
 
