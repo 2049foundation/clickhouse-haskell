@@ -121,9 +121,7 @@ writeColumn ctx col_name cktype items
   | "IPv4" `isPrefixOf` cktype = writeIPv4 col_name items
   | "IPv6" `isPrefixOf` cktype = writeIPv6 col_name items
   | "Date" `isPrefixOf` cktype = writeDate col_name items
-
   | "LowCardinality" `isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
-
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
@@ -275,7 +273,6 @@ readDateTimeWithSpec n_rows (Just scl) tz_name = do
 writeDateTime :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
 writeDateTime col_name spec items = do
   let (scale, spc) = readTimeSpec spec
-
   undefined
 ------------------------------------------------------------------------------------------------
 readLowCadinality :: Int -> ByteString -> Reader (Vector ClickhouseType)
@@ -652,9 +649,6 @@ writeDecimal col_name spec items = do
         vec
     writeDecimal128 :: Int -> Vector ClickhouseType -> Writer Builder
     writeDecimal128 = undefined
-    trans :: Int -> ClickhouseType -> ClickhouseType
-    trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
-    trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int->Reader (Vector ClickhouseType)
 readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)
@@ -738,6 +732,9 @@ putStrLn v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map tostr v
 
     help :: ClickhouseType->ByteString
     help (CKString s) = s
+    help (CKDecimal64 n) = C8.pack $ show n
+    help (CKDecimal32 n) = C8.pack $ show n
+    help (CKDecimal n) = C8.pack $ show n
     help (CKInt8 n) = C8.pack $ show n
     help (CKInt16 n) = C8.pack $ show n
     help (CKInt32 n) = C8.pack $ show n
