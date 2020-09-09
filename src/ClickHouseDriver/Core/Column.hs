@@ -606,43 +606,51 @@ readDecimal n_rows spec = do
     trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
     trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
 
-writeDecimal :: ByteString->ByteString->Vector ClickhouseType -> Writer Builder
+writeDecimal :: ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeDecimal col_name spec items = do
-  let l = BS.length spec 
-  let innerspecs = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
-  let (specific, Just(prescale,_)) = case innerspecs of
-          [] -> error "No spec"
-          [scale'] -> if "Decimal32" `isPrefixOf` spec 
-                        then (writeDecimal32, readInt scale')
-                        else if "Decimal64" `isPrefixOf` spec
-                          then (writeDecimal64,readInt scale')
-                          else (writeDecimal128, readInt scale')
-          [precision', scale'] ->do
-            let Just (precision,_) = readInt precision'
-            if precision <= 9 || "Decimal32" `isPrefixOf` spec
-                then (writeDecimal32, readInt scale')
-                else if precision <= 18 || "Decimal64" `isPrefixOf` spec
-                  then (writeDecimal64 , readInt scale')
-                  else (writeDecimal128 , readInt scale')
+  let l = BS.length spec
+  let innerspecs = getSpecs $ BS.take (l - 9) (BS.drop 8 spec)
+  let (specific, Just (prescale, _)) = case innerspecs of
+        [] -> error "No spec"
+        [scale'] ->
+          if "Decimal32" `isPrefixOf` spec
+            then (writeDecimal32, readInt scale')
+            else
+              if "Decimal64" `isPrefixOf` spec
+                then (writeDecimal64, readInt scale')
+                else (writeDecimal128, readInt scale')
+        [precision', scale'] -> do
+          let Just (precision, _) = readInt precision'
+          if precision <= 9 || "Decimal32" `isPrefixOf` spec
+            then (writeDecimal32, readInt scale')
+            else
+              if precision <= 18 || "Decimal64" `isPrefixOf` spec
+                then (writeDecimal64, readInt scale')
+                else (writeDecimal128, readInt scale')
   let scale = 10 ^ prescale
-  undefined
+  specific scale items
   where
-    writeDecimal32 :: Int->Vector ClickhouseType -> Writer Builder
-    writeDecimal32 scale vec = V.mapM_ (
-                    \case CKDecimal32 f32 -> writeBinaryInt32 $ fromIntegral $ floor $ (f32 * fromIntegral scale)
-                          _ -> error $ typeMismatchError col_name
-                ) vec
-    writeDecimal64 :: Int->Vector ClickhouseType -> Writer Builder
-    writeDecimal64 scale vec = V.mapM_ (
-                    \case CKDecimal64 f64 -> writeBinaryInt32 $ fromIntegral $ floor $ (f64 * fromIntegral scale)
-                          _ -> error $ typeMismatchError col_name
-                ) vec
-    writeDecimal128 :: Int->Vector ClickhouseType -> Writer Builder
+    writeDecimal32 :: Int -> Vector ClickhouseType -> Writer Builder
+    writeDecimal32 scale vec =
+      V.mapM_
+        ( \case
+            CKDecimal32 f32 -> writeBinaryInt32 $ fromIntegral $ floor $ (f32 * fromIntegral scale)
+            _ -> error $ typeMismatchError col_name
+        )
+        vec
+    writeDecimal64 :: Int -> Vector ClickhouseType -> Writer Builder
+    writeDecimal64 scale vec =
+      V.mapM_
+        ( \case
+            CKDecimal64 f64 -> writeBinaryInt32 $ fromIntegral $ floor $ (f64 * fromIntegral scale)
+            _ -> error $ typeMismatchError col_name
+        )
+        vec
+    writeDecimal128 :: Int -> Vector ClickhouseType -> Writer Builder
     writeDecimal128 = undefined
-    trans :: Int->ClickhouseType->ClickhouseType
+    trans :: Int -> ClickhouseType -> ClickhouseType
     trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
     trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
-
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int->Reader (Vector ClickhouseType)
 readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)
