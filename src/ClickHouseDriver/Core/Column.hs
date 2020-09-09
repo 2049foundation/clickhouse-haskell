@@ -308,7 +308,7 @@ readLowCadinality n spec = do
 writeLowCardinality :: Context->ByteString->ByteString->Vector ClickhouseType->Writer Builder
 writeLowCardinality ctx col_name spec items = do
   let inner = BS.take (BS.length spec - 16) (BS.drop 15 spec)
-  (index, keys) <- if "Nullable" `isPrefixOf` inner
+  (keys, index) <- if "Nullable" `isPrefixOf` inner
         then do
           let nullInner = BS.take (BS.length inner - 10) (BS.drop 9 spec)
           let hashedItem = hashItems True items
