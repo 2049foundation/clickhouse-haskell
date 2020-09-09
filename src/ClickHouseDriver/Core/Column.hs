@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE ScopedTypeVariables#-}
 module ClickHouseDriver.Core.Column(
   readColumn,
   ClickhouseType(..),
@@ -13,7 +14,7 @@ import ClickHouseDriver.Core.Types
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
 import Data.Binary (Word64, Word8)
-import Data.Int (Int64)
+import Data.Int
 import Data.Bits ((.&.), (.|.), shift)
 import qualified Data.ByteString as BS
   ( drop,
@@ -38,6 +39,8 @@ import Data.UnixTime (UnixTime (..), formatUnixTimeGMT, webDateFormat)
 import Data.Time.LocalTime
 import Data.Vector ((!), (!?), Vector)
 import Data.Hashable
+import Control.Monad.IO.Class
+import Data.Time.Zones
 import qualified Data.Vector as V
   ( cons,
     drop,
@@ -60,6 +63,9 @@ import Foreign.C.Types (CTime (..))
 import Network.IP.Addr (IP4 (..), IP6 (..))
 --Debug 
 import Debug.Trace
+
+-- Notice: Codes in this file might be difficult to read.
+
 ---------------------------------------------------------------------------------------
 ---Readers 
 
@@ -219,45 +225,54 @@ readDateTime :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTime n_rows spec = do
   let (scale, spc) = readTimeSpec spec
   case spc of
-    Nothing -> error "Error : can't read localzone"
+    Nothing -> do
+      tz <- liftIO $ getCurrentTimeZone
+      
+      undefined
     Just tz_name -> readDateTimeWithSpec n_rows scale tz_name
-  where
-    readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
-    readTimeSpec spec'
-      | "DateTime64" `isPrefixOf` spec' = do
-        let l = BS.length spec'
-        let innerspecs = BS.take (l - 11) (BS.drop 10 spec')
-        let splited = getSpecs innerspecs
-        case splited of
-          [] -> (Nothing, Nothing)
-          [x] -> (Just $ fst $ fromJust $ readInt x, Just "")
-          [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
-      | otherwise = do
-        let l = BS.length spec'
-        let innerspecs = BS.take (l - 9) (BS.drop 8 spec')
-        (Nothing, Just innerspecs)
-    readDateTimeWithSpec :: Int -> Maybe Int -> ByteString -> Reader (Vector ClickhouseType)
-    readDateTimeWithSpec n_rows Nothing tz_name = do
-      data32 <- readIntColumn n_rows "Int32"
-      let toDateTimeString =
-            V.map
-              ( \(CKInt32 x) ->
-                  formatUnixTimeGMT webDateFormat $
-                    UnixTime (CTime $ fromIntegral x) 0
-              )
-              data32
-      return $ V.map CKString toDateTimeString
-    readDateTimeWithSpec n_rows (Just scl) tz_name = do
-      data64 <- readIntColumn n_rows "Int64"
-      let scale = 10 ^ fromIntegral scl
-      let toDateTimeString =
-            V.map
-              ( \(CKInt64 x) ->
-                  formatUnixTimeGMT webDateFormat $
-                    UnixTime (CTime $ x `div` scale) 0
-              )
-              data64
-      return $ V.map CKString toDateTimeString
+
+readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
+readTimeSpec spec'
+  | "DateTime64" `isPrefixOf` spec' = do
+    let l = BS.length spec'
+    let innerspecs = BS.take (l - 12) (BS.drop 11 spec')
+    let splited = getSpecs innerspecs
+    case splited of
+      [] -> (Nothing, Nothing)
+      [x] -> (Just $ fst $ fromJust $ readInt x, Nothing)
+      [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
+  | otherwise = do
+    let l = BS.length spec'
+    let innerspecs = BS.take (l - 10) (BS.drop 9 spec')
+    (Nothing, Just innerspecs)
+readDateTimeWithSpec :: Int -> Maybe Int -> ByteString -> Reader (Vector ClickhouseType)
+readDateTimeWithSpec n_rows Nothing tz_name = do
+  data32 <- readIntColumn n_rows "Int32"
+  let toDateTimeString =
+        V.map
+          ( \(CKInt32 x) ->
+              formatUnixTimeGMT webDateFormat $
+                UnixTime (CTime $ fromIntegral x) x
+          )
+          data32
+  return $ V.map CKString toDateTimeString
+readDateTimeWithSpec n_rows (Just scl) tz_name = do
+  data64 <- readIntColumn n_rows "Int64"
+  let scale = 10 ^ fromIntegral scl
+  let toDateTimeString =
+        V.map
+          ( \(CKInt64 x) ->
+              formatUnixTimeGMT webDateFormat $
+                UnixTime (CTime $ x `div` scale) 0
+          )
+          data64
+  return $ V.map CKString toDateTimeString
+
+writeDateTime :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeDateTime col_name spec items = do
+  let (scale, spc) = readTimeSpec spec
+
+  undefined
 ------------------------------------------------------------------------------------------------
 readLowCadinality :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readLowCadinality 0 _ = return (V.fromList [])
@@ -310,7 +325,7 @@ writeLowCardinality ctx col_name spec items = do
   if V.length index == 0
     then return ()
     else do
-      let int_type = 0 :: Int64
+      let int_type = floor $ logBase 2 (fromIntegral $ V.length index) / 8 :: Int64
       let has_additional_keys_bit = 1 `shift` 9
       let need_update_dictionary = 1 `shift` 10
       let serialization_type = has_additional_keys_bit 
@@ -561,28 +576,73 @@ writeDate col_name items = do
 readDecimal :: Int->ByteString->Reader(Vector ClickhouseType)
 readDecimal n_rows spec = do
   let l = BS.length spec 
-  let [precision', scale'] = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
-  let (Just (precision,_), Just (scale,_)) = (readInt precision', readInt scale')
-  let specific = 
-        if precision <= 9
-          then readDecimal32
-          else if precision <= 18
-            then readDecimal64
-            else readDecimal128
+  let innerspec = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
+  let (specific, Just(scale,_)) = case innerspec of
+          [] -> error "No spec"
+          [scale'] -> if "Decimal32" `isPrefixOf` spec 
+                        then (readDecimal32, readInt scale')
+                        else if "Decimal64" `isPrefixOf` spec
+                          then (readDecimal64,readInt scale')
+                          else (readDecimal128, readInt scale')
+          [precision', scale'] ->do
+            let Just (precision,_) = readInt precision'
+            if precision <= 9 || "Decimal32" `isPrefixOf` spec
+                then (readDecimal32, readInt scale')
+                else if precision <= 18 || "Decimal64" `isPrefixOf` spec
+                  then (readDecimal64 , readInt scale')
+                  else (readDecimal128 , readInt scale')
   
   raw <- specific n_rows
   let final = fmap (trans scale) raw
   return final
   where
+    readDecimal32 :: Int->Reader (Vector ClickhouseType)
     readDecimal32 n_rows = readIntColumn n_rows "Int32"
+    readDecimal64 :: Int->Reader (Vector ClickhouseType)
     readDecimal64 n_rows = readIntColumn n_rows "Int64"
+    readDecimal128 :: Int->Reader (Vector ClickhouseType)
     readDecimal128 n_rows = undefined
     trans :: Int->ClickhouseType->ClickhouseType
     trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
     trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
 
-writeDecimal :: ByteString->Vector ClickhouseType -> Writer Builder
-writeDecimal col_name items = undefined
+writeDecimal :: ByteString->ByteString->Vector ClickhouseType -> Writer Builder
+writeDecimal col_name spec items = do
+  let l = BS.length spec 
+  let innerspecs = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
+  let (specific, Just(prescale,_)) = case innerspecs of
+          [] -> error "No spec"
+          [scale'] -> if "Decimal32" `isPrefixOf` spec 
+                        then (writeDecimal32, readInt scale')
+                        else if "Decimal64" `isPrefixOf` spec
+                          then (writeDecimal64,readInt scale')
+                          else (writeDecimal128, readInt scale')
+          [precision', scale'] ->do
+            let Just (precision,_) = readInt precision'
+            if precision <= 9 || "Decimal32" `isPrefixOf` spec
+                then (writeDecimal32, readInt scale')
+                else if precision <= 18 || "Decimal64" `isPrefixOf` spec
+                  then (writeDecimal64 , readInt scale')
+                  else (writeDecimal128 , readInt scale')
+  let scale = 10 ^ prescale
+  undefined
+  where
+    writeDecimal32 :: Int->Vector ClickhouseType -> Writer Builder
+    writeDecimal32 scale vec = V.mapM_ (
+                    \case CKDecimal32 f32 -> writeBinaryInt32 $ fromIntegral $ floor $ (f32 * fromIntegral scale)
+                          _ -> error $ typeMismatchError col_name
+                ) vec
+    writeDecimal64 :: Int->Vector ClickhouseType -> Writer Builder
+    writeDecimal64 scale vec = V.mapM_ (
+                    \case CKDecimal64 f64 -> writeBinaryInt32 $ fromIntegral $ floor $ (f64 * fromIntegral scale)
+                          _ -> error $ typeMismatchError col_name
+                ) vec
+    writeDecimal128 :: Int->Vector ClickhouseType -> Writer Builder
+    writeDecimal128 = undefined
+    trans :: Int->ClickhouseType->ClickhouseType
+    trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
+    trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
+
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int->Reader (Vector ClickhouseType)
 readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)

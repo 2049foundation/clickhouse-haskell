@@ -63,6 +63,7 @@ library
     , io-streams
     , filepath
     , uri-encode
+    , tz
     , time
     , bytestring-to-vector
     , monad-loops

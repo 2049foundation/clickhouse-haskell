@@ -77,6 +77,7 @@ data ClickhouseType
   | CKString ByteString
   | CKTuple (Vector ClickhouseType)
   | CKArray (Vector ClickhouseType)
+  | CKDecimal Float
   | CKDecimal32 Float
   | CKDecimal64 Float
   | CKDecimal128 Float

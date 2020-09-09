@@ -228,8 +228,9 @@ insertTest6 = do
     closeClient conn
 
 main = do
-    insertTest3
-    insertTest4
-    insertTest5
-    insertTest6
+    conn <- defaultClient
+    q <- query "SELECT * FROM dt" conn
+    Col.putStrLn q
+    closeClient conn
+
     
