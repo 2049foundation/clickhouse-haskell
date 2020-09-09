@@ -14,6 +14,7 @@ import ClickHouseDriver.Core.Types
 import ClickHouseDriver.IO.BufferedReader
 import ClickHouseDriver.IO.BufferedWriter
 import Data.Binary (Word64, Word8)
+
 import Data.Int
 import Data.Bits ((.&.), (.|.), shift)
 import qualified Data.ByteString as BS
@@ -36,11 +37,13 @@ import Data.Maybe (fromJust)
 import Data.Time (Day, addDays, diffDays, fromGregorian, toGregorian)
 import Data.UUID as UUID (fromString, fromWords, toString, toWords)
 import Data.UnixTime (UnixTime (..), formatUnixTimeGMT, webDateFormat)
+
 import Data.Time.LocalTime
 import Data.Vector ((!), (!?), Vector)
 import Data.Hashable
 import Control.Monad.IO.Class
 import Data.Time.Zones
+
 import qualified Data.Vector as V
   ( cons,
     drop,
@@ -65,7 +68,6 @@ import Network.IP.Addr (IP4 (..), IP6 (..))
 import Debug.Trace
 
 -- Notice: Codes in this file might be difficult to read.
-
 ---------------------------------------------------------------------------------------
 ---Readers 
 
@@ -119,7 +121,9 @@ writeColumn ctx col_name cktype items
   | "IPv4" `isPrefixOf` cktype = writeIPv4 col_name items
   | "IPv6" `isPrefixOf` cktype = writeIPv6 col_name items
   | "Date" `isPrefixOf` cktype = writeDate col_name items
+
   | "LowCardinality" `isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
+
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do

@@ -233,4 +233,3 @@ main = do
     Col.putStrLn q
     closeClient conn
 
-    
