@@ -20,7 +20,7 @@ module ClickHouseDriver.IO.BufferedWriter
     writeBinaryUInt128,
     writeIn,
     transform,
-    IOWriter,
+    Writer,
     MonoidMap,
   )
 where
@@ -40,7 +40,8 @@ import Data.Word
 import Data.Word8
 import Foreign.C
 import Foreign.Ptr
-import Control.Monad.Writer
+import qualified Control.Monad.Writer as W 
+import Control.Monad.Writer (WriterT, tell)
 import Data.ByteString.Char8 (unpack)
 import Control.Monad.IO.Class
 import Data.DoubleWord (Word128(..))
@@ -71,9 +72,9 @@ instance MonoidMap Builder ByteString where
 instance (Monoid w)=>MonoidMap w w where
   transform = id
 
-type IOWriter w = WriterT w IO ()
+type Writer w = WriterT w IO ()
 
-writeBinaryFixedLengthStr :: (MonoidMap ByteString w)=>Word->ByteString->IOWriter w
+writeBinaryFixedLengthStr :: (MonoidMap ByteString w)=>Word->ByteString->Writer w
 writeBinaryFixedLengthStr len str = do
   let l = fromIntegral $ BS.length str
   if (len /= l) 
@@ -81,13 +82,13 @@ writeBinaryFixedLengthStr len str = do
     else do
       writeIn str
 
-writeBinaryStr :: (MonoidMap ByteString w)=>ByteString->IOWriter w
+writeBinaryStr :: (MonoidMap ByteString w)=>ByteString->Writer w
 writeBinaryStr str = do
   let l = BS.length str
   writeVarUInt (fromIntegral l)
   writeIn str
 
-writeVarUInt ::(MonoidMap ByteString w)=>Word->IOWriter w
+writeVarUInt ::(MonoidMap ByteString w)=>Word->Writer w
 writeVarUInt n = do
    varuint <- liftIO $ leb128 n
    writeIn varuint 
@@ -102,36 +103,36 @@ writeVarUInt n = do
         ostr <- unsafePackCString ostr'
         return ostr
 
-writeBinaryUInt8 :: (MonoidMap L.ByteString w)=>Word8->IOWriter w
+writeBinaryUInt8 :: (MonoidMap L.ByteString w)=>Word8->Writer w
 writeBinaryUInt8 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryInt8 :: (MonoidMap L.ByteString w)=>Int8->IOWriter w
+writeBinaryInt8 :: (MonoidMap L.ByteString w)=>Int8->Writer w
 writeBinaryInt8 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryInt16 :: (MonoidMap L.ByteString w)=>Int16->IOWriter w
+writeBinaryInt16 :: (MonoidMap L.ByteString w)=>Int16->Writer w
 writeBinaryInt16 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryInt32 :: (MonoidMap L.ByteString w)=>Int32->IOWriter w
+writeBinaryInt32 :: (MonoidMap L.ByteString w)=>Int32->Writer w
 writeBinaryInt32 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryInt64 :: (MonoidMap L.ByteString w)=>Int64->IOWriter w
+writeBinaryInt64 :: (MonoidMap L.ByteString w)=>Int64->Writer w
 writeBinaryInt64 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryUInt16 :: (MonoidMap L.ByteString w)=>Word16->IOWriter w
+writeBinaryUInt16 :: (MonoidMap L.ByteString w)=>Word16->Writer w
 writeBinaryUInt16 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryUInt32 :: (MonoidMap L.ByteString w)=>Word32->IOWriter w
+writeBinaryUInt32 :: (MonoidMap L.ByteString w)=>Word32->Writer w
 writeBinaryUInt32 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryUInt64 :: (MonoidMap L.ByteString w)=>Word64->IOWriter w
+writeBinaryUInt64 :: (MonoidMap L.ByteString w)=>Word64->Writer w
 writeBinaryUInt64 = tell . transform . L.reverse . Binary.encode
 
-writeBinaryUInt128 :: (MonoidMap L.ByteString w)=>Word128->IOWriter w
+writeBinaryUInt128 :: (MonoidMap L.ByteString w)=>Word128->Writer w
 writeBinaryUInt128 (Word128 hi lo) = do
   writeBinaryUInt64 hi
   writeBinaryUInt64 lo
 
-writeIn :: (MonoidMap m w)=>m->IOWriter w
+writeIn :: (MonoidMap m w)=>m->Writer w
 writeIn = tell . transform
 
 foreign import ccall unsafe "varuint.h write_varint" c_write_varint :: Word -> IO CString

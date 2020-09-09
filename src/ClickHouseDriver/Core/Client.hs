@@ -46,7 +46,7 @@ import ClickHouseDriver.Core.Types
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
-#define DEFAULT_PASSWORD  ""
+#define DEFAULT_PASSWORD  "12345612341"
 #define DEFAULT_PORT_NAME "9000"
 #define DEFAULT_DATABASE "default"
 #define DEFAULT_COMPRESSION_SETTING False
