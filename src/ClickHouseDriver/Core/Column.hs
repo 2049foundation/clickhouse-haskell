@@ -63,7 +63,8 @@ import qualified Data.Vector as V
     foldl'
   )
 import Foreign.C.Types (CTime (..))
-import Network.IP.Addr (IP4 (..), IP6 (..))
+import Network.IP.Addr (IP4 (..), IP6 (..),ip6ToWords,
+       ip6FromWords, ip4ToOctets, ip4FromOctets)
 --Debug 
 --import Debug.Trace
 
@@ -651,21 +652,23 @@ writeDecimal col_name spec items = do
     writeDecimal128 = undefined
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int->Reader (Vector ClickhouseType)
-readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)
+readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . ip4ToOctets . IP4 <$> readBinaryUInt32)
 
 readIPv6 :: Int->Reader (Vector ClickhouseType)
-readIPv6 n_rows = V.replicateM n_rows (CKIPv6 . IP6  <$> readBinaryUInt128)
+readIPv6 n_rows = V.replicateM n_rows (CKIPv6 . ip6ToWords . IP6  <$> readBinaryUInt128)
 
 writeIPv4 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv4 col_name items = V.mapM_ (
-          \case CKIPv4 ip4 -> writeBinaryUInt32 $ unIP4 ip4
+          \case CKIPv4 (w1, w2, w3, w4) -> 
+                  writeBinaryUInt32 $ unIP4 $ ip4FromOctets w1 w2 w3 w4
                 CKNull -> writeBinaryInt32 0
                 x -> error $ typeMismatchError col_name
           ) items
 
 writeIPv6 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv6 col_name items = V.mapM_ (
-          \case CKIPv6 ip6 -> writeBinaryUInt128 $ unIP6 ip6
+          \case CKIPv6 (w1, w2, w3, w4, w5, w6, w7, w8) 
+                  -> writeBinaryUInt128 $ unIP6 $ ip6FromWords w1 w2 w3 w4 w5 w6 w7 w8
                 CKNull -> writeBinaryUInt64 0
                 x -> error $ typeMismatchError col_name
           ) items

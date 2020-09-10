@@ -80,8 +80,9 @@ data ClickhouseType
   | CKDecimal32 Float
   | CKDecimal64 Float
   | CKDecimal128 Float
-  | CKIPv4 IP4
-  | CKIPv6 IP6
+  | CKIPv4 (Word8, Word8, Word8, Word8)
+  | CKIPv6 (Word16, Word16, Word16, Word16,
+         Word16, Word16, Word16, Word16)
   | CKDate {
     year :: !Integer,
     month :: !Int,
