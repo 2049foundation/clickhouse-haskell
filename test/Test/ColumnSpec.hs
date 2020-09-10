@@ -9,7 +9,7 @@ import Data.Vector (fromList)
 
 spec :: Spec
 spec = parallel $ do
-    --stringAndIntSpec
+    stringAndIntSpec
     arraySpec
     tupleAndEnumSpec
     lowCardinalitySpec
@@ -75,18 +75,18 @@ lowCardinalitySpec :: Spec
 lowCardinalitySpec = describe "lowcardinality type test" $ do
     conn <- runIO $ defaultClient
     runIO $ query ("CREATE TABLE IF NOT EXISTS lowcardinality_suite " ++ 
-            "(`id` Int8, `lowstr` LowCardinality(String), `lowint32` LowCardinality(Int32))" ++ "ENGINE = Memory") conn
+            "(`id` Int8, `lowstr` LowCardinality(String))" ++ "ENGINE = Memory") conn
     runIO $ ClickHouseDriver.Core.insertMany conn "INSERT INTO lowcardinality_suite VALUES"
                 [
-                    [CKInt8 1, CKString "Clickhouse", CKInt32 123456],
-                    [CKInt8 2, CKString "driver", CKInt32 123457],
-                    [CKInt8 3, CKString "Clickhouse", CKInt32 120436]
+                    [CKInt8 1, CKString "Clickhouse", CKInt8 123456],
+                    [CKInt8 2, CKString "driver", CKInt8 123457],
+                    [CKInt8 3, CKString "Clickhouse", CKInt8 120436]
                 ]
     q <- runIO $ query "SELECT * FROM lowcardinality_suite" conn
     it "returns query result in standard format" $ do
-        show q `shouldBe` "[[CKInt8 1, CKString \"Clickhouse\", CKInt32 123456]," ++
-                    "[CKInt8 2, CKString \"driver\", CKInt32 123457]," ++
-                    "[CKInt8 3, CKString \"Clickhouse\", CKInt32 120436]]"
+        show q `shouldBe` "[[CKInt8 1, CKString \"Clickhouse\"]," ++
+                    "[CKInt8 2, CKString \"driver\",]," ++
+                    "[CKInt8 3, CKString \"Clickhouse\"]]"
 
 ipAndDateSpec :: Spec
 ipAndDateSpec = undefined
