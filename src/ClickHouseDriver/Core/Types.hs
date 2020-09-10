@@ -65,8 +65,7 @@ data Block = ColumnOrientedBlock
   deriving Show
 ------------------------------------------------------------
 data ClickhouseType
-  = CKBool Bool
-  | CKInt8 Int8
+  = CKInt8 Int8
   | CKInt16 Int16
   | CKInt32 Int32
   | CKInt64 Int64

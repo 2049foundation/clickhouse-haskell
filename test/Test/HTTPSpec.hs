@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.QuerySpec (spec) where
+module Test.HTTPSpec (spec) where
 
 import ClickHouseDriver.Core
 import ClickHouseDriver.Core.HTTP
@@ -50,20 +50,20 @@ query3 = describe "format in JSON" $ do
 queryTCP :: Spec
 queryTCP = describe "select 1" $ do
   conn <- runIO $ defaultClient
-  res <- runIO $ execute "SELECT 1" conn
+  res <- runIO $ query "SELECT 1" conn
   it "returns result in ClickhouseType" $ do
     (show res) `shouldBe` (show [[CKUInt8 1]])
 
 lowCardinalityTest :: Spec
 lowCardinalityTest = describe "lowCardinality" $ do
   conn <- runIO $ defaultClient
-  res <- runIO $ execute "SELECT * FROM crd3" conn
+  res <- runIO $ query "SELECT * FROM crd3" conn
   it "returns result in ClickhouseType" $ do
-    (show res) `shouldBe` (show [[CKFixedLengthString 3 "abc",CKString "myString",CKNull],[CKFixedLengthString 3 "xyz",CKString "Noctis",CKString "Ross"],[CKFixedLengthString 3 "123",CKString "Alice",CKNull],[CKFixedLengthString 3 "456",CKString "Bob",CKString "Walter"]])
+    (show res) `shouldBe` (show [[CKString "abc",CKString "myString",CKNull],[CKString"xyz",CKString "Noctis",CKString "Ross"],[CKString "123",CKString "Alice",CKNull],[CKString "456",CKString "Bob",CKString "Walter"]])
 
 comprehensiveTest :: Spec
 comprehensiveTest = describe "array string number etc." $ do
   conn <- runIO $ defaultClient
-  res <- runIO $ execute "SELECT * FROM big" conn
+  res <- runIO $ query "SELECT * FROM big" conn
   it "returns result in ClickhouseType" $ do
     (show res) `shouldBe` (show "")

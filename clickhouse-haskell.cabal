@@ -136,7 +136,7 @@ test-suite clickhouse-haskell-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Test.QuerySpec
+      Test.ColumnSpec
       Paths_clickhouse_haskell
   hs-source-dirs:
       test

@@ -36,6 +36,8 @@ import           System.IO hiding (putStr)
 import           Data.Int
 import           Data.Bits
 import           Haxl.Core
+import           Test.ColumnSpec
+import           Test.HTTPSpec
 
 someReader :: R.Reader Int Int
 someReader = do
@@ -240,4 +242,8 @@ pingTest = do
     conn <- defaultClient
     ClickHouseDriver.Core.ping conn
 
-main = readTest
+main :: IO()
+main = do
+    spec
+    columnSpec
+

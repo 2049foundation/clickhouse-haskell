@@ -1,7 +1,8 @@
 **Clickhouse-haskell**
 ======================
 ClickHouse Haskell Driver with HTTP and native (TCP) interface support.
-Support both insert and ordinary query. 
+Support both insert and ordinary query.
+This project has been heavily referenced from the python version. Link: https://github.com/mymarilyn/clickhouse-driver
 
 **Features**
 ========
@@ -270,4 +271,3 @@ The code above prints:
 
 QueryInfo {profile_info = ProfileInfo {number_rows = 3, blocks = 1, number_bytes = 4224, applied_limit = True, rows_before_limit = 0, calculated_rows_before_limit = True}, progress = Prog {rows = 3, bytes = 331, total_rows = 0, written_rows = 0, written_bytes = 0}, elapsed = 0}
 ```
-
