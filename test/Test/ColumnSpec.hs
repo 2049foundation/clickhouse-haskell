@@ -78,9 +78,9 @@ lowCardinalitySpec = describe "lowcardinality type test" $ do
             "(`id` Int8, `lowstr` LowCardinality(String))" ++ "ENGINE = Memory")
     runIO $ ClickHouseDriver.Core.insertMany conn "INSERT INTO lowcardinality_suite VALUES"
                 [
-                    [CKInt8 1, CKString "Clickhouse", CKInt8 123456],
-                    [CKInt8 2, CKString "driver", CKInt8 123457],
-                    [CKInt8 3, CKString "Clickhouse", CKInt8 120436]
+                    [CKInt8 1, CKString "Clickhouse", CKInt8 123],
+                    [CKInt8 2, CKString "driver", CKInt8 123],
+                    [CKInt8 3, CKString "Clickhouse", CKInt8 120]
                 ]
     q <- runIO $ query conn "SELECT * FROM lowcardinality_suite" 
     it "returns query result in standard format" $ do
