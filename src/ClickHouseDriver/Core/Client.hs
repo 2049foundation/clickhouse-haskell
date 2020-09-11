@@ -124,8 +124,8 @@ executeWithInfo query env = runHaxl env (executeQuery query)
     executeQuery :: String -> GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
 
-query :: String -> Env () w -> IO (Vector (Vector ClickhouseType))
-query query env = do
+query :: Env () w -> String -> IO (Vector (Vector ClickhouseType))
+query env query = do
   CKResult{query_result=r} <- executeWithInfo query env
   return r
 
