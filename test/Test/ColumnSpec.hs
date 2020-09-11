@@ -82,7 +82,7 @@ lowCardinalitySpec = describe "lowcardinality type test" $ do
                     [CKInt8 2, CKString "driver", CKInt8 123457],
                     [CKInt8 3, CKString "Clickhouse", CKInt8 120436]
                 ]
-    q <- runIO $ query "SELECT * FROM lowcardinality_suite" conn
+    q <- runIO $ query conn "SELECT * FROM lowcardinality_suite" 
     it "returns query result in standard format" $ do
         show q `shouldBe` "[[CKInt8 1, CKString \"Clickhouse\"]," ++
                     "[CKInt8 2, CKString \"driver\",]," ++
