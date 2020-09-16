@@ -103,18 +103,10 @@ writeColumn :: Context
              ->Writer Builder
 writeColumn ctx col_name cktype items
   | "String" `isPrefixOf` cktype = writeStringColumn col_name items
-  | "FixedString(" `isPrefixOf` cktype = do
-    let l = BS.length cktype
-    let Just (len, _) = readInt $ BS.take(l - 13) (BS.drop 12 cktype)
-    writeFixedLengthString col_name (fromIntegral len) items
-  | "Int" `isPrefixOf` cktype || "UInt" `isPrefixOf` cktype =  do
-    let Just (indicator, _) = readInt $ BS.drop 3 cktype
-    writeIntColumn indicator col_name items
-  | "Nullable(" `isPrefixOf` cktype = do
-    let l = BS.length cktype
-    let inner = BS.take (l - 10) (BS.drop 9 cktype)
-    writeNullsMap items
-    writeColumn ctx col_name inner items
+  | "FixedString(" `isPrefixOf` cktype = writeFixedLengthString col_name cktype items
+  | "Int" `isPrefixOf` cktype = writeIntColumn col_name cktype items
+  | "UInt" `isPrefixOf` cktype = writeUIntColumn col_name cktype items
+  | "Nullable(" `isPrefixOf` cktype = writeNullable ctx col_name cktype items
   | "Tuple" `isPrefixOf` cktype = writeTuple ctx col_name cktype items
   | "Enum" `isPrefixOf` cktype = writeEnum col_name cktype items
   | "Array" `isPrefixOf` cktype = writeArray ctx col_name cktype items
@@ -143,9 +135,11 @@ writeStringColumn col_name = V.mapM_
          CKNull-> writeVarUInt 0;
          _ -> error (typeMismatchError col_name))
 
-writeFixedLengthString :: ByteString->Word->Vector ClickhouseType->Writer Builder
-writeFixedLengthString col_name len items = do
-  V.mapM_ (\case CKString s->writeBinaryFixedLengthStr len s
+writeFixedLengthString :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeFixedLengthString col_name spec items = do
+  let l = BS.length spec
+  let Just (len, _) = readInt $ BS.take(l - 13) (BS.drop 12 spec)
+  V.mapM_ (\case CKString s->writeBinaryFixedLengthStr (fromIntegral len) s
                  CKNull-> (\x->()) <$> V.replicateM (fromIntegral len) (writeVarUInt 0)
                  x -> error (typeMismatchError col_name ++ " got: " ++ show x)) items
 ---------------------------------------------------------------------------------------------
@@ -160,69 +154,79 @@ readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt
 readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
 readIntColumn _ _ = error "Not an integer type"
 
-writeIntColumn :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
-writeIntColumn indicator col_name =
-  case indicator of
-    8 ->
-      V.mapM_
-        ( \case
-            CKInt8 x -> writeBinaryInt8 x
-            CKNull -> writeBinaryInt8 0
-            _ -> error (typeMismatchError col_name)
-        )
-    16 ->
-      V.mapM_
-        ( \case
-            CKInt16 x -> writeBinaryInt16 x
-            CKNull -> writeBinaryInt16 0
-            _ -> error (typeMismatchError col_name)
-        )
-    32 ->
-      V.mapM_
-        ( \case
-            CKInt32 x -> writeBinaryInt32 x
-            CKNull -> writeBinaryInt32 0
-            _ -> error (typeMismatchError col_name)
-        )
-    64 ->
-      V.mapM_
-        ( \case
-            CKInt64 x -> writeBinaryInt64 x
-            CKNull -> writeBinaryInt64 0
-            _ -> error (typeMismatchError col_name)
-        )
+writeIntColumn :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeIntColumn col_name spec items = do
+  let Just (indicator, _) = readInt $ BS.drop 3 spec
+  writeIntColumn' indicator col_name items
+  where
+    writeIntColumn' :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
+    writeIntColumn' indicator col_name =
+      case indicator of
+        8 ->
+          V.mapM_
+            ( \case
+                CKInt8 x -> writeBinaryInt8 x
+                CKNull -> writeBinaryInt8 0
+                _ -> error (typeMismatchError col_name)
+            )
+        16 ->
+          V.mapM_
+            ( \case
+                CKInt16 x -> writeBinaryInt16 x
+                CKNull -> writeBinaryInt16 0
+                _ -> error (typeMismatchError col_name)
+            )
+        32 ->
+          V.mapM_
+            ( \case
+                CKInt32 x -> writeBinaryInt32 x
+                CKNull -> writeBinaryInt32 0
+                _ -> error (typeMismatchError col_name)
+            )
+        64 ->
+          V.mapM_
+            ( \case
+                CKInt64 x -> writeBinaryInt64 x
+                CKNull -> writeBinaryInt64 0
+                _ -> error (typeMismatchError col_name)
+            )
 
-writeUIntColumn :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
-writeUIntColumn indicator col_name =
-  case indicator of
-    8 ->
-      V.mapM_
-        ( \case
-            CKUInt8 x -> writeBinaryUInt8 x
-            CKNull -> writeBinaryUInt8 0
-            _ -> error (typeMismatchError col_name)
-        )
-    16 ->
-      V.mapM_
-        ( \case
-            CKUInt16 x -> writeBinaryInt16 $ fromIntegral x
-            CKNull -> writeBinaryInt16 0
-            _ -> error (typeMismatchError col_name)
-        )
-    32 ->
-      V.mapM_
-        ( \case
-            CKUInt32 x -> writeBinaryInt32 $ fromIntegral x
-            CKNull -> writeBinaryInt32 0
-            _ -> error (typeMismatchError col_name)
-        )
-    64 ->
-      V.mapM_
-        ( \case
-            CKUInt64 x -> writeBinaryInt64 $ fromIntegral x
-            CKNull -> writeBinaryInt64 0
-            _ -> error (typeMismatchError col_name)
-        )
+writeUIntColumn :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeUIntColumn col_name spec items = do
+  let Just (indicator, _) = readInt $ BS.drop 4 spec
+  writeUIntColumn' indicator col_name items
+  where
+    writeUIntColumn' :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
+    writeUIntColumn' indicator col_name =
+      case indicator of
+        8 ->
+          V.mapM_
+            ( \case
+                CKUInt8 x -> writeBinaryUInt8 x
+                CKNull -> writeBinaryUInt8 0
+                _ -> error (typeMismatchError col_name)
+            )
+        16 ->
+          V.mapM_
+            ( \case
+                CKUInt16 x -> writeBinaryInt16 $ fromIntegral x
+                CKNull -> writeBinaryInt16 0
+                _ -> error (typeMismatchError col_name)
+            )
+        32 ->
+          V.mapM_
+            ( \case
+                CKUInt32 x -> writeBinaryInt32 $ fromIntegral x
+                CKNull -> writeBinaryInt32 0
+                _ -> error (typeMismatchError col_name)
+            )
+        64 ->
+          V.mapM_
+            ( \case
+                CKUInt64 x -> writeBinaryInt64 $ fromIntegral x
+                CKNull -> writeBinaryInt64 0
+                _ -> error (typeMismatchError col_name)
+            )
 ---------------------------------------------------------------------------------------------
 readDateTime :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTime n_rows spec = do
@@ -385,10 +389,17 @@ readNullable n_rows spec = do
         config <- readBinaryStrWithLength n_rows
         (return . V.fromList . BS.unpack) config
 
-writeNullsMap :: Vector ClickhouseType -> Writer Builder
-writeNullsMap = V.mapM_ 
-  (\case CKNull-> writeBinaryInt8 1
-         _ -> writeBinaryInt8 0)
+writeNullable :: Context->ByteString->ByteString->Vector ClickhouseType-> Writer Builder
+writeNullable ctx col_name spec items = do
+  let l = BS.length spec
+  let inner = BS.take (l - 10) (BS.drop 9 spec)
+  writeNullsMap items
+  writeColumn ctx col_name inner items
+  where
+    writeNullsMap :: Vector ClickhouseType -> Writer Builder
+    writeNullsMap = V.mapM_ 
+      (\case CKNull-> writeBinaryInt8 1
+             _ -> writeBinaryInt8 0)
 ---------------------------------------------------------------------------------------------------------------------------------
 {-
   Format:

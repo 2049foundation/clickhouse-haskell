@@ -240,4 +240,6 @@ pingTest = do
     conn <- defaultClient
     ClickHouseDriver.Core.ping conn
 
-main = readTest
+main = do
+    insertTest2
+    insertTest5

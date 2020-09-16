@@ -42,6 +42,8 @@ import Data.Int
 import Data.Word
 import Network.IP.Addr (IP4(..), IP6(..))
 import Data.ByteString.Builder
+import Data.Hashable (Hashable)
+import GHC.Generics
 -----------------------------------------------------------
 data BlockInfo = Info
   { is_overflows :: Bool,
