@@ -426,10 +426,8 @@ readArray n_rows spec = do
   let numElem = fromIntegral $ V.sum x
   elems <- readColumn numElem lastSpec
   let result' = foldl combine elems (x : xs)
-  let result = case (result' ! 0) of
-        CKArray arr -> arr
-        _ -> error "wrong type. This cannot happen"
-  return result
+  let CKArray arr = result' ! 0
+  return arr
   where
     combine :: Vector ClickhouseType -> Vector Word64 -> Vector ClickhouseType
     combine elems config =
