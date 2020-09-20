@@ -321,7 +321,6 @@ writeLowCardinality ctx col_name spec items = do
           let keys = V.map (\k->key_by_index_element Map.! k + 1) hashedItem
           let index = V.fromList $  0 : (Map.keys $ key_by_index_element)
           return (keys, index)
-        -- let index = 
         else do
           let hashedItem = hashItems False items
           let key_by_index_element = V.foldl' (\m x ->insertKeys m x) Map.empty hashedItem
@@ -669,7 +668,8 @@ readIPv6 n_rows = V.replicateM n_rows (CKIPv6 . ip6ToWords . IP6  <$> readBinary
 writeIPv4 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv4 col_name items = V.mapM_ (
           \case CKIPv4 (w1, w2, w3, w4) -> 
-                  writeBinaryUInt32 $ unIP4 $ ip4FromOctets w1 w2 w3 w4
+                  writeBinaryUInt32 $ unIP4 
+                  $ ip4FromOctets w1 w2 w3 w4
                 CKNull -> writeBinaryInt32 0
                 x -> error $ typeMismatchError col_name
           ) items
@@ -677,7 +677,8 @@ writeIPv4 col_name items = V.mapM_ (
 writeIPv6 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv6 col_name items = V.mapM_ (
           \case CKIPv6 (w1, w2, w3, w4, w5, w6, w7, w8) 
-                  -> writeBinaryUInt128 $ unIP6 $ ip6FromWords w1 w2 w3 w4 w5 w6 w7 w8
+                  -> writeBinaryUInt128 $ unIP6 
+                  $ ip6FromWords w1 w2 w3 w4 w5 w6 w7 w8
                 CKNull -> writeBinaryUInt64 0
                 x -> error $ typeMismatchError col_name
           ) items
