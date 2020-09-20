@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE ScopedTypeVariables#-}
+{-# LANGUAGE CPP#-}
 module ClickHouseDriver.Core.Column(
   readColumn,
   ClickhouseType(..),
@@ -65,6 +66,11 @@ import qualified Data.Vector as V
 import Foreign.C.Types (CTime (..))
 import Network.IP.Addr (IP4 (..), IP6 (..),ip6ToWords,
        ip6FromWords, ip4ToOctets, ip4FromOctets)
+
+#define EQUAL 61
+#define COMMA 44
+#define SPACE 32
+#define QUOTE 39
 --Debug 
 --import Debug.Trace
 
@@ -523,7 +529,7 @@ readEnum n_rows spec = do
           else BS.take (l - 8) (BS.drop 7 spec)
       prespecs = getSpecs innerSpec
       specs = (\(name, Just (n, _)) -> (n, name)) <$> 
-        ((\[x, y]->(x, readInt y)) . BS.splitWith (== 61) <$> prespecs) --61 is '='
+        ((\[x, y]->(x, readInt y)) . BS.splitWith (== EQUAL) <$> prespecs) --61 is '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec
     then do
@@ -543,7 +549,7 @@ writeEnum col_name spec items = do
       prespecs = getSpecs innerSpec
       specs =
         (\(name, Just (n, _)) -> (name, n))
-          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== 61) . BS.filter (/=39) <$> prespecs) --61 is '='
+          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== EQUAL) . BS.filter (/=QUOTE) <$> prespecs) --61 is '='
       specsMap = Map.fromList specs
   V.mapM_
     ( \case
@@ -719,10 +725,11 @@ writeUUID col_name items =
     items
 ----------------------------------------------------------------------------------------------
 ---Helpers 
-
+#define COMMA 44
+#define SPACE 32
 -- | Get rid of commas and spaces
 getSpecs :: ByteString -> [ByteString]
-getSpecs str = BS.splitWith (==44) (BS.filter ( /= 32) str) 
+getSpecs str = BS.splitWith (==COMMA) (BS.filter ( /= SPACE) str) 
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
 transpose cdata =
