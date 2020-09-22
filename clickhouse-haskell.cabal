@@ -46,6 +46,7 @@ library
       src
   build-depends:
       aeson
+    , split
     , uuid
     , QuickCheck
     , io-streams

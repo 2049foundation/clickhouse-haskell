@@ -7,6 +7,7 @@ module ClickHouseDriver.Core.Types
     getClientInfo,
     getClientSetting,
     ClientInfo (..),
+    ClientSetting(..),
     Context (..),
     Interface (..),
     QueryKind (..),

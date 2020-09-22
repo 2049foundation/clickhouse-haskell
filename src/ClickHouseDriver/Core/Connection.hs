@@ -42,6 +42,7 @@ import Network.Socket (Socket)
 import System.Timeout (timeout)
 import Control.Monad.Loops (iterateWhile)
 import qualified Data.List as List (transpose)
+import Data.List.Split (chunksOf)
 --Debug 
 --import Debug.Trace (trace)
 
@@ -235,7 +236,8 @@ processInsertQuery :: TCPConnection
                       ->Maybe ByteString
                       ->[[ClickhouseType]]
                       ->IO ByteString
-processInsertQuery tcp@TCPConnection{tcpSocket=sock} query_without_data query_id items = do
+processInsertQuery tcp@TCPConnection{tcpSocket=sock, context=Context{client_setting=client_setting}}
+ query_without_data query_id items = do
   sendQuery tcp query_without_data query_id
   sendData tcp "" Nothing
   buf <- createBuffer 2048 sock
@@ -249,21 +251,26 @@ processInsertQuery tcp@TCPConnection{tcpSocket=sock} query_without_data query_id
                          x -> error ("unexpected packet type: " ++ show x)
                   )
      $ receivePacket info) buf
-  let vectorized = V.map V.fromList (V.fromList $ List.transpose items)
-  let dataBlock = case sample_block of
-        Block typeinfo@ColumnOrientedBlock{
-          columns_with_type = cwt
-        } -> 
-          typeinfo{
-            cdata = vectorized
-          }
-        x -> error ("unexpected packet type: " ++ show x)
-  -- TODO add slicer for blocks
-  sendData tcp "" (Just dataBlock)
-  sendData tcp "" Nothing
-  buf2 <- refill buf
-  runStateT (receivePacket info) buf2
-  return "1"
+  case client_setting of
+    Nothing -> error "empty client settings"
+    Just ClientSetting{insert_block_size=siz} -> do
+        let chunks = chunksOf (fromIntegral siz) items
+        mapM_ (\chunk -> do
+                  let vectorized = V.map V.fromList (V.fromList $ List.transpose chunk)
+                  let dataBlock = case sample_block of
+                        Block typeinfo@ColumnOrientedBlock{
+                          columns_with_type = cwt
+                        } -> 
+                          typeinfo{
+                            cdata = vectorized
+                          }
+                        x -> error ("unexpected packet type: " ++ show x)
+                  sendData tcp "" (Just dataBlock)
+                  sendData tcp "" Nothing
+                  buf2 <- refill buf
+                  runStateT (receivePacket info) buf2
+          ) chunks
+        return "1"
 
 receiveData :: ServerInfo -> Reader Block.Block
 receiveData ServerInfo {revision = revision} = do
