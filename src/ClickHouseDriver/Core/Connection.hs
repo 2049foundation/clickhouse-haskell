@@ -270,10 +270,10 @@ processInsertQuery tcp@TCPConnection{tcpSocket=sock, context=Context{client_sett
                           }
                         x -> error ("unexpected packet type: " ++ show x)
                   sendData tcp "" (Just dataBlock)
-                  sendData tcp "" Nothing
-                  buf2 <- refill buf
-                  runStateT (receivePacket info) buf2
           ) chunks
+        sendData tcp "" Nothing
+        buf2 <- refill buf
+        runStateT (receivePacket info) buf2
         return "1"
 
 receiveData :: ServerInfo -> Reader Block.Block
