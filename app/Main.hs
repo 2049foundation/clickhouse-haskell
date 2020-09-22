@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE OverloadedLists #-}
 module Main where
 
 import           ClickHouseDriver.Core
@@ -186,9 +187,9 @@ insertTest3 = do
     conn <- defaultClient
     s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO tande VALUES"
             [
-                [CKString "ggo", CKTuple $ V.fromList [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "hello"],
-                [CKString "ggo", CKTuple $ V.fromList [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "hello"],
-                [CKString "gfo", CKTuple $ V.fromList [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "world"]
+                [CKString "ggo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "hello"],
+                [CKString "ggo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "hello"],
+                [CKString "gfo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "world"]
             ]
     q <- query conn "SELECT * FROM tande" 
     print q
@@ -200,8 +201,8 @@ insertTest4 = do
     conn <- defaultClient
     s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO array_table VALUES"
             [
-                [CKNull, CKArray $ V.fromList [CKArray $ V.fromList [CKInt16 1], CKArray $ V.fromList [CKInt16 2], CKArray $ V.fromList [CKInt16 3]]],
-                [CKNull, CKArray $ V.fromList [CKArray $ V.fromList [CKInt16 1, CKInt16 2], CKArray $ V.fromList [CKInt16 3, CKInt16 4], CKArray $ V.fromList [CKInt16 5, CKInt16 6]]]
+                [CKNull, CKArray [CKArray [CKInt16 1], CKArray [CKInt16 2], CKArray [CKInt16 3]]],
+                [CKNull, CKArray [CKArray [CKInt16 1, CKInt16 2], CKArray [CKInt16 3, CKInt16 4], CKArray $ V.fromList [CKInt16 5, CKInt16 6]]]
             ]
     q <- query conn "SELECT * FROM array_table" 
     print q
@@ -213,8 +214,8 @@ insertTest5 = do
     conn <- defaultClient
     s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO array_nulls VALUES"
             [
-                [CKNull, CKArray $ V.fromList [CKArray $ V.fromList [CKString "ABC", CKNull, CKString "XYZ"], CKArray $ V.fromList [CKString "DEF"], CKArray $ V.fromList [CKString "DEF"]]],
-                [CKNull, CKArray $ V.fromList [CKArray $ V.fromList [CKString "Clickhouse"],  CKArray $ V.fromList [CKNull,CKNull]]]
+                [CKNull, CKArray $ V.fromList [CKArray [CKString "ABC", CKNull, CKString "XYZ"], CKArray [CKString "DEF"], CKArray $ V.fromList [CKString "DEF"]]],
+                [CKNull, CKArray $ V.fromList [CKArray [CKString "Clickhouse"],  CKArray [CKNull,CKNull]]]
             ]
     q <- query conn "SELECT * FROM array_nulls" 
     print q
@@ -241,5 +242,7 @@ pingTest = do
     ClickHouseDriver.Core.ping conn
 
 main = do
+    insertTest3
     insertTest2
+    insertTest4
     insertTest5

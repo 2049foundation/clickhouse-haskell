@@ -168,7 +168,11 @@ tcpConnect host port user password database compression = do
               context = Context{
                 server_info = Just x,
                 client_info = Nothing,
-                client_setting = Nothing
+                client_setting = Just $ ClientSetting {
+                  insert_block_size = _DEFAULT_INSERT_BLOCK_SIZE,
+                  strings_as_bytes = False,
+                  strings_encoding = _STRINGS_ENCODING
+                }
               },
               tcpCompression = isCompressed
             }
