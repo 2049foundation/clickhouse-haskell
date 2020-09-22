@@ -392,3 +392,4 @@ closeBufferSocket = do
   buf <- get
   let sock = ClickHouseDriver.IO.BufferedReader.socket buf
   TCP.closeSock sock
+
