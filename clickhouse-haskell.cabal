@@ -46,6 +46,7 @@ library
       src
   build-depends:
       aeson
+    , data-default-class
     , split
     , uuid
     , QuickCheck

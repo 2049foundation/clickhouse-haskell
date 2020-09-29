@@ -45,6 +45,7 @@ import Network.IP.Addr (IP4(..), IP6(..))
 import Data.ByteString.Builder
 import Data.Hashable (Hashable)
 import GHC.Generics
+import Data.Default.Class
 -----------------------------------------------------------
 data BlockInfo = Info
   { is_overflows :: Bool,
@@ -215,6 +216,9 @@ data Progress = Prog
   }
   deriving (Show)
 
+instance Default Progress where
+  def = defaultProgress
+
 increment :: Progress -> Progress -> Progress
 increment (Prog a b c d e) (Prog a' b' c' d' e') =
   Prog (a + a') (b + b') (c + c') (d + d') (e + e')
@@ -250,6 +254,9 @@ data BlockStreamProfileInfo = ProfileInfo
   }
   deriving Show
 
+instance Default BlockStreamProfileInfo where
+  def = defaultProfile
+
 defaultProfile :: BlockStreamProfileInfo
 defaultProfile = ProfileInfo 0 0 0 False 0 False
 
@@ -268,6 +275,9 @@ data QueryInfo = QueryInfo
    progress :: {-# UNPACK #-} !Progress,
    elapsed :: {-# UNPACK #-} !Word
  } deriving Show
+
+instance Default QueryInfo where
+  def = defaultQueryInfo
 
 storeProfile :: QueryInfo->BlockStreamProfileInfo->QueryInfo
 storeProfile (QueryInfo profile progress elapsed) newprofile 

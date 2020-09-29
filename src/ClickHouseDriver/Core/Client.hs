@@ -52,6 +52,9 @@ import ClickHouseDriver.Core.Types
 #define DEFAULT_DATABASE "default"
 #define DEFAULT_COMPRESSION_SETTING False
 
+{-# INLINE _DEFAULT_PING_WAIT_TIME #-}
+_DEFAULT_PING_WAIT_TIME = 10000
+
 
 data Query a where
   FetchData :: String -> Query (CKResult)
@@ -147,7 +150,7 @@ ping env = do
   case get of
     Nothing -> print "empty env"
     Just (Settings tcp) 
-     -> ping' 10000 tcp >>= print
+     -> ping' _DEFAULT_PING_WAIT_TIME tcp >>= print
 
 closeClient :: Env () w -> IO()
 closeClient env = do
@@ -156,3 +159,4 @@ closeClient env = do
     Nothing -> return ()
     Just (Settings TCPConnection{tcpSocket=sock})
      -> TCP.closeSock sock 
+
