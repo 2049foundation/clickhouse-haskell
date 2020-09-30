@@ -30,44 +30,42 @@ module ClickHouseDriver.Core.HTTP.Client
   )
 where
 
-import ClickHouseDriver.Core.HTTP.Connection
-import ClickHouseDriver.Core.HTTP.Helpers
-import ClickHouseDriver.Core.HTTP.Types
-import ClickHouseDriver.Core.Defines as Defines
-import Control.Concurrent.Async
-import Control.Exception
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString.Lazy.Char8 as C8
-import qualified Data.HashMap.Strict as HM
-import Data.ByteString.Lazy.Builder (toLazyByteString, lazyByteString, char8)
-import Data.Hashable
-import qualified Data.Text as T
-import Data.Text.Encoding
-import Data.Text.Internal.Lazy (Text)
-import Data.Typeable
-import Haxl.Core
-import Network.HTTP.Client
-  ( Manager,
-    defaultManagerSettings,
-    httpLbs,
-    newManager,
-    parseRequest,
-    responseBody,
-    method,
-    requestBody,
-    RequestBody(..),
-    streamFile
-  )
-import qualified Network.Simple.TCP as TCP 
-import Network.Socket (SockAddr, Socket)
-import Text.Printf
-import Data.ByteString.Char8     (pack)
-import Control.Monad.State.Lazy
-import ClickHouseDriver.Core.Column
-import qualified System.IO.Streams as Streams
-import System.IO hiding (char8)
-import System.FilePath
+import           ClickHouseDriver.Core.Column
+import           ClickHouseDriver.Core.Defines         as Defines
+import           ClickHouseDriver.Core.HTTP.Connection
+import           ClickHouseDriver.Core.HTTP.Helpers
+import           ClickHouseDriver.Core.HTTP.Types
+import           Control.Concurrent.Async
+import           Control.Exception
+import           Control.Monad.State.Lazy
+import qualified Data.ByteString                       as BS
+import           Data.ByteString.Char8                 (pack)
+import qualified Data.ByteString.Lazy                  as LBS
+import           Data.ByteString.Lazy.Builder          (char8, lazyByteString,
+                                                        toLazyByteString)
+import qualified Data.ByteString.Lazy.Char8            as C8
+import           Data.Hashable
+import qualified Data.HashMap.Strict                   as HM
+import qualified Data.Text                             as T
+import           Data.Text.Encoding
+import           Data.Text.Internal.Lazy               (Text)
+import           Data.Typeable
+import           Haxl.Core
+import           Network.HTTP.Client                   (Manager,
+                                                        RequestBody (..),
+                                                        defaultManagerSettings,
+                                                        httpLbs, method,
+                                                        newManager,
+                                                        parseRequest,
+                                                        requestBody,
+                                                        responseBody,
+                                                        streamFile)
+import qualified Network.Simple.TCP                    as TCP
+import           Network.Socket                        (SockAddr, Socket)
+import           System.FilePath
+import           System.IO                             hiding (char8)
+import qualified System.IO.Streams                     as Streams
+import           Text.Printf
 
 {-Implementation in Haxl-}
 --

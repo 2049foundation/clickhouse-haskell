@@ -46,6 +46,8 @@ library
       src
   build-depends:
       aeson
+    , streaming-commons
+    , connection-pool
     , data-default-class
     , split
     , uuid

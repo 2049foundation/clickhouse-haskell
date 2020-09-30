@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
+ {-# LANGUAGE MultiParamTypeClasses #-}
 
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
@@ -16,34 +17,45 @@ module ClickHouseDriver.Core.Connection
   )
 where
 
-import qualified ClickHouseDriver.Core.Block as Block
-import qualified ClickHouseDriver.Core.Block as Block
-import qualified ClickHouseDriver.Core.Error as Error
-import qualified ClickHouseDriver.Core.ClientProtocol as Client
-import ClickHouseDriver.Core.Column
-import ClickHouseDriver.Core.Defines
+import qualified ClickHouseDriver.Core.Block                as Block
+import qualified ClickHouseDriver.Core.Block                as Block
+import qualified ClickHouseDriver.Core.ClientProtocol       as Client
+import           ClickHouseDriver.Core.Column
+import           ClickHouseDriver.Core.Defines
+import qualified ClickHouseDriver.Core.Error                as Error
 import qualified ClickHouseDriver.Core.QueryProcessingStage as Stage
-import qualified ClickHouseDriver.Core.ServerProtocol as Server
-import ClickHouseDriver.Core.Types
-import ClickHouseDriver.IO.BufferedReader
-import ClickHouseDriver.IO.BufferedWriter
-import Control.Monad.State.Lazy (runStateT, get)
-import Control.Monad.Writer hiding (Writer)
-import qualified Data.Binary as Binary
-import Data.ByteString hiding (filter, unpack)
-import Data.ByteString.Builder (toLazyByteString, Builder)
-import Data.ByteString.Char8 (unpack)
-import qualified Data.ByteString.Char8 as C8
-import qualified Data.ByteString.Lazy as L
-import qualified Data.Vector as V (fromList, map, concat,length)
-import Data.Vector (Vector, (!))
-import qualified Network.Simple.TCP as TCP (recv, sendLazy, connectSock, closeSock)
-import Network.Socket (Socket)
-import System.Timeout (timeout)
-import Control.Monad.Loops (iterateWhile)
-import qualified Data.List as List (transpose)
-import Data.List.Split (chunksOf)
---Debug 
+import qualified ClickHouseDriver.Core.ServerProtocol       as Server
+import           ClickHouseDriver.Core.Types
+import           ClickHouseDriver.IO.BufferedReader
+import           ClickHouseDriver.IO.BufferedWriter
+import           Control.Monad.Loops                        (iterateWhile)
+import           Control.Monad.State.Lazy                   (get, runStateT)
+import           Control.Monad.Writer                       hiding (Writer)
+import qualified Data.Binary                                as Binary
+import           Data.ByteString                            hiding (filter,
+                                                             unpack)
+import           Data.ByteString.Builder                    (Builder,
+                                                             toLazyByteString)
+import           Data.ByteString.Char8                      (unpack)
+import qualified Data.ByteString.Char8                      as C8
+import qualified Data.ByteString.Lazy                       as L
+import           Data.ConnectionPool
+import           Data.Default.Class
+import qualified Data.List                                  as List (transpose)
+import           Data.List.Split                            (chunksOf)
+import           Data.Streaming.Network
+import           Data.Vector                                (Vector, (!))
+import qualified Data.Vector                                as V (concat,
+                                                                  fromList,
+                                                                  length, map)
+import qualified Network.Simple.TCP                         as TCP (closeSock,
+                                                                    connectSock,
+                                                                    recv,
+                                                                    sendLazy)
+import           Network.Socket                             (Socket)
+import           System.Timeout                             (timeout)
+--Debug
+
 --import Debug.Trace (trace)
 
 
@@ -344,11 +356,11 @@ receivePacket info = do
 closeConnection :: TCPConnection->IO ()
 closeConnection TCPConnection{tcpSocket=sock} = TCP.closeSock sock
 
-writeInfo ::
-  (MonoidMap ByteString w) =>
-  ClientInfo ->
-  ServerInfo ->
-  Writer w
+writeInfo :: 
+    (MonoidMap ByteString w)=>
+    ClientInfo->
+    ServerInfo ->
+    Writer w
 writeInfo
   ( ClientInfo
       client_name
@@ -384,6 +396,7 @@ writeInfo
       if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
         then writeVarUInt client_version_patch
         else return ()
+
 -------------------------------------------------------------------------------------------------------------------
 ---Helpers 
 {-# INLINE closeBufferSocket #-}
@@ -392,4 +405,3 @@ closeBufferSocket = do
   buf <- get
   let sock = ClickHouseDriver.IO.BufferedReader.socket buf
   TCP.closeSock sock
-

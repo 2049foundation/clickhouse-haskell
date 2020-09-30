@@ -38,6 +38,7 @@ import           Data.Int
 import           Data.Bits
 import           Haxl.Core
 
+
 someReader :: R.Reader Int Int
 someReader = do
     x <- ask

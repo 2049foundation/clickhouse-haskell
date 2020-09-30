@@ -1,15 +1,15 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE BlockArguments             #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 
 module ClickHouseDriver.Core.Client
   ( query,
@@ -25,26 +25,26 @@ module ClickHouseDriver.Core.Client
   )
 where
 
-import ClickHouseDriver.Core.Block
-import ClickHouseDriver.Core.Column hiding (length)
-import ClickHouseDriver.Core.Connection
-import ClickHouseDriver.Core.Defines
-import qualified ClickHouseDriver.Core.Defines as Defines
-import Control.Concurrent.Async
-import Control.Exception
-import Control.Monad.State hiding (State)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as C8
-import Data.Hashable
-import Data.Typeable
-import Data.Vector hiding (length)
-import Haxl.Core
-import qualified Network.Simple.TCP as TCP
-import Network.Socket
-import Text.Printf
-import ClickHouseDriver.IO.BufferedReader
-import qualified Network.URI.Encode as NE
-import ClickHouseDriver.Core.Types
+import           ClickHouseDriver.Core.Block
+import           ClickHouseDriver.Core.Column       hiding (length)
+import           ClickHouseDriver.Core.Connection
+import           ClickHouseDriver.Core.Defines
+import qualified ClickHouseDriver.Core.Defines      as Defines
+import           ClickHouseDriver.Core.Types
+import           ClickHouseDriver.IO.BufferedReader
+import           Control.Concurrent.Async
+import           Control.Exception
+import           Control.Monad.State                hiding (State)
+import qualified Data.ByteString                    as BS
+import qualified Data.ByteString.Char8              as C8
+import           Data.Hashable
+import           Data.Typeable
+import           Data.Vector                        hiding (length)
+import           Haxl.Core
+import qualified Network.Simple.TCP                 as TCP
+import           Network.Socket
+import qualified Network.URI.Encode                 as NE
+import           Text.Printf
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"
@@ -89,11 +89,11 @@ fetchData tcpconn fetch = do
   let (queryStr, var) = case fetch of
         BlockedFetch (FetchData q) var' -> (C8.pack q, var')
   e <- Control.Exception.try $ do
-    sendQuery tcpconn queryStr Nothing 
+    sendQuery tcpconn queryStr Nothing
     sendData tcpconn "" Nothing
     let serverInfo = case getServerInfo tcpconn of
           Just info -> info
-          Nothing -> error "Empty server information"
+          Nothing   -> error "Empty server information"
     let sock = tcpSocket tcpconn
     buf <- createBuffer _BUFFER_SIZE sock
     (res, _) <- runStateT (receiveResult serverInfo defaultQueryInfo) buf
@@ -104,7 +104,7 @@ fetchData tcpconn fetch = do
     (e :: Either SomeException (CKResult))
 
 deploySettings :: TCPConnection -> IO (Env () w)
-deploySettings tcp = 
+deploySettings tcp =
   initEnv (stateSet (Settings tcp) stateEmpty) ()
 
 defaultClient :: IO (Env () w)
@@ -119,7 +119,7 @@ defaultClient =
     >>= client
 
 client :: Either String TCPConnection -> IO(Env () w)
-client (Left e) = error e
+client (Left e)    = error e
 client (Right tcp) = initEnv (stateSet (Settings tcp) stateEmpty) ()
 
 executeWithInfo :: String->Env () w->IO (CKResult)
@@ -128,20 +128,20 @@ executeWithInfo query env = runHaxl env (executeQuery query)
     executeQuery :: String -> GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
 
-query :: Env () w -> String -> IO (Vector (Vector ClickhouseType))
+query :: Env () w ->String->IO (Vector (Vector ClickhouseType))
 query env cmd = do
   CKResult{query_result=r} <- executeWithInfo cmd env
   return r
 
-withQuery :: Env () w -> String -> (Vector (Vector ClickhouseType) -> IO a)->IO a
+withQuery :: Env () w->String->(Vector (Vector ClickhouseType)->IO a)->IO a
 withQuery env cmd f = query env cmd >>= f
 
 insertMany :: Env () w->String->[[ClickhouseType]]->IO(BS.ByteString)
 insertMany env cmd items = do
   let st :: Maybe (State Query) = stateGet $ states env
-  let tcp = 
+  let tcp =
         case st of
-          Nothing -> error "No Connection."
+          Nothing             -> error "No Connection."
           Just (Settings tcp) -> tcp
   processInsertQuery tcp (C8.pack cmd) Nothing items
 
@@ -153,7 +153,7 @@ ping env = do
   let get :: Maybe (State Query) = stateGet $ states env
   case get of
     Nothing -> print "empty env"
-    Just (Settings tcp) 
+    Just (Settings tcp)
      -> ping' _DEFAULT_PING_WAIT_TIME tcp >>= print
 
 closeClient :: Env () w -> IO()
@@ -162,4 +162,4 @@ closeClient env = do
   case get of
     Nothing -> return ()
     Just (Settings TCPConnection{tcpSocket=sock})
-     -> TCP.closeSock sock 
+     -> TCP.closeSock sock

@@ -12,22 +12,22 @@ module ClickHouseDriver.Core.Block
   )
 where
 
-import ClickHouseDriver.IO.BufferedReader
-import ClickHouseDriver.IO.BufferedWriter
-import Control.Monad.State
-import Data.ByteString
-import Data.ByteString.Builder
-import Data.Int
-import Data.Vector (Vector)
-import qualified Data.Vector as V
-import Data.Word
-import ClickHouseDriver.Core.Column
-import qualified Data.List as List
-import ClickHouseDriver.Core.Types
-import ClickHouseDriver.Core.Defines as Defines
-import Data.Vector ((!))
+import           ClickHouseDriver.Core.Column
+import           ClickHouseDriver.Core.Defines      as Defines
+import           ClickHouseDriver.Core.Types
+import           ClickHouseDriver.IO.BufferedReader
+import           ClickHouseDriver.IO.BufferedWriter
+import           Control.Monad.State
+import           Data.ByteString
+import           Data.ByteString.Builder
+import           Data.Int
+import qualified Data.List                          as List
+import           Data.Vector                        (Vector)
+import           Data.Vector                        ((!))
+import qualified Data.Vector                        as V
+import           Data.Word
 --Debug
-import Debug.Trace
+import           Debug.Trace
 
 defaultBlockInfo :: BlockInfo
 defaultBlockInfo =
@@ -46,7 +46,7 @@ defaultBlock =
 
 writeInfo :: BlockInfo->Writer Builder
 writeInfo (Info is_overflows bucket_num) = do
-    writeVarUInt 1 
+    writeVarUInt 1
     writeBinaryUInt8 (if is_overflows then 1 else 0)
     writeVarUInt 2
     writeBinaryInt32 bucket_num
@@ -64,7 +64,7 @@ readInfo info@Info {is_overflows = io, bucket_num = bn} = do
       bn' <- readBinaryInt32
       readInfo Info {is_overflows = io, bucket_num = bn'}
     _ -> return info
-    
+
 
 readBlockInputStream :: Reader Block
 readBlockInputStream = do
@@ -102,12 +102,12 @@ readBlockInputStream = do
       }
 
 writeBlockOutputStream :: Context->Block->Writer Builder
-writeBlockOutputStream ctx@(Context client_info server_info client_settings) 
+writeBlockOutputStream ctx@(Context client_info server_info client_settings)
   (ColumnOrientedBlock columns_with_type cdata info) = do
-  let revis = fromIntegral $ 
-        revision $ 
+  let revis = fromIntegral $
+        revision $
         (case server_info of
-        Nothing -> error ""
+        Nothing   -> error ""
         Just info -> info)
   if revis >= Defines._DBMS_MIN_REVISION_WITH_BLOCK_INFO
     then writeBlockInfo info
@@ -116,7 +116,7 @@ writeBlockOutputStream ctx@(Context client_info server_info client_settings)
       n_columns = fromIntegral $ V.length (cdata ! 0)
   writeVarUInt n_rows
   writeVarUInt n_columns
-  V.imapM_ (\i (col, t)->do 
+  V.imapM_ (\i (col, t)->do
        writeBinaryStr col
        writeBinaryStr t
        writeColumn ctx col t (cdata ! i)
