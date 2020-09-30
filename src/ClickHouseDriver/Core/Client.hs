@@ -123,22 +123,22 @@ client (Left e)    = error e
 client (Right tcp) = initEnv (stateSet (Settings tcp) stateEmpty) ()
 
 executeWithInfo :: String->Env () w->IO (CKResult)
-executeWithInfo query env = runHaxl env (executeQuery query)
+executeWithInfo query source = runHaxl source (executeQuery query)
   where
     executeQuery :: String -> GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
 
 query :: Env () w ->String->IO (Vector (Vector ClickhouseType))
-query env cmd = do
-  CKResult{query_result=r} <- executeWithInfo cmd env
+query source cmd = do
+  CKResult{query_result=r} <- executeWithInfo cmd source
   return r
 
 withQuery :: Env () w->String->(Vector (Vector ClickhouseType)->IO a)->IO a
-withQuery env cmd f = query env cmd >>= f
+withQuery source cmd f = query source cmd >>= f
 
 insertMany :: Env () w->String->[[ClickhouseType]]->IO(BS.ByteString)
-insertMany env cmd items = do
-  let st :: Maybe (State Query) = stateGet $ states env
+insertMany source cmd items = do
+  let st :: Maybe (State Query) = stateGet $ states source
   let tcp =
         case st of
           Nothing             -> error "No Connection."
@@ -146,19 +146,19 @@ insertMany env cmd items = do
   processInsertQuery tcp (C8.pack cmd) Nothing items
 
 insertOneRow :: Env () w->String->[ClickhouseType]->IO(BS.ByteString)
-insertOneRow env cmd items = insertMany env cmd [items]
+insertOneRow source cmd items = insertMany source cmd [items]
 
 ping :: Env () w->IO()
-ping env = do
-  let get :: Maybe (State Query) = stateGet $ states env
+ping source = do
+  let get :: Maybe (State Query) = stateGet $ states source
   case get of
-    Nothing -> print "empty env"
+    Nothing -> print "empty source"
     Just (Settings tcp)
      -> ping' _DEFAULT_PING_WAIT_TIME tcp >>= print
 
 closeClient :: Env () w -> IO()
-closeClient env = do
-  let get :: Maybe (State Query) = stateGet $ states env
+closeClient source = do
+  let get :: Maybe (State Query) = stateGet $ states source
   case get of
     Nothing -> return ()
     Just (Settings TCPConnection{tcpSocket=sock})

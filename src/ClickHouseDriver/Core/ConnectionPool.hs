@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module ClickHouseDriver.Core.ConnectionPool () where
+module ClickHouseDriver.Core.ConnectionPool (
+    CKPool
+) where
 
 import           ClickHouseDriver.Core.Connection
 import           ClickHouseDriver.Core.Types
@@ -9,18 +11,31 @@ import           Data.Default.Class
 import           Data.Streaming.Network
 import           Network.Socket
 import           Data.Time.Clock
+import           Data.ByteString
 
-createClickhousePool :: Int
-                      ->NominalDiffTime
-                      ->Int
-                      ->IO (ConnectionPool TcpClient)
-createClickhousePool numberOfStripes resourceIdleTimeout numberOfResourcesPerStripe
+data CKPool = CKPool {
+        base :: ConnectionPool TcpClient,
+        username' :: !ByteString,
+        password' :: !ByteString,
+        host' :: !ByteString,
+        port' :: !Int,
+        compression' :: !Word
+    }
+
+createBasePool :: Int
+                ->NominalDiffTime
+                ->Int
+                ->IO (ConnectionPool TcpClient)
+createBasePool numberOfStripes resourceIdleTimeout numberOfResourcesPerStripe
     = createTcpClientPool 
         (ResourcePoolParams 
          numberOfStripes
          resourceIdleTimeout 
          numberOfResourcesPerStripe)
         (clientSettingsTCP 9000 "127.0.0.1")
+
+defaultBasePool :: IO (ConnectionPool TcpClient)
+defaultBasePool = createTcpClientPool def (clientSettingsTCP 9000 "127.0.0.1")
 
 testing :: IO ()
 testing = do
