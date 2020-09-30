@@ -52,8 +52,8 @@ versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
 
 -- | set timeout to 10 seconds
 ping' :: Int->TCPConnection->IO(Maybe String)
-ping' timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
-  = timeout timelimit $ do
+ping' timeLimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
+  = timeout timeLimit $ do
       r <- execWriterT $ writeVarUInt Client._PING
       TCP.sendLazy sock (toLazyByteString r)
       buf <- createBuffer 1024 sock
@@ -72,7 +72,7 @@ ping' timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
         else return "PONG!"
 
 sendHello :: (ByteString, ByteString, ByteString) -> Socket -> IO ()
-sendHello (database, usrname, password) sock = do
+sendHello (database, username, password) sock = do
   (_, w) <- runWriterT writeHello
   TCP.sendLazy sock (toLazyByteString w)
   where
@@ -84,7 +84,7 @@ sendHello (database, usrname, password) sock = do
       writeVarUInt _CLIENT_VERSION_MINOR
       writeVarUInt _CLIENT_REVISION
       writeBinaryStr database
-      writeBinaryStr usrname
+      writeBinaryStr username
       writeBinaryStr password
 
 receiveHello :: Buffer -> IO (Either ByteString ServerInfo)

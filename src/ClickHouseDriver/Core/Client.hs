@@ -20,7 +20,8 @@ module ClickHouseDriver.Core.Client
     closeClient,
     insertMany,
     insertOneRow,
-    ping
+    ping,
+    withQuery
   )
 where
 
@@ -128,9 +129,12 @@ executeWithInfo query env = runHaxl env (executeQuery query)
     executeQuery = dataFetch . FetchData
 
 query :: Env () w -> String -> IO (Vector (Vector ClickhouseType))
-query env query = do
-  CKResult{query_result=r} <- executeWithInfo query env
+query env cmd = do
+  CKResult{query_result=r} <- executeWithInfo cmd env
   return r
+
+withQuery :: Env () w -> String -> (Vector (Vector ClickhouseType) -> IO a)->IO a
+withQuery env cmd f = query env cmd >>= f
 
 insertMany :: Env () w->String->[[ClickhouseType]]->IO(BS.ByteString)
 insertMany env cmd items = do
@@ -159,4 +163,3 @@ closeClient env = do
     Nothing -> return ()
     Just (Settings TCPConnection{tcpSocket=sock})
      -> TCP.closeSock sock 
-
