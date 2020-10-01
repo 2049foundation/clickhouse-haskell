@@ -27,7 +27,11 @@ data CKPool = CKPool {
     pool   :: IO (Pool (Socket, SockAddr, Context, Word))
 }
 
-createConnectionPool :: ConnParams -> Int -> NominalDiffTime -> Int -> IO CKPool
+createConnectionPool :: ConnParams
+                      ->Int
+                      ->NominalDiffTime
+                      ->Int
+                      ->IO (Pool TCPConnection)
 createConnectionPool
   params@ConnParams
     { username',
@@ -39,26 +43,10 @@ createConnectionPool
     }
   numStripes
   idleTime
-  maxResources =
-    return
-      CKPool
-        { params = params,
-          pool =
-            createPool
-              ( do
-                  conn <- tcpConnect host' port' username' password' database' compression'
-                  case conn of
-                    Right
-                      TCPConnection
-                        { Types.context = ctx,
-                          Types.tcpSocket = sock,
-                          Types.tcpSockAdrr = sockaddr,
-                          Types.tcpCompression = comp
-                        } -> return (sock, sockaddr, ctx, comp)
-                    Left err -> error "connection failed!"
-              )
-              (\(sock,_,_,_)->close sock)
-              numStripes
-              idleTime
-              maxResources
-        }
+  maxResources = createPool (do
+      conn <- tcpConnect host' port' username' password' database' compression'
+      case conn of
+          Left err -> error err
+          Right tcp -> return tcp
+      ) (\TCPConnection{tcpSocket=sock}->close sock) 
+      numStripes idleTime maxListenQueue
