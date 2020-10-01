@@ -1,8 +1,8 @@
+{-# LANGUAGE FlexibleContexts         #-}
+{-# LANGUAGE FlexibleInstances        #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses    #-}
+{-# LANGUAGE OverloadedStrings        #-}
 
 module ClickHouseDriver.IO.BufferedWriter
   ( writeBinaryStr,
@@ -25,26 +25,26 @@ module ClickHouseDriver.IO.BufferedWriter
   )
 where
 
-import Control.Monad.State.Lazy
-import qualified Data.Binary as Binary
-import Data.Binary (Binary)
-import qualified Data.ByteString as BS
-import Data.ByteString (ByteString)
-import Data.ByteString.Builder
-import Data.ByteString.Lazy.Builder (lazyByteString)
-import qualified Data.ByteString.Lazy as L
-import Data.ByteString.Unsafe
-import Data.Int
-import Data.Monoid
-import Data.Word
-import Data.Word8
-import Foreign.C
-import Foreign.Ptr
-import qualified Control.Monad.Writer as W 
-import Control.Monad.Writer (WriterT, tell)
-import Data.ByteString.Char8 (unpack)
-import Control.Monad.IO.Class
-import Data.DoubleWord (Word128(..))
+import           Control.Monad.IO.Class
+import           Control.Monad.State.Lazy
+import           Control.Monad.Writer         (WriterT, tell)
+import qualified Control.Monad.Writer         as W
+import           Data.Binary                  (Binary)
+import qualified Data.Binary                  as Binary
+import           Data.ByteString              (ByteString)
+import qualified Data.ByteString              as BS
+import           Data.ByteString.Builder
+import           Data.ByteString.Char8        (unpack)
+import qualified Data.ByteString.Lazy         as L
+import           Data.ByteString.Lazy.Builder (lazyByteString)
+import           Data.ByteString.Unsafe
+import           Data.DoubleWord              (Word128 (..))
+import           Data.Int
+import           Data.Monoid
+import           Data.Word
+import           Data.Word8
+import           Foreign.C
+import           Foreign.Ptr
 
 
 -- Monoid Homomorphism.

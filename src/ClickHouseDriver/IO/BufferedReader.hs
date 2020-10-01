@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings        #-}
 
 module ClickHouseDriver.IO.BufferedReader
   ( readBinaryStrWithLength,
@@ -23,22 +23,22 @@ module ClickHouseDriver.IO.BufferedReader
   )
 where
 
-import Control.Monad.State.Lazy
-import Data.Binary
-import qualified Data.ByteString as BS
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Unsafe as UBS
-import Data.Int
-import Data.Word
-import Foreign.C
-import qualified Data.Vector as V
-import Network.Socket hiding (socket)
-import qualified Network.Simple.TCP as TCP
-import Data.Maybe
-import qualified Data.ByteString.Char8 as C8
-import Data.Bits
-import Data.DoubleWord (Word128(..))
+import           Control.Monad.State.Lazy
+import           Data.Binary
+import           Data.Bits
+import           Data.ByteString          (ByteString)
+import qualified Data.ByteString          as BS
+import qualified Data.ByteString.Char8    as C8
+import qualified Data.ByteString.Lazy     as L
+import qualified Data.ByteString.Unsafe   as UBS
+import           Data.DoubleWord          (Word128 (..))
+import           Data.Int
+import           Data.Maybe
+import qualified Data.Vector              as V
+import           Data.Word
+import           Foreign.C
+import qualified Network.Simple.TCP       as TCP
+import           Network.Socket           hiding (socket)
 
 data Buffer = Buffer {
   bufSize :: !Int,

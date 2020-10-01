@@ -3,10 +3,10 @@
 
 module ClickHouseDriver.Core.Defines where
 
-import Data.ByteString.Internal
-import Data.Word
-import Network.Simple.TCP
-import Network.Socket (SockAddr, Socket)
+import           Data.ByteString.Internal
+import           Data.Word
+import           Network.Simple.TCP
+import           Network.Socket           (SockAddr, Socket)
 
 {-# INLINE _DEFAULT_PORT #-}
 _DEFAULT_PORT = "9000"

@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ClickHouseDriver.Core.ConnectionPool (
-    CKPool
+    CKPool,
+    createCKPool
 ) where
 
 import           ClickHouseDriver.Core.Connection
@@ -12,9 +13,10 @@ import           Data.Streaming.Network
 import           Network.Socket
 import           Data.Time.Clock
 import           Data.ByteString
+import           Control.Concurrent
+import           Control.Monad
 
-data CKPool = CKPool {
-        base :: ConnectionPool TcpClient,
+data CKConnectionParams = CKParams {
         username' :: !ByteString,
         password' :: !ByteString,
         host' :: !ByteString,
@@ -22,24 +24,26 @@ data CKPool = CKPool {
         compression' :: !Word
     }
 
-createBasePool :: Int
-                ->NominalDiffTime
-                ->Int
-                ->IO (ConnectionPool TcpClient)
-createBasePool numberOfStripes resourceIdleTimeout numberOfResourcesPerStripe
+data CKPool = CKPool {
+        base :: ConnectionPool TcpClient,
+        params :: CKConnectionParams
+    }
+
+createBasePool ::ResourcePoolParams->IO (ConnectionPool TcpClient)
+createBasePool params
     = createTcpClientPool 
-        (ResourcePoolParams 
-         numberOfStripes
-         resourceIdleTimeout 
-         numberOfResourcesPerStripe)
+        params
         (clientSettingsTCP 9000 "127.0.0.1")
+
+createCKPool :: CKConnectionParams->ResourcePoolParams->IO(ConnectionPool TcpClient)
+createCKPool ckParams params = do
+    pool <- createBasePool params
+    thread1 <- newEmptyMVar
+    void . forkIO . withTcpClientConnection pool $ \appData->do
+        threadDelay 1000
+        appWrite appData "1: what is this?"
+        putMVar thread1 ()
+    return undefined
 
 defaultBasePool :: IO (ConnectionPool TcpClient)
 defaultBasePool = createTcpClientPool def (clientSettingsTCP 9000 "127.0.0.1")
-
-testing :: IO ()
-testing = do
-    pool <- createTcpClientPool
-        (ResourcePoolParams 1 0.5 1)
-        (clientSettingsTCP 9000 "127.0.0.1")
-    print "pool"

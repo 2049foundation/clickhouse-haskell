@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedStrings #-}
 module ClickHouseDriver.Core.Types
   ( ServerInfo (..),
     TCPConnection (..),
@@ -32,20 +32,21 @@ module ClickHouseDriver.Core.Types
   )
 where
 
-import qualified ClickHouseDriver.Core.Defines as Defines
-import ClickHouseDriver.IO.BufferedReader
-import ClickHouseDriver.IO.BufferedWriter
-import Data.ByteString (ByteString)
-import Network.Socket (Socket, SockAddr)
-import qualified ClickHouseDriver.Core.Error as Error
-import Data.Vector (Vector)
-import Data.Int
-import Data.Word
-import Network.IP.Addr (IP4(..), IP6(..))
-import Data.ByteString.Builder
-import Data.Hashable (Hashable)
-import GHC.Generics
-import Data.Default.Class
+import qualified ClickHouseDriver.Core.Defines      as Defines
+import qualified ClickHouseDriver.Core.Error        as Error
+import           ClickHouseDriver.IO.BufferedReader
+import           ClickHouseDriver.IO.BufferedWriter
+import           Data.ByteString                    (ByteString)
+import           Data.ByteString.Builder
+import           Data.Default.Class
+import           Data.Hashable                      (Hashable)
+import           Data.Int
+import           Data.Vector                        (Vector)
+import           Data.Word
+import           GHC.Generics
+import           Network.IP.Addr                    (IP4 (..), IP6 (..))
+import           Network.Socket                     (SockAddr, Socket)
+
 -----------------------------------------------------------
 data BlockInfo = Info
   { is_overflows :: Bool,

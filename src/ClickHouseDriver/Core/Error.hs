@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ClickHouseDriver.Core.Error where
 
-import Data.ByteString (ByteString)
-import Data.ByteString.Char8 (unpack)
-import ClickHouseDriver.IO.BufferedReader
-import Debug.Trace
+import           ClickHouseDriver.IO.BufferedReader
+import           Data.ByteString                    (ByteString)
+import           Data.ByteString.Char8              (unpack)
+import           Debug.Trace
 
 data ClickhouseException = ServerException
   { message :: String,

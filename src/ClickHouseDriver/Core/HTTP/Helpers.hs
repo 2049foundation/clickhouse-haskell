@@ -8,19 +8,20 @@ module ClickHouseDriver.Core.HTTP.Helpers
   )
 where
 
-import ClickHouseDriver.Core.HTTP.Connection
-import ClickHouseDriver.Core.HTTP.Types
-import qualified Data.Aeson as JP
-import Data.Attoparsec.ByteString
-import qualified Data.ByteString.Char8 as C8
-import qualified Data.HashMap.Strict as HM
-import Data.Text (pack)
-import Data.Vector (toList)
-import Control.Monad.Writer
-import ClickHouseDriver.IO.BufferedWriter
-import ClickHouseDriver.Core.Column
-import Data.Vector (toList)
-import qualified Network.URI.Encode as NE
+import           ClickHouseDriver.Core.Column
+import           ClickHouseDriver.Core.HTTP.Connection
+import           ClickHouseDriver.Core.HTTP.Types
+import           ClickHouseDriver.IO.BufferedWriter
+import           Control.Monad.Writer
+import qualified Data.Aeson                            as JP
+import           Data.Attoparsec.ByteString
+import qualified Data.ByteString.Char8                 as C8
+import qualified Data.HashMap.Strict                   as HM
+import           Data.Text                             (pack)
+import           Data.Vector                           (toList)
+import           Data.Vector                           (toList)
+import qualified Network.URI.Encode                    as NE
+
 
 -- | Trim JSON data
 extract :: C8.ByteString -> JSONResult
