@@ -39,7 +39,6 @@ import           Data.ByteString.Builder                    (Builder,
 import           Data.ByteString.Char8                      (unpack)
 import qualified Data.ByteString.Char8                      as C8
 import qualified Data.ByteString.Lazy                       as L
-import           Data.ConnectionPool
 import           Data.Default.Class
 import qualified Data.List                                  as List (transpose)
 import           Data.List.Split                            (chunksOf)
@@ -54,6 +53,7 @@ import qualified Network.Simple.TCP                         as TCP (closeSock,
                                                                     sendLazy)
 import           Network.Socket                             (Socket)
 import           System.Timeout                             (timeout)
+import           Data.Pool                                  (createPool, Pool(..))
 --Debug
 
 --import Debug.Trace (trace)
@@ -396,6 +396,7 @@ writeInfo
       if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
         then writeVarUInt client_version_patch
         else return ()
+
 
 -------------------------------------------------------------------------------------------------------------------
 ---Helpers 

@@ -1,49 +1,64 @@
-{-# LANGUAGE OverloadedStrings #-}
-module ClickHouseDriver.Core.ConnectionPool (
-    CKPool,
-    createCKPool
-) where
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE NamedFieldPuns #-}
+
+module ClickHouseDriver.Core.ConnectionPool () where
 
 import           ClickHouseDriver.Core.Connection
-import           ClickHouseDriver.Core.Types
-import           Data.ConnectionPool
-import           Data.ConnectionPool.Internal.ResourcePoolParams
-import           Data.Default.Class
-import           Data.Streaming.Network
-import           Network.Socket
-import           Data.Time.Clock
+import           ClickHouseDriver.Core.Defines
+import           ClickHouseDriver.Core.Types      (Context, TCPConnection (..))
+import qualified ClickHouseDriver.Core.Types      as Types
 import           Data.ByteString
-import           Control.Concurrent
-import           Control.Monad
+import           Data.Pool
+import           Data.Time.Clock
+import           Network.Socket
 
-data CKConnectionParams = CKParams {
-        username' :: !ByteString,
-        password' :: !ByteString,
-        host' :: !ByteString,
-        port' :: !Int,
-        compression' :: !Word
+data ConnParams = ConnParams{
+      username'    :: !ByteString,
+      host'        :: !ByteString,
+      port'        :: !ByteString,
+      password'    :: !ByteString,
+      compression' :: !Bool,
+      database'    :: !ByteString
     }
+  deriving Show
 
 data CKPool = CKPool {
-        base :: ConnectionPool TcpClient,
-        params :: CKConnectionParams
+    params :: !ConnParams,
+    pool   :: IO (Pool (Socket, SockAddr, Context, Word))
+}
+
+createConnectionPool :: ConnParams -> Int -> NominalDiffTime -> Int -> IO CKPool
+createConnectionPool
+  params@ConnParams
+    { username',
+      host',
+      port',
+      password',
+      compression',
+      database'
     }
-
-createBasePool ::ResourcePoolParams->IO (ConnectionPool TcpClient)
-createBasePool params
-    = createTcpClientPool 
-        params
-        (clientSettingsTCP 9000 "127.0.0.1")
-
-createCKPool :: CKConnectionParams->ResourcePoolParams->IO(ConnectionPool TcpClient)
-createCKPool ckParams params = do
-    pool <- createBasePool params
-    thread1 <- newEmptyMVar
-    void . forkIO . withTcpClientConnection pool $ \appData->do
-        threadDelay 1000
-        appWrite appData "1: what is this?"
-        putMVar thread1 ()
-    return undefined
-
-defaultBasePool :: IO (ConnectionPool TcpClient)
-defaultBasePool = createTcpClientPool def (clientSettingsTCP 9000 "127.0.0.1")
+  numStripes
+  idleTime
+  maxResources =
+    return
+      CKPool
+        { params = params,
+          pool =
+            createPool
+              ( do
+                  conn <- tcpConnect host' port' username' password' database' compression'
+                  case conn of
+                    Right
+                      TCPConnection
+                        { Types.context = ctx,
+                          Types.tcpSocket = sock,
+                          Types.tcpSockAdrr = sockaddr,
+                          Types.tcpCompression = comp
+                        } -> return (sock, sockaddr, ctx, comp)
+                    Left err -> error "connection failed!"
+              )
+              (\(sock,_,_,_)->close sock)
+              numStripes
+              idleTime
+              maxResources
+        }

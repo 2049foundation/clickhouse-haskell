@@ -28,7 +28,7 @@ module ClickHouseDriver.Core.Types
     BlockInfo(..),
     Block(..),
     CKResult(..),
-    writeBlockInfo,
+    writeBlockInfo
   )
 where
 
@@ -304,3 +304,4 @@ data CKResult = CKResult
  }
  deriving Show
 -------------------------------------------------------------------------
+
