@@ -40,6 +40,7 @@ library
       ClickHouseDriver.Core.Column
       ClickHouseDriver.IO.BufferedWriter
       ClickHouseDriver.IO.BufferedReader
+      ClickHouseDriver.Core.ConnectionPool
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:

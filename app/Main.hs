@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE ApplicativeDo #-}
 module Main where
 
 import           ClickHouseDriver.Core
@@ -240,7 +241,7 @@ insertTest7 = do
 
 pingTest = do
     conn <- defaultClient
-    ClickHouseDriver.Core.ping conn
+    ClickHouseDriver.Core.ping conn 
 
 main = do
     insertTest3
