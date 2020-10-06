@@ -13,7 +13,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 
 module ClickHouseDriver.Core.Client
-  ( query,
+  ( exec,
     executeWithInfo,
     deploySettings,
     client,
@@ -185,13 +185,13 @@ executeWithInfo query source = runHaxl source (executeQuery query)
     executeQuery :: String -> GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
 
-query :: Env () w ->String->IO (Vector (Vector ClickhouseType))
-query source cmd = do
+exec :: Env () w ->String->IO (Vector (Vector ClickhouseType))
+exec source cmd = do
   CKResult{query_result=r} <- executeWithInfo cmd source
   return r
 
 withQuery :: Env () w->String->(Vector (Vector ClickhouseType)->IO a)->IO a
-withQuery source cmd f = query source cmd >>= f
+withQuery source cmd f = exec source cmd >>= f
 
 insertMany :: Env () w->String->[[ClickhouseType]]->IO(BS.ByteString)
 insertMany source cmd items = do

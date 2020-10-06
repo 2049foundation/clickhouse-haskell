@@ -6,7 +6,7 @@
 module Main where
 
 import           ClickHouseDriver.Core
-import           ClickHouseDriver.Core.HTTP
+import qualified ClickHouseDriver.Core.HTTP as HTTP
 import           Control.Monad.ST
 import           Data.Text
 import qualified Data.Text.IO as TIO
@@ -114,7 +114,7 @@ mainTest = do
     print "Test Section"
     conn <- defaultClient
     print "connected"
-    res <- query conn "select item from array_t" 
+    res <- exec conn "select item from array_t" 
     closeClient conn
     print res
 
@@ -132,34 +132,34 @@ data SocketReader = SocketReader {
 
 main' :: IO()
 main' = do
-    env <- httpClient "default" "12345612341"
-    create <- exec "CREATE TABLE test (x Int32) ENGINE = Memory" env
+    env <- HTTP.httpClient "default" "12345612341"
+    create <- HTTP.exec "CREATE TABLE test (x Int32) ENGINE = Memory" env
     print create
-    isSuccess <- ClickHouseDriver.Core.HTTP.insertOneRow "test" [CKInt32 100] env
+    isSuccess <- HTTP.insertOneRow "test" [CKInt32 100] env
     print isSuccess
-    result <- runQuery env (getText "select * from test")
+    result <- HTTP.runQuery env (HTTP.getText "select * from test")
     TIO.putStr result
 
 main'' :: IO()
 main'' = do
-    env <- httpClient "default" "12345612341"
-    isSuccess <- insertFromFile "test_table" CSV "./test/example.csv" env
+    env <- HTTP.httpClient "default" "12345612341"
+    isSuccess <- HTTP.insertFromFile "test_table" HTTP.CSV "./test/example.csv" env
     putStr (case isSuccess of
         Right y -> y
         Left x -> CL8.unpack x)
-    query <- runQuery env (getText "SELECT * FROM test_table")
-    TIO.putStr query
+    exec <- HTTP.runQuery env (HTTP.getText "SELECT * FROM test_table")
+    TIO.putStr exec
 
 insertTest :: IO()
 insertTest = do
     print "insertion test"
     conn <- defaultClient
-    s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO simple_table VALUES" 
+    s <- insertMany conn "INSERT INTO simple_table VALUES" 
             [[CKString "0000000000", CKString "Clickhouse-Haskell", CKInt16 1]
             ,[CKString "1000000000", CKString "Clickhouse-Haskell2", CKInt16 12]
             ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKInt16 15]]
     print s
-    q <- query conn "SELECT * FROM simple_table" 
+    q <- exec conn "SELECT * FROM simple_table" 
     print q
     closeClient conn
 
@@ -167,19 +167,19 @@ readTest :: IO ()
 readTest = do
     cmd <- System.IO.getLine
     conn <- defaultClient
-    res <- query conn cmd 
+    res <- exec conn cmd 
     print res
     closeClient conn
 --INSERT INTO nulls_table (`id`, `item`,`number`) VALUES (null, 'JOHN',1557),('1234567890', null,533),('3543364534', 'MARRY',null),('2258864346', 'JAME',4452)
 insertTest2 :: IO()
 insertTest2 = do
     conn <- defaultClient
-    s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO nulls_table VALUES" 
+    s <- insertMany conn "INSERT INTO nulls_table VALUES" 
             [[CKNull, CKString "Clickhouse-Haskell", CKInt16 1]
             ,[CKString "1000000000", CKNull, CKInt16 12]
             ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKNull]
             ,[CKString "2258864346", CKString "Jame", CKInt16 4452]]
-    q <- query conn "SELECT * FROM nulls_table"
+    q <- exec conn "SELECT * FROM nulls_table"
     print q 
     print "conn"
     closeClient conn
@@ -187,13 +187,13 @@ insertTest2 = do
 insertTest3 :: IO()
 insertTest3 = do
     conn <- defaultClient
-    s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO tande VALUES"
+    s <- insertMany conn "INSERT INTO tande VALUES"
             [
                 [CKString "ggo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "hello"],
                 [CKString "ggo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "hello"],
                 [CKString "gfo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "world"]
             ]
-    q <- query conn "SELECT * FROM tande" 
+    q <- exec conn "SELECT * FROM tande" 
     print q
     print "conn"
     closeClient conn
@@ -201,12 +201,12 @@ insertTest3 = do
 insertTest4 :: IO()
 insertTest4 = do
     conn <- defaultClient
-    s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO array_table VALUES"
+    s <- insertMany conn "INSERT INTO array_table VALUES"
             [
                 [CKNull, CKArray [CKArray [CKInt16 1], CKArray [CKInt16 2], CKArray [CKInt16 3]]],
                 [CKNull, CKArray [CKArray [CKInt16 1, CKInt16 2], CKArray [CKInt16 3, CKInt16 4], CKArray $ V.fromList [CKInt16 5, CKInt16 6]]]
             ]
-    q <- query conn "SELECT * FROM array_table" 
+    q <- exec conn "SELECT * FROM array_table" 
     print q
     print "conn"
     closeClient conn
@@ -214,25 +214,25 @@ insertTest4 = do
 insertTest5 :: IO()
 insertTest5 = do
     conn <- defaultClient
-    s <- ClickHouseDriver.Core.insertMany conn "INSERT INTO array_nulls VALUES"
+    s <- insertMany conn "INSERT INTO array_nulls VALUES"
             [
                 [CKNull, CKArray $ V.fromList [CKArray [CKString "ABC", CKNull, CKString "XYZ"], CKArray [CKString "DEF"], CKArray $ V.fromList [CKString "DEF"]]],
                 [CKNull, CKArray $ V.fromList [CKArray [CKString "Clickhouse"],  CKArray [CKNull,CKNull]]]
             ]
-    q <- query conn "SELECT * FROM array_nulls" 
+    q <- exec conn "SELECT * FROM array_nulls" 
     print q
     print "conn"
     closeClient conn
 
 insertTest6 = do
     conn <- defaultClient
-    q <- query conn "SELECT * FROM UUID_test" 
+    q <- exec conn "SELECT * FROM UUID_test" 
     Col.putStrLn q
     closeClient conn
 
 insertTest7 = do
     conn <- defaultClient
-    q <- ClickHouseDriver.Core.insertMany conn "INSERT INTO crd VALUES"
+    q <- insertMany conn "INSERT INTO crd VALUES"
             [
                 [CKString "123", CKString "hi"],
                 [CKString "456", CKString "lo"]
@@ -241,7 +241,7 @@ insertTest7 = do
 
 pingTest = do
     conn <- defaultClient
-    ClickHouseDriver.Core.ping conn 
+    ping conn 
 
 main = do
     insertTest3
