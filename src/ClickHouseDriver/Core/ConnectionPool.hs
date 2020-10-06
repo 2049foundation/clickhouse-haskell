@@ -1,7 +1,11 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module ClickHouseDriver.Core.ConnectionPool () where
+module ClickHouseDriver.Core.ConnectionPool 
+(
+  createConnectionPool,
+  ConnParams(..)
+) where
 
 import           ClickHouseDriver.Core.Connection
 import           ClickHouseDriver.Core.Defines
@@ -21,11 +25,6 @@ data ConnParams = ConnParams{
       database'    :: !ByteString
     }
   deriving Show
-
-data CKPool = CKPool {
-    params :: !ConnParams,
-    pool   :: IO (Pool (Socket, SockAddr, Context, Word))
-}
 
 createConnectionPool :: ConnParams
                       ->Int
