@@ -179,12 +179,6 @@ instance Resource (Pool TCPConnection) where
   client (Left e) = error e
   client (Right src) = initEnv (stateSet (CKPool src) stateEmpty) ()
 
-{-
-client :: Either String (State Query) -> IO(Env () w)
-client (Left e)    = error e
-client (Right scr) = initEnv (stateSet scr stateEmpty) ()
--}
-
 executeWithInfo :: String->Env () w->IO (CKResult)
 executeWithInfo query source = runHaxl source (executeQuery query)
   where

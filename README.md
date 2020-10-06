@@ -25,7 +25,7 @@ This project has been heavily referenced from the python version. Link: https://
 * Block by block results streaming.
 * Reading query profile info.
 * Receiving server logs.
-* Implemented in Haxl for caching query requests.
+* Applying Haxl(Concurrency library developed by Facebook) for caching query requests and concurrent querying processes.
 
 **Usage of the HTTP Client**
 =====
