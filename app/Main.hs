@@ -252,7 +252,7 @@ queryTests = do
 
 
 main = do
- conn <- defaultClient
+ pool <- defaultClientPool 3 5 1
  System.IO.putStrLn "Connect"
- r <- execute conn queryTests
+ r <- execute pool queryTests
  print r

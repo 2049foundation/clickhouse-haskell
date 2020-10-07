@@ -25,7 +25,8 @@ module ClickHouseDriver.Core.Client
     withQuery,
     ClickHouseDriver.Core.Client.fetch,
     fetchWithInfo,
-    execute
+    execute,
+    defaultClientPool
   )
 where
 
