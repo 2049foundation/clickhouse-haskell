@@ -243,8 +243,13 @@ pingTest = do
     conn <- defaultClient
     ping conn 
 
+queryTests = do
+    undefined
+
+
+
 main = do
-    insertTest3
-    insertTest2
-    insertTest4
-    insertTest5
+ conn <- defaultClient
+ System.IO.putStrLn "Connect"
+ 
+

@@ -179,6 +179,14 @@ instance Resource (Pool TCPConnection) where
   client (Left e) = error e
   client (Right src) = initEnv (stateSet (CKPool src) stateEmpty) ()
 
+fetchWithInfo :: String->GenHaxl u w CKResult
+fetchWithInfo = dataFetch . FetchData
+
+fetch :: String->GenHaxl u w (Vector (Vector ClickhouseType))
+fetch str = do
+  result_with_info <- fetchWithInfo str
+  return $ query_result result_with_info
+
 executeWithInfo :: String->Env () w->IO (CKResult)
 executeWithInfo query source = runHaxl source (executeQuery query)
   where
