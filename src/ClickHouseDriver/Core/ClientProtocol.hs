@@ -46,4 +46,3 @@ toString n =
   case typeStr !? n of
     Nothing -> "Unknown Packet"
     Just t -> t
-
