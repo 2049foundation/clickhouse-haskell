@@ -114,7 +114,7 @@ mainTest = do
     print "Test Section"
     conn <- defaultClient
     print "connected"
-    res <- exec conn "select item from array_t" 
+    res <- query conn "select item from array_t" 
     closeClient conn
     print res
 
@@ -147,8 +147,8 @@ main'' = do
     putStr (case isSuccess of
         Right y -> y
         Left x -> CL8.unpack x)
-    exec <- HTTP.runQuery env (HTTP.getText "SELECT * FROM test_table")
-    TIO.putStr exec
+    query <- HTTP.runQuery env (HTTP.getText "SELECT * FROM test_table")
+    TIO.putStr query
 
 insertTest :: IO()
 insertTest = do
@@ -159,7 +159,7 @@ insertTest = do
             ,[CKString "1000000000", CKString "Clickhouse-Haskell2", CKInt16 12]
             ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKInt16 15]]
     print s
-    q <- exec conn "SELECT * FROM simple_table" 
+    q <- query conn "SELECT * FROM simple_table" 
     print q
     closeClient conn
 
@@ -167,7 +167,7 @@ readTest :: IO ()
 readTest = do
     cmd <- System.IO.getLine
     conn <- defaultClient
-    res <- exec conn cmd 
+    res <- query conn cmd 
     print res
     closeClient conn
 --INSERT INTO nulls_table (`id`, `item`,`number`) VALUES (null, 'JOHN',1557),('1234567890', null,533),('3543364534', 'MARRY',null),('2258864346', 'JAME',4452)
@@ -179,7 +179,7 @@ insertTest2 = do
             ,[CKString "1000000000", CKNull, CKInt16 12]
             ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKNull]
             ,[CKString "2258864346", CKString "Jame", CKInt16 4452]]
-    q <- exec conn "SELECT * FROM nulls_table"
+    q <- query conn "SELECT * FROM nulls_table"
     print q 
     print "conn"
     closeClient conn
@@ -193,7 +193,7 @@ insertTest3 = do
                 [CKString "ggo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "hello"],
                 [CKString "gfo", CKTuple [CKInt16 0, CKString "hah", CKString "oxo", CKInt8 (-11)], CKString "world"]
             ]
-    q <- exec conn "SELECT * FROM tande" 
+    q <- query conn "SELECT * FROM tande" 
     print q
     print "conn"
     closeClient conn
@@ -206,7 +206,7 @@ insertTest4 = do
                 [CKNull, CKArray [CKArray [CKInt16 1], CKArray [CKInt16 2], CKArray [CKInt16 3]]],
                 [CKNull, CKArray [CKArray [CKInt16 1, CKInt16 2], CKArray [CKInt16 3, CKInt16 4], CKArray $ V.fromList [CKInt16 5, CKInt16 6]]]
             ]
-    q <- exec conn "SELECT * FROM array_table" 
+    q <- query conn "SELECT * FROM array_table" 
     print q
     print "conn"
     closeClient conn
@@ -219,14 +219,14 @@ insertTest5 = do
                 [CKNull, CKArray $ V.fromList [CKArray [CKString "ABC", CKNull, CKString "XYZ"], CKArray [CKString "DEF"], CKArray $ V.fromList [CKString "DEF"]]],
                 [CKNull, CKArray $ V.fromList [CKArray [CKString "Clickhouse"],  CKArray [CKNull,CKNull]]]
             ]
-    q <- exec conn "SELECT * FROM array_nulls" 
+    q <- query conn "SELECT * FROM array_nulls" 
     print q
     print "conn"
     closeClient conn
 
 insertTest6 = do
     conn <- defaultClient
-    q <- exec conn "SELECT * FROM UUID_test" 
+    q <- query conn "SELECT * FROM UUID_test" 
     Col.putStrLn q
     closeClient conn
 
