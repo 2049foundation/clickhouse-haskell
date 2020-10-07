@@ -95,7 +95,7 @@ instance DataSourceName Query where
 instance DataSource u Query where
   fetch (resource) _flags env = SyncFetch $ \blockedFetches -> do
     printf "Fetching %d queries.\n" (length blockedFetches)
-    res <- mapConcurrently (fetchData resource) blockedFetches
+    mapConcurrently (fetchData resource) blockedFetches
     return ()
 
 instance StateKey Query where
