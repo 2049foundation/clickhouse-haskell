@@ -37,7 +37,7 @@ import qualified System.IO.Streams as Streams
 import           System.IO hiding (putStr)
 import           Data.Int
 import           Data.Bits
-import           Haxl.Core
+import           Haxl.Core hiding (fetch)
 
 
 someReader :: R.Reader Int Int
@@ -244,12 +244,15 @@ pingTest = do
     ping conn 
 
 queryTests = do
-    undefined
-
+    one <- fetch "SELECT * FROM UUID_test"
+    two <- fetch "SELECT * FROM array_t"
+    three <- fetch "SHOW DATABASES"
+    four <- fetch "SHOW TABLES"
+    return (one, two, three, four)
 
 
 main = do
  conn <- defaultClient
  System.IO.putStrLn "Connect"
- 
-
+ r <- execute conn queryTests
+ print r

@@ -22,7 +22,10 @@ module ClickHouseDriver.Core.Client
     insertMany,
     insertOneRow,
     ping,
-    withQuery
+    withQuery,
+    ClickHouseDriver.Core.Client.fetch,
+    fetchWithInfo,
+    execute
   )
 where
 
@@ -42,7 +45,7 @@ import qualified Data.ByteString.Char8              as C8
 import           Data.Hashable
 import           Data.Typeable
 import           Data.Vector                        hiding (length)
-import           Haxl.Core
+import           Haxl.Core                        
 import qualified Network.Simple.TCP                 as TCP
 import           Network.Socket
 import qualified Network.URI.Encode                 as NE
@@ -60,7 +63,7 @@ _DEFAULT_USERNAME = "default"
 _DEFAULT_HOST_NAME = "localhost"
 
 {-# INLINE _DEFAULT_PASSWORD #-}
-_DEFAULT_PASSWORD =  ""
+_DEFAULT_PASSWORD =  "12345612341"
 
 {-# INLINE _DEFAULT_PORT_NAME #-}
 _DEFAULT_PORT_NAME =  "9000"
@@ -93,8 +96,7 @@ instance DataSource u Query where
   fetch (resource) _flags env = SyncFetch $ \blockedFetches -> do
     printf "Fetching %d queries.\n" (length blockedFetches)
     res <- mapConcurrently (fetchData resource) blockedFetches
-    case res of
-      [()] -> return ()
+    return ()
 
 instance StateKey Query where
   data State Query = CKResource TCPConnection
@@ -197,6 +199,9 @@ exec :: Env () w ->String->IO (Vector (Vector ClickhouseType))
 exec source cmd = do
   CKResult{query_result=r} <- executeWithInfo cmd source
   return r
+
+execute :: Env u w -> GenHaxl u w a -> IO a
+execute = runHaxl
 
 withQuery :: Env () w->String->(Vector (Vector ClickhouseType)->IO a)->IO a
 withQuery source cmd f = exec source cmd >>= f
