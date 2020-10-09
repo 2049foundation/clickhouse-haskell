@@ -243,16 +243,16 @@ pingTest = do
     conn <- defaultClient
     ping conn 
 
+queryTests :: GenHaxl u w (V.Vector (V.Vector ClickhouseType))
 queryTests = do
     one <- fetch "SELECT * FROM UUID_test"
     two <- fetch "SELECT * FROM array_t"
     three <- fetch "SHOW DATABASES"
     four <- fetch "SHOW TABLES"
-    return (one, two, three, four)
+    return $ V.concat [one, two ,three, four]
 
 
 main = do
  pool <- defaultClientPool 3 5 1
- System.IO.putStrLn "Connect"
  r <- execute pool queryTests
  print r

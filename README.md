@@ -224,6 +224,23 @@ id──┬─card─┐
 │ 123 │ hi   │
 │ 456 │ lo   │
 ```
+## **Use of Haxl for concurrency**
+We can perform multiple fetches concurrently like this:
+```Haskell
+queryTests :: GenHaxl u w (V.Vector (V.Vector ClickhouseType))
+queryTests = do
+    one <- fetch "SELECT * FROM UUID_test"
+    two <- fetch "SELECT * FROM array_t"
+    three <- fetch "SHOW DATABASES"
+    four <- fetch "SHOW TABLES"
+    return $ V.concat [one, two ,three, four]
+
+```
+```
+Fetching 4 queries.
+[[CKString "417ddc5d-e556-4d27-95dd-a34d84e46a50"],...
+```
+
 ## **Stream profile and process infomation**
 
 The native interface supports reading infomations coming from server. Originally they come with the queried data wrapped in the algebraic data types:
