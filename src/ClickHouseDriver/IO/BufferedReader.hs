@@ -43,7 +43,7 @@ import           Network.Socket           hiding (socket)
 data Buffer = Buffer {
   bufSize :: !Int,
   bytesData :: ByteString,
-  socket :: Socket
+  socket :: Maybe Socket
 }
 
 createBuffer :: Int->Socket->IO Buffer
@@ -52,21 +52,22 @@ createBuffer size sock = do
   return Buffer{
     bufSize = size,
     bytesData = if isNothing receive then "" else fromJust receive,
-    socket = sock
+    socket = Just sock
   }
 
 
 refill :: Buffer->IO Buffer
-refill Buffer{socket = sock, bufSize = size} = do
+refill Buffer{socket = Just sock, bufSize = size} = do
   newData' <- TCP.recv sock size
   let newBuffer = case newData' of
         Just newData -> Buffer {
           bufSize = size,
           bytesData = newData,
-          socket = sock
+          socket = Just sock
         }
         Nothing -> error "Network error"
   return newBuffer
+refill Buffer{socket=Nothing} = error "empty socket"
 
 type Reader a = StateT Buffer IO a
 
@@ -89,11 +90,11 @@ readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
   if skip == 0
     then do
       varint' <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
-      newbuf <- refill buf
-      let newstr = bytesData newbuf
-      varint <- UBS.unsafeUseAsCString newstr (\x->c_read_varint varint' x l)
-      skip2 <- UBS.unsafeUseAsCString newstr (\x->c_count x l)
-      let tail = BS.drop (fromIntegral skip) newstr
+      new_buf <- refill buf
+      let new_str = bytesData new_buf
+      varint <- UBS.unsafeUseAsCString new_str (\x->c_read_varint varint' x l)
+      skip2 <- UBS.unsafeUseAsCString new_str (\x->c_count x l)
+      let tail = BS.drop (fromIntegral skip) new_str
       return (varint, Buffer size tail sock)
     else do
       varint <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
@@ -116,70 +117,70 @@ readBinaryHelper fmt str = do
 
 
 class Readable a where
-  readin :: Reader a
+  readIn :: Reader a
 
 instance Readable Word where
-  readin = StateT readVarInt'
+  readIn = StateT readVarInt'
 
 instance Readable ByteString where
-  readin = StateT readBinaryStr'
+  readIn = StateT readBinaryStr'
 
 instance Readable Int8 where
-  readin = StateT $ readBinaryHelper 1
+  readIn = StateT $ readBinaryHelper 1
 
 instance Readable Int16 where
-  readin = StateT $ readBinaryHelper 2
+  readIn = StateT $ readBinaryHelper 2
 
 instance Readable Int32 where
-  readin = StateT $ readBinaryHelper 4
+  readIn = StateT $ readBinaryHelper 4
 
 instance Readable Int64 where
-  readin = StateT $ readBinaryHelper 8
+  readIn = StateT $ readBinaryHelper 8
 
 instance Readable Word8 where
-  readin = StateT $ readBinaryHelper 1
+  readIn = StateT $ readBinaryHelper 1
 
 instance Readable Word16 where
-  readin = StateT $ readBinaryHelper 2
+  readIn = StateT $ readBinaryHelper 2
 
 instance Readable Word32 where
-  readin = StateT $ readBinaryHelper 4
+  readIn = StateT $ readBinaryHelper 4
 
 instance Readable Word64 where
-  readin = StateT $ readBinaryHelper 8
+  readIn = StateT $ readBinaryHelper 8
 
 readVarInt :: Reader Word
-readVarInt = readin
+readVarInt = readIn
 
 readBinaryStrWithLength :: Int->Reader ByteString
 readBinaryStrWithLength n = StateT (readBinaryStrWithLength' $ fromIntegral n)
 
 readBinaryStr :: Reader ByteString
-readBinaryStr = readin
+readBinaryStr = readIn
 
 readBinaryInt8 :: Reader Int8
-readBinaryInt8 = readin
+readBinaryInt8 = readIn
 
 readBinaryInt16 :: Reader Int16
-readBinaryInt16 = readin
+readBinaryInt16 = readIn
 
 readBinaryInt32 :: Reader Int32
-readBinaryInt32 = readin
+readBinaryInt32 = readIn
 
 readBinaryInt64 :: Reader Int64
-readBinaryInt64 = readin
+readBinaryInt64 = readIn
 
 readBinaryUInt32 :: Reader Word32
-readBinaryUInt32 = readin
+readBinaryUInt32 = readIn
 
 readBinaryUInt8 :: Reader Word8
-readBinaryUInt8 = readin
+readBinaryUInt8 = readIn
 
 readBinaryUInt16 :: Reader Word16
-readBinaryUInt16 = readin
+readBinaryUInt16 = readIn
 
 readBinaryUInt64 :: Reader Word64
-readBinaryUInt64 = readin
+readBinaryUInt64 = readIn
 
 readBinaryUInt128 :: Reader Word128
 readBinaryUInt128 = do

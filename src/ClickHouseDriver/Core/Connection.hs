@@ -403,4 +403,6 @@ closeBufferSocket :: Reader ()
 closeBufferSocket = do
   buf <- get
   let sock = ClickHouseDriver.IO.BufferedReader.socket buf
-  TCP.closeSock sock
+  case sock of
+    Just sock'->TCP.closeSock sock'
+    Nothing -> return ()
