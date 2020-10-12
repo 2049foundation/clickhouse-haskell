@@ -11,12 +11,12 @@ import Data.Vector (fromList)
 columnSpec :: IO()
 columnSpec = hspec $ parallel $ do
     --stringAndIntSpec
-    --arraySpec
-    --tupleAndEnumSpec
+    arraySpec
+    tupleAndEnumSpec
     --lowCardinalitySpec
     --ipAndDateSpec
     --aggregateFunctionSpec
-    uuidSpec
+    --uuidSpec
 
 stringAndIntSpec :: Spec
 stringAndIntSpec = describe "test string and int columns" $ do
@@ -48,9 +48,11 @@ arraySpec = describe "test array" $ do
                 ]
     q <- runIO $ query conn "SELECT * FROM array_suite" 
     it "returns query result in standard format" $ do
-        show q `shouldBe` "[[CKInt8 1, CKArray [CKString \"Clickhouse\", CKString \"Test1\"]]," ++
-                    "[CKInt8 2, CKArray [CKString \"Clickhouse\", CKString \"Test2\"]]," ++ 
-                    "[CKInt8 3, CKArray [CKString \"Clickhouse\", CKString \"Test3\"]]]"
+        q `shouldBe`[
+                        [CKInt8 1, CKArray $ fromList [CKString "Clickhouse", CKString "Test1"]],
+                        [CKInt8 2, CKArray $ fromList [CKString "Clickhouse", CKString "Test2"]],
+                        [CKInt8 3, CKArray $ fromList [CKString "Clickhouse", CKString "Test3"]]
+                    ]
 
 tupleAndEnumSpec :: Spec
 tupleAndEnumSpec = describe "tuple and enum test" $ do
@@ -65,10 +67,11 @@ tupleAndEnumSpec = describe "tuple and enum test" $ do
                 ]
     q <- runIO $ query conn "SELECT * FROM tuple_enum_suite" 
     it "returns query result in standard format" $ do
-        show q `shouldBe` "["++
-                    "[CKInt8 1, CKTuple [CKString \"Clickhouse\", CKString \"Test1\"], CKString \"hello\"]," ++
-                    "[CKInt8 2, CKTuple [CKString \"Clickhouse\", CKString \"Test2\"], CKString \"world\"]," ++
-                    "[CKInt8 3, CKTuple [CKString \"Clickhouse\", CKString \"Test3\"], CKString \"hello\"]]"
+     q `shouldBe` [
+                    [CKInt8 1, CKTuple $ fromList [CKInt8 11, CKString "Test1"], CKString "hello"],
+                    [CKInt8 2, CKTuple $ fromList [CKInt8 12, CKString "Test2"], CKString "world"],
+                    [CKInt8 3, CKTuple $ fromList [CKInt8 13, CKString "Test3"], CKString "hello"]
+                ]
     
 
 lowCardinalitySpec :: Spec

@@ -691,7 +691,7 @@ readUUID n_rows = do
     w1 <- readBinaryUInt32
     w3 <- readBinaryUInt32
     w4 <- readBinaryUInt32
-    return $ CKString  $ C8.pack $
+    return $ CKString $ C8.pack $
      UUID.toString $ UUID.fromWords w1 w2 w3 w4
 
 writeUUID :: ByteString -> Vector ClickhouseType -> Writer Builder
@@ -700,7 +700,7 @@ writeUUID col_name items =
     ( \case CKString uuidstr -> do
               case UUID.fromString $ C8.unpack uuidstr of
                 Nothing -> error $ "UUID parsing error in the column"
-                          ++ show col_name
+                          ++ show col_name ++ " wrong data: " ++ show uuidstr
                 Just uuid -> do
                   let (w2, w1, w3, w4) = UUID.toWords uuid
                   writeBinaryUInt32 w1

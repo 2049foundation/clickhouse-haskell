@@ -6,7 +6,6 @@ import           Test.IO
 
 main :: IO()
 main = do
-    print "we are doing tests"
     runTests
     httpSpec
     columnSpec
