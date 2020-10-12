@@ -13,27 +13,28 @@ columnSpec = hspec $ parallel $ do
     --stringAndIntSpec
     arraySpec
     tupleAndEnumSpec
-    --lowCardinalitySpec
-    --ipAndDateSpec
+    lowCardinalitySpec
+    ipAndDateSpec
     --aggregateFunctionSpec
-    --uuidSpec
+    uuidSpec
+    --nullableSpec
 
 stringAndIntSpec :: Spec
 stringAndIntSpec = describe "test string and int columns" $ do
     conn <- runIO $ defaultClient
     runIO $ query conn ("CREATE TABLE IF NOT EXISTS str_and_int_suite " ++ 
-            "(`str` String, `int` Int32, `fix` FixedString(3))" ++ "ENGINE = Memory") 
+            "(`str` String, `int` Int16, `fix` FixedString(3))" ++ "ENGINE = Memory") 
     runIO $ ClickHouseDriver.Core.insertMany conn "INSERT INTO str_and_int_suite VALUES"
                 [
-                    [CKString "teststr1", CKInt32 323, CKString "abc"],
-                    [CKString "teststr2", CKInt32 456 ,CKString "axy"],
-                    [CKString "teststr2", CKInt32 220, CKString "ffa"]
+                    [CKString "teststr1", CKInt16 323, CKString "abc"],
+                    [CKString "teststr2", CKInt16 456 ,CKString "axy"],
+                    [CKString "teststr2", CKInt16 220, CKString "ffa"]
                 ]
     q <- runIO $ query conn "SELECT * FROM str_and_int_suite" 
     it "returns query result in standard format" $ do
-        show q `shouldBe` "[[CKString \"teststr1\", CKInt32 323, CKString \"abc\"]," ++
-                "[CKString \"teststr2\", CKInt32 456 ,CKString \"axy\"],[CKString \"teststr2\"," ++
-                "CKInt32 220, CKString \"ffa\"]]"
+        show q `shouldBe` "[[CKString \"teststr1\", CKInt16 323, CKString \"abc\"]," ++
+                "[CKString \"teststr2\", CKInt16 456 ,CKString \"axy\"],[CKString \"teststr2\"," ++
+                "CKInt16 220, CKString \"ffa\"]]"
 
 arraySpec :: Spec
 arraySpec = describe "test array" $ do
@@ -104,15 +105,15 @@ uuidSpec = describe "uuid test" $ do
             "(`id` Int8, `uuid` UUID)" ++ "ENGINE = Memory") 
     runIO $ ClickHouseDriver.Core.insertMany conn "INSERT INTO uuid_suite VALUES"
                 [
-                    [CKInt8 1, CKString "17ddc5d-e556-4d27-95dd-a34d84e46a50"],
-                    [CKInt8 2, CKString "17ddc5d-0000-4d27-95dd-a34d84e46a50"],
-                    [CKInt8 3, CKString "17ddc5d-e556-4d27-0000-a34d84e46a50"]
+                    [CKInt8 1, CKString "123e4567-e89b-12d3-a456-426614174000"],
+                    [CKInt8 2, CKString "123e4567-e89b-12d3-a456-426614174000"],
+                    [CKInt8 3, CKString "123e4567-e89b-12d3-a456-426614174000"]
                 ]
     q <- runIO $ query conn "SELECT * FROM uuid_suite" 
     it "returns query result in standard format" $ do
-        show q `shouldBe` "[[CKInt8 1, CKString \"17ddc5d-e556-4d27-95dd-a34d84e46a50\"]," ++ 
-                    "[CKInt8 2, CKString \"17ddc5d-0000-4d27-95dd-a34d84e46a50\"]," ++
-                    "[CKInt8 3, CKString \"17ddc5d-e556-4d27-0000-a34d84e46a50\"]]"
+        show q `shouldBe` "[[CKInt8 1,CKString \"123e4567-e89b-12d3-a456-426614174000\"]," ++ 
+                    "[CKInt8 2,CKString \"123e4567-e89b-12d3-a456-426614174000\"]," ++
+                    "[CKInt8 3,CKString \"123e4567-e89b-12d3-a456-426614174000\"]]"
 
 nullableSpec :: Spec
 nullableSpec = describe "nullable type test" $ do
