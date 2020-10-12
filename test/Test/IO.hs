@@ -49,6 +49,18 @@ prop_int8 xs = monadicIO $ do
     (res, _) <- run (runStateT (mapM (\x->readBinaryInt8) xs) buf)
     assert (res == xs)
 
+prop_int32 :: [Int32]->Property
+prop_int32 xs = monadicIO $ do
+    let wtr = writeBinaryInt32 :: Int32->Writer ByteString
+    a <- run (execWriterT $ (mapM_ wtr xs))
+    let buf = Buffer {
+        bufSize = BS.length a,
+        socket = Nothing,
+        bytesData = a
+    }
+    (res, _) <- run (runStateT (mapM (\x->readBinaryInt32) xs) buf)
+    assert (res == xs)
+
 prop_fix_str :: [String]->Property
 prop_fix_str xs = monadicIO $ do
     let wtr = writeBinaryFixedLengthStr :: Word->ByteString->Writer ByteString
@@ -66,5 +78,6 @@ runTests = do
     print "test"
     quickCheck prop_BinaryStr
     quickCheck prop_int8
+    quickCheck prop_int32
     quickCheck prop_Strs
     quickCheck prop_fix_str
