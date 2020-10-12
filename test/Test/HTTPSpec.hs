@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.HTTPSpec (spec) where
+module Test.HTTPSpec (httpSpec) where
 
 import ClickHouseDriver.Core
 import ClickHouseDriver.Core.HTTP
@@ -12,8 +12,8 @@ import Test.HUnit
 import Test.Hspec
 
 
-spec :: Spec
-spec = parallel $ do
+httpSpec :: IO()
+httpSpec = hspec $ parallel $ do
   query1
   query2
   query3

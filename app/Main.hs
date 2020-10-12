@@ -252,7 +252,4 @@ queryTests = do
     return $ V.concat [one, two ,three, four]
 
 
-main = do
- pool <- defaultClientPool 3 5 1
- r <- execute pool queryTests
- print r
+main = undefined

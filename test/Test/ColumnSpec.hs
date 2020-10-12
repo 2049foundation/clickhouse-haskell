@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.ColumnSpec (spec) where
+module Test.ColumnSpec (columnSpec) where
 
 import ClickHouseDriver.Core
 import Test.HUnit
@@ -7,16 +7,16 @@ import Test.Hspec
 import qualified Data.ByteString.Char8 as C8
 import Data.Vector (fromList)
 
-spec :: Spec
-spec = parallel $ do
-    stringAndIntSpec
-    arraySpec
-    tupleAndEnumSpec
-    lowCardinalitySpec
+
+columnSpec :: IO()
+columnSpec = hspec $ parallel $ do
+    --stringAndIntSpec
+    --arraySpec
+    --tupleAndEnumSpec
+    --lowCardinalitySpec
     --ipAndDateSpec
     --aggregateFunctionSpec
     uuidSpec
-    nullableSpec
 
 stringAndIntSpec :: Spec
 stringAndIntSpec = describe "test string and int columns" $ do
