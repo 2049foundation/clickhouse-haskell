@@ -150,17 +150,7 @@ deploySettings tcp =
   initEnv (stateSet (CKResource tcp) stateEmpty) ()
 
 defaultClient :: IO (Env () w)
-defaultClient = do
-  tcp <- tcpConnect
-          _DEFAULT_HOST_NAME
-          _DEFAULT_PORT_NAME
-          _DEFAULT_USERNAME
-          _DEFAULT_PASSWORD
-          _DEFAULT_DATABASE
-          _DEFAULT_COMPRESSION_SETTING
-  case tcp of
-    Left e -> client ((Left e) :: Either String (Pool TCPConnection))
-    Right conn -> client $ Right conn
+defaultClient = createClient def 
   
 createClient :: ConnParams->IO(Env () w)
 createClient ConnParams{
@@ -171,7 +161,7 @@ createClient ConnParams{
                 ,compression'
                 ,database'   
              } = do
-          tcp <- tcpconn
+          tcp <- tcpConnect
                   username'   
                   host'       
                   port'       
@@ -183,18 +173,11 @@ createClient ConnParams{
             Right conn -> client $ Right conn
   
 defaultClientPool :: Int->NominalDiffTime->Int->IO (Env () w)
-defaultClientPool numberStripes idleTime maxResources = do
-  let params =
-        ConnParams{
-          username'    = _DEFAULT_USERNAME,
-          host'        = _DEFAULT_HOST_NAME,
-          port'        = _DEFAULT_PORT_NAME,
-          password'    = _DEFAULT_PASSWORD,
-          compression' = _DEFAULT_COMPRESSION_SETTING,          
-          database'    = _DEFAULT_DATABASE
-        }
-  pool <- createConnectionPool params numberStripes idleTime maxResources
-  client $ Right pool
+defaultClientPool = createClientPool def
+
+createClientPool :: ConnParams->Int->NominalDiffTime->Int->IO(Env () w)
+createClientPool params numberStripes idleTime maxResources = 
+  createConnectionPool params numberStripes idleTime maxResources
 
 instance Resource TCPConnection where
   client (Left e) = error e
@@ -248,10 +231,10 @@ ping source = do
   case get of
     Nothing -> print "empty source"
     Just (CKResource tcp)
-     -> ping' _DEFAULT_PING_WAIT_TIME tcp >>= print
+     -> ping' Defines._DEFAULT_PING_WAIT_TIME tcp >>= print
     Just (CKPool pool)
      -> withResource pool $ \src->
-       ping' _DEFAULT_PING_WAIT_TIME src >>= print 
+       ping' Defines._DEFAULT_PING_WAIT_TIME src >>= print 
 
 closeClient :: Env () w -> IO()
 closeClient source = do
