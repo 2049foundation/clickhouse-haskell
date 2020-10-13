@@ -166,8 +166,8 @@ createClient ConnParams{
                   host'       
                   port'       
                   password'   
-                  compression'
                   database'
+                  compression'
           case tcp of
             Left e -> client ((Left e) :: Either String (Pool TCPConnection))
             Right conn -> client $ Right conn
@@ -176,8 +176,9 @@ defaultClientPool :: Int->NominalDiffTime->Int->IO (Env () w)
 defaultClientPool = createClientPool def
 
 createClientPool :: ConnParams->Int->NominalDiffTime->Int->IO(Env () w)
-createClientPool params numberStripes idleTime maxResources = 
-  createConnectionPool params numberStripes idleTime maxResources
+createClientPool params numberStripes idleTime maxResources = do 
+  pool <- createConnectionPool params numberStripes idleTime maxResources
+  client $ Right pool
 
 instance Resource TCPConnection where
   client (Left e) = error e
