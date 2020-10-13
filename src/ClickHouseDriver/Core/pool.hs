@@ -1,7 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
-
-module ClickHouseDriver.Core.ConnectionPool 
+{-# LANGUAGE DeriveGeneric  #-}
+module ClickHouseDriver.Core.Pool 
 (
   createConnectionPool,
   ConnParams(..)
@@ -15,6 +15,8 @@ import           Data.ByteString
 import           Data.Pool
 import           Data.Time.Clock
 import           Network.Socket
+import           Data.Default.Class
+import           GHC.Generics 
 
 data ConnParams = ConnParams{
       username'    :: !ByteString,
@@ -24,7 +26,17 @@ data ConnParams = ConnParams{
       compression' :: !Bool,
       database'    :: !ByteString
     }
-  deriving Show
+  deriving (Show, Generic)
+
+instance Default ConnParams where
+    def = ConnParams{
+       username'    = _DEFAULT_USERNAME
+      ,host'        = _DEFAULT_HOST_NAME
+      ,port'        = _DEFAULT_PORT_NAME
+      ,password'    = _DEFAULT_PASSWORD
+      ,compression' = _DEFAULT_COMPRESSION_SETTING
+      ,database'    = _DEFAULT_DATABASE
+    }
 
 createConnectionPool :: ConnParams
                       ->Int
@@ -49,3 +61,4 @@ createConnectionPool
           Right tcp -> return tcp
       ) (\TCPConnection{tcpSocket=sock}->close sock) 
       numStripes idleTime maxListenQueue
+
