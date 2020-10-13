@@ -11,6 +11,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 
 module ClickHouseDriver.Core.Client
   ( query,
@@ -33,7 +34,7 @@ where
 import           ClickHouseDriver.Core.Block
 import           ClickHouseDriver.Core.Column       hiding (length)
 import           ClickHouseDriver.Core.Connection
-import           ClickHouseDriver.Core.ConnectionPool
+import           ClickHouseDriver.Core.Pool
 import           ClickHouseDriver.Core.Defines
 import qualified ClickHouseDriver.Core.Defines      as Defines
 import           ClickHouseDriver.Core.Types
@@ -53,6 +54,7 @@ import qualified Network.URI.Encode                 as NE
 import           Text.Printf
 import           Data.Pool                          (Pool(..), withResource, destroyAllResources)
 import           Data.Time.Clock
+import           Data.Default.Class                 (def)
 
 {-# INLINE _DEFAULT_PING_WAIT_TIME #-}
 _DEFAULT_PING_WAIT_TIME = 10000
@@ -159,6 +161,26 @@ defaultClient = do
   case tcp of
     Left e -> client ((Left e) :: Either String (Pool TCPConnection))
     Right conn -> client $ Right conn
+  
+createClient :: ConnParams->IO(Env () w)
+createClient ConnParams{
+                 username'   
+                ,host'       
+                ,port'       
+                ,password'   
+                ,compression'
+                ,database'   
+             } = do
+          tcp <- tcpconn
+                  username'   
+                  host'       
+                  port'       
+                  password'   
+                  compression'
+                  database'
+          case tcp of
+            Left e -> client ((Left e) :: Either String (Pool TCPConnection))
+            Right conn -> client $ Right conn
   
 defaultClientPool :: Int->NominalDiffTime->Int->IO (Env () w)
 defaultClientPool numberStripes idleTime maxResources = do
