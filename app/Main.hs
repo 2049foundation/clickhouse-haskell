@@ -38,6 +38,7 @@ import           System.IO hiding (putStr)
 import           Data.Int
 import           Data.Bits
 import           Haxl.Core hiding (fetch)
+import           Data.Default.Class (def)
 
 
 someReader :: R.Reader Int Int
@@ -252,4 +253,8 @@ queryTests = do
     return $ V.concat [one, two ,three, four]
 
 
-main = undefined
+main = do
+    let params = def :: ConnParams
+    conn <- createClient params{password'="12345612341"}
+    q <- query conn "SELECT * FROM customer LIMIT 10"
+    Col.putStrLn q

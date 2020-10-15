@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric     #-}
 module ClickHouseDriver.Core.Types
   ( ServerInfo (..),
     TCPConnection (..),
@@ -28,7 +29,8 @@ module ClickHouseDriver.Core.Types
     BlockInfo(..),
     Block(..),
     CKResult(..),
-    writeBlockInfo
+    writeBlockInfo,
+    ConnParams(..)
   )
 where
 
@@ -46,6 +48,8 @@ import           Data.Word
 import           GHC.Generics
 import           Network.IP.Addr                    (IP4 (..), IP6 (..))
 import           Network.Socket                     (SockAddr, Socket)
+import           GHC.Generics
+import           ClickHouseDriver.Core.Defines
 
 -----------------------------------------------------------
 
@@ -307,3 +311,12 @@ data CKResult = CKResult
  deriving Show
 -------------------------------------------------------------------------
 
+data ConnParams = ConnParams{
+      username'    :: !ByteString,
+      host'        :: !ByteString,
+      port'        :: !ByteString,
+      password'    :: !ByteString,
+      compression' :: !Bool,
+      database'    :: !ByteString
+    }
+  deriving (Show, Generic)

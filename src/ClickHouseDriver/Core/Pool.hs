@@ -1,10 +1,8 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE DeriveGeneric  #-}
 module ClickHouseDriver.Core.Pool 
 (
-  createConnectionPool,
-  ConnParams(..)
+  createConnectionPool
 ) where
 
 import           ClickHouseDriver.Core.Connection
@@ -17,16 +15,7 @@ import           Data.Time.Clock
 import           Network.Socket
 import           Data.Default.Class
 import           GHC.Generics 
-
-data ConnParams = ConnParams{
-      username'    :: !ByteString,
-      host'        :: !ByteString,
-      port'        :: !ByteString,
-      password'    :: !ByteString,
-      compression' :: !Bool,
-      database'    :: !ByteString
-    }
-  deriving (Show, Generic)
+import           ClickHouseDriver.Core.Types
 
 instance Default ConnParams where
     def = ConnParams{

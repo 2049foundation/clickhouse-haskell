@@ -163,10 +163,10 @@ createClient ConnParams{
                 ,compression'
                 ,database'   
              } = do
-          tcp <- tcpConnect
-                  username'   
+          tcp <- tcpConnect  
                   host'       
-                  port'       
+                  port'
+                  username'       
                   password'   
                   database'
                   compression'
