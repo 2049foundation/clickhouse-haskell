@@ -47,6 +47,7 @@ library
       src
   build-depends:
       aeson
+    , criterion
     , streaming-commons
     , resource-pool
     , data-default-class

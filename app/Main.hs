@@ -39,7 +39,16 @@ import           Data.Int
 import           Data.Bits
 import           Haxl.Core hiding (fetch)
 import           Data.Default.Class (def)
+import           Benchmark
 
+
+
+
+main = do
+    let params = def :: ConnParams
+    conn <- createClient params{password'="12345612341"}
+    q <- query conn "SELECT * FROM customer LIMIT 10"
+    Col.putStrLn q
 
 someReader :: R.Reader Int Int
 someReader = do
@@ -252,9 +261,3 @@ queryTests = do
     four <- fetch "SHOW TABLES"
     return $ V.concat [one, two ,three, four]
 
-
-main = do
-    let params = def :: ConnParams
-    conn <- createClient params{password'="12345612341"}
-    q <- query conn "SELECT * FROM customer LIMIT 10"
-    Col.putStrLn q
