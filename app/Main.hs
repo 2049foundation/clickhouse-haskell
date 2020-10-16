@@ -11,7 +11,7 @@ import           Control.Monad.ST
 import           Data.Text
 import qualified Data.Text.IO as TIO
 import           Network.HTTP.Client
-import           Data.ByteString      hiding (putStr)  
+import           Data.ByteString      hiding (putStrLn)  
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as CL8
 import           Foreign.C
@@ -39,16 +39,22 @@ import           Data.Int
 import           Data.Bits
 import           Haxl.Core hiding (fetch)
 import           Data.Default.Class (def)
-import           Benchmark
+import           Data.Time
 
+main = benchmark1
 
-
-
-main = do
+benchmark1 :: IO()
+benchmark1 = do
+    putStrLn "Start benchmark for Clickhouse-Haskell"
     let params = def :: ConnParams
     conn <- createClient params{password'="12345612341"}
-    q <- query conn "SELECT * FROM customer LIMIT 10"
+    start <- getCurrentTime
+    q <- query conn "SELECT * FROM customer LIMIT 10000"
     Col.putStrLn q
+    putStrLn "success!"
+    end <- getCurrentTime
+    print $ diffUTCTime end start
+
 
 someReader :: R.Reader Int Int
 someReader = do
@@ -154,7 +160,7 @@ main'' :: IO()
 main'' = do
     env <- HTTP.httpClient "default" "12345612341"
     isSuccess <- HTTP.insertFromFile "test_table" HTTP.CSV "./test/example.csv" env
-    putStr (case isSuccess of
+    putStrLn (case isSuccess of
         Right y -> y
         Left x -> CL8.unpack x)
     query <- HTTP.runQuery env (HTTP.getText "SELECT * FROM test_table")
