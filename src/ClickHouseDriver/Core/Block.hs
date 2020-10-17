@@ -1,5 +1,10 @@
-{-# LANGUAGE FlexibleContexts #-}
+-- Copyright (c) 2014-present, EMQX, Inc.
+-- All rights reserved.
+--
+-- This source code is distributed under the terms of a MIT license,
+-- found in the LICENSE file.
 
+{-# LANGUAGE FlexibleContexts #-}
 module ClickHouseDriver.Core.Block
   ( BlockInfo (..),
     writeInfo,
