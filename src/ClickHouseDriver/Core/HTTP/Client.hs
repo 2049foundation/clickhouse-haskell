@@ -36,42 +36,52 @@ module ClickHouseDriver.Core.HTTP.Client
   )
 where
 
-import           ClickHouseDriver.Core.Column
-import           ClickHouseDriver.Core.Defines         as Defines
-import           ClickHouseDriver.Core.HTTP.Connection
-import           ClickHouseDriver.Core.HTTP.Helpers
-import           ClickHouseDriver.Core.HTTP.Types
-import           Control.Concurrent.Async
-import           Control.Exception
-import           Control.Monad.State.Lazy
+import ClickHouseDriver.Core.Column ( ClickhouseType )
+import ClickHouseDriver.Core.Defines as Defines
+    ( _DEFAULT_HTTP_PORT, _DEFAULT_HOST )
+import ClickHouseDriver.Core.HTTP.Connection
+    ( HttpConnection(HttpConnection),
+      defaultHttpConnection,
+      httpConnect )
+import ClickHouseDriver.Core.HTTP.Helpers
+    ( extract, genURL, toString )
+import ClickHouseDriver.Core.HTTP.Types ( Format(..), JSONResult )
+import Control.Concurrent.Async ( mapConcurrently )
+import Control.Exception ( SomeException, try )
+import Control.Monad.State.Lazy ( MonadIO(..) )
 import qualified Data.ByteString                       as BS
-import           Data.ByteString.Char8                 (pack)
 import qualified Data.ByteString.Lazy                  as LBS
 import           Data.ByteString.Lazy.Builder          (char8, lazyByteString,
                                                         toLazyByteString)
 import qualified Data.ByteString.Lazy.Char8            as C8
-import           Data.Hashable
-import qualified Data.HashMap.Strict                   as HM
+import Data.Hashable ( Hashable(hashWithSalt) )
 import qualified Data.Text                             as T
-import           Data.Text.Encoding
-import           Data.Text.Internal.Lazy               (Text)
-import           Data.Typeable
-import           Haxl.Core
-import           Network.HTTP.Client                   (Manager,
+import Data.Text.Encoding ( decodeUtf8 )
+import Data.Typeable ( Typeable )
+import Haxl.Core
+    ( putFailure,
+      putSuccess,
+      dataFetch,
+      initEnv,
+      runHaxl,
+      stateEmpty,
+      stateSet,
+      BlockedFetch(..),
+      DataSource(fetch),
+      DataSourceName(..),
+      PerformFetch(SyncFetch),
+      Env(userEnv),
+      GenHaxl,
+      ShowP(..),
+      StateKey(State) )
+import           Network.HTTP.Client                   (
                                                         RequestBody (..),
-                                                        defaultManagerSettings,
                                                         httpLbs, method,
-                                                        newManager,
                                                         parseRequest,
                                                         requestBody,
                                                         responseBody,
                                                         streamFile)
-import qualified Network.Simple.TCP                    as TCP
-import           Network.Socket                        (SockAddr, Socket)
-import           System.FilePath
-import           System.IO                             hiding (char8)
-import qualified System.IO.Streams                     as Streams
-import           Text.Printf
+import Text.Printf ( printf )
 
 {-Implementation in Haxl-}
 --

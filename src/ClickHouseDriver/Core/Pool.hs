@@ -11,17 +11,21 @@ module ClickHouseDriver.Core.Pool
   createConnectionPool
 ) where
 
-import           ClickHouseDriver.Core.Connection
-import           ClickHouseDriver.Core.Defines
-import           ClickHouseDriver.Core.Types      (Context, TCPConnection (..))
-import qualified ClickHouseDriver.Core.Types      as Types
-import           Data.ByteString
-import           Data.Pool
-import           Data.Time.Clock
-import           Network.Socket
-import           Data.Default.Class
-import           GHC.Generics 
-import           ClickHouseDriver.Core.Types
+import ClickHouseDriver.Core.Connection ( tcpConnect )
+import ClickHouseDriver.Core.Defines
+    ( _DEFAULT_USERNAME,
+      _DEFAULT_HOST_NAME,
+      _DEFAULT_PASSWORD,
+      _DEFAULT_PORT_NAME,
+      _DEFAULT_DATABASE,
+      _DEFAULT_COMPRESSION_SETTING )
+import Data.Pool ( createPool, Pool )
+import Data.Time.Clock ( NominalDiffTime )
+import Network.Socket ( close, maxListenQueue )
+import Data.Default.Class ( Default(..) )
+import GHC.Generics () 
+import ClickHouseDriver.Core.Types
+    ( ConnParams(..), TCPConnection(TCPConnection, tcpSocket) )
 
 instance Default ConnParams where
     def = ConnParams{

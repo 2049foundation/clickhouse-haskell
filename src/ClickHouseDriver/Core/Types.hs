@@ -41,21 +41,18 @@ module ClickHouseDriver.Core.Types
 where
 
 import qualified ClickHouseDriver.Core.Defines      as Defines
-import qualified ClickHouseDriver.Core.Error        as Error
-import           ClickHouseDriver.IO.BufferedReader
-import           ClickHouseDriver.IO.BufferedWriter
+import ClickHouseDriver.IO.BufferedReader
+    ( Reader, readVarInt, readBinaryUInt8 )
+import ClickHouseDriver.IO.BufferedWriter
+    ( Writer, writeVarUInt, writeBinaryUInt8, writeBinaryInt32 )
 import           Data.ByteString                    (ByteString)
-import           Data.ByteString.Builder
-import           Data.Default.Class
-import           Data.Hashable                      (Hashable)
-import           Data.Int
+import Data.ByteString.Builder ( Builder )
+import Data.Default.Class ( Default(..) )
+import Data.Int ( Int8, Int16, Int32, Int64 )
 import           Data.Vector                        (Vector)
-import           Data.Word
-import           GHC.Generics
-import           Network.IP.Addr                    (IP4 (..), IP6 (..))
+import Data.Word ( Word8, Word16, Word32, Word64 )
+import GHC.Generics ( Generic )
 import           Network.Socket                     (SockAddr, Socket)
-import           GHC.Generics
-import           ClickHouseDriver.Core.Defines
 
 -----------------------------------------------------------
 

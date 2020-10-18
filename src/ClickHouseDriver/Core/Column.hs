@@ -1,4 +1,4 @@
--- Copyright (c) 2014-present, EMQX, Inc.
+-- | Copyright (c) 2014-present, EMQX, Inc.
 -- All rights reserved.
 --
 -- This source code is distributed under the terms of a MIT license,
@@ -17,25 +17,50 @@ module ClickHouseDriver.Core.Column(
   ClickHouseDriver.Core.Column.putStrLn
 ) where
 
-import           ClickHouseDriver.Core.Types
-import           ClickHouseDriver.IO.BufferedReader
-import           ClickHouseDriver.IO.BufferedWriter
+import ClickHouseDriver.Core.Types ( Context, ClickhouseType(..) )
+import ClickHouseDriver.IO.BufferedReader
+    ( Reader,
+      readBinaryStrWithLength,
+      readBinaryStr,
+      readBinaryInt8,
+      readBinaryInt16,
+      readBinaryInt32,
+      readBinaryInt64,
+      readBinaryUInt32,
+      readBinaryUInt8,
+      readBinaryUInt16,
+      readBinaryUInt64,
+      readBinaryUInt128 )
+import ClickHouseDriver.IO.BufferedWriter
+    ( Writer,
+      writeBinaryFixedLengthStr,
+      writeBinaryStr,
+      writeVarUInt,
+      writeBinaryUInt8,
+      writeBinaryInt8,
+      writeBinaryInt16,
+      writeBinaryInt32,
+      writeBinaryInt64,
+      writeBinaryUInt16,
+      writeBinaryUInt32,
+      writeBinaryUInt64,
+      writeBinaryUInt128 )
 import           Data.Binary                        (Word64, Word8)
 
 import           Data.Bits                          (shift, (.&.), (.|.))
 import           Data.ByteString                    (ByteString, isPrefixOf)
 import qualified Data.ByteString                    as BS (drop, filter,
                                                            intercalate, length,
-                                                           pack, splitWith,
+                                                           splitWith,
                                                            take, unpack)
 import           Data.ByteString.Builder            (Builder)
 import           Data.ByteString.Char8              (readInt)
 import qualified Data.ByteString.Char8              as C8
 import qualified Data.HashMap.Strict                as Map
-import           Data.Int
+import Data.Int ( Int64 )
 import qualified Data.List                          as List
 import           Data.Maybe                         (fromJust)
-import           Data.Time                          (Day, addDays, diffDays,
+import           Data.Time                          (addDays, diffDays,
                                                      fromGregorian, toGregorian)
 import           Data.UnixTime                      (UnixTime (..),
                                                      formatUnixTimeGMT,
@@ -43,12 +68,8 @@ import           Data.UnixTime                      (UnixTime (..),
 import           Data.UUID                          as UUID (fromString,
                                                              fromWords,
                                                              toString, toWords)
-
-import           Control.Monad.IO.Class
-import           Data.Hashable
-import           Data.Time.LocalTime
-import           Data.Time.Zones
-import           Data.Vector                        (Vector, (!), (!?))
+import Data.Hashable ( Hashable(hash) )
+import           Data.Vector                        (Vector, (!))
 
 import qualified Data.Vector                        as V (cons, drop, foldl',
                                                           fromList, generate,

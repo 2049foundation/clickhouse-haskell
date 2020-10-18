@@ -14,17 +14,19 @@ module ClickHouseDriver.Core.HTTP.Helpers
   )
 where
 
-import           ClickHouseDriver.Core.Column
-import           ClickHouseDriver.Core.HTTP.Connection
-import           ClickHouseDriver.Core.HTTP.Types
-import           ClickHouseDriver.IO.BufferedWriter
-import           Control.Monad.Writer
+import ClickHouseDriver.Core.Column
+    ( ClickhouseType(CKNull, CKTuple, CKArray, CKString, CKInt32) )
+import ClickHouseDriver.Core.HTTP.Connection
+    ( HttpConnection(HttpConnection, httpUsername, httpPort,
+                     httpPassword, httpHost) )
+import ClickHouseDriver.Core.HTTP.Types ( Cmd, JSONResult )
+import ClickHouseDriver.IO.BufferedWriter ( writeIn )
+import Control.Monad.Writer ( WriterT(runWriterT) )
 import qualified Data.Aeson                            as JP
-import           Data.Attoparsec.ByteString
+import Data.Attoparsec.ByteString ( IResult(Done, Fail), parse )
 import qualified Data.ByteString.Char8                 as C8
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Text                             (pack)
-import           Data.Vector                           (toList)
 import           Data.Vector                           (toList)
 import qualified Network.URI.Encode                    as NE
 

@@ -24,42 +24,72 @@ module ClickHouseDriver.Core.Connection
 where
 
 import qualified ClickHouseDriver.Core.Block                as Block
-import qualified ClickHouseDriver.Core.Block                as Block
 import qualified ClickHouseDriver.Core.ClientProtocol       as Client
-import           ClickHouseDriver.Core.Column
-import           ClickHouseDriver.Core.Defines
+import ClickHouseDriver.Core.Column ( ClickhouseType, transpose )
+import ClickHouseDriver.Core.Defines
+    ( _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES,
+      _DBMS_MIN_REVISION_WITH_CLIENT_INFO,
+      _DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE,
+      _DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO,
+      _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME,
+      _DBMS_MIN_REVISION_WITH_VERSION_PATCH,
+      _DEFAULT_INSERT_BLOCK_SIZE,
+      _DBMS_NAME,
+      _CLIENT_NAME,
+      _CLIENT_VERSION_MAJOR,
+      _CLIENT_VERSION_MINOR,
+      _CLIENT_REVISION,
+      _STRINGS_ENCODING,
+      _BUFFER_SIZE )
 import qualified ClickHouseDriver.Core.Error                as Error
 import qualified ClickHouseDriver.Core.QueryProcessingStage as Stage
 import qualified ClickHouseDriver.Core.ServerProtocol       as Server
-import           ClickHouseDriver.Core.Types
-import           ClickHouseDriver.IO.BufferedReader
-import           ClickHouseDriver.IO.BufferedWriter
+import ClickHouseDriver.Core.Types
+    ( CKResult(CKResult),
+      QueryInfo,
+      Packet(EndOfStream, StreamProfileInfo, Progress, Hello,
+             MultiString, Block, queryData),
+      Context(Context, client_setting, client_info, server_info),
+      Interface(HTTP),
+      ClientSetting(ClientSetting, strings_encoding, strings_as_bytes,
+                    insert_block_size),
+      ClientInfo(ClientInfo),
+      TCPConnection(..),
+      ServerInfo(..),
+      Block(ColumnOrientedBlock, cdata),
+      getServerInfo,
+      getDefaultClientInfo,
+      readProgress,
+      readBlockStreamProfileInfo,
+      storeProfile,
+      storeProgress )
+import ClickHouseDriver.IO.BufferedReader
+    ( Reader,
+      Buffer(socket),
+      createBuffer,
+      refill,
+      readVarInt,
+      readBinaryStr )
+import ClickHouseDriver.IO.BufferedWriter
+    ( Writer, MonoidMap, writeBinaryStr, writeVarUInt )
 import           Control.Monad.Loops                        (iterateWhile)
 import           Control.Monad.State.Lazy                   (get, runStateT)
-import           Control.Monad.Writer                       hiding (Writer)
-import qualified Data.Binary                                as Binary
-import           Data.ByteString                            hiding (filter,
-                                                             unpack)
+import Control.Monad.Writer ( execWriterT, WriterT(runWriterT) )
+import Data.ByteString ( ByteString )
 import           Data.ByteString.Builder                    (Builder,
                                                              toLazyByteString)
 import           Data.ByteString.Char8                      (unpack)
-import qualified Data.ByteString.Char8                      as C8
-import qualified Data.ByteString.Lazy                       as L
-import           Data.Default.Class
 import qualified Data.List                                  as List (transpose)
 import           Data.List.Split                            (chunksOf)
-import           Data.Streaming.Network
-import           Data.Vector                                (Vector, (!))
+import           Data.Vector                                ((!))
 import qualified Data.Vector                                as V (concat,
                                                                   fromList,
                                                                   length, map)
 import qualified Network.Simple.TCP                         as TCP (closeSock,
                                                                     connectSock,
-                                                                    recv,
                                                                     sendLazy)
 import           Network.Socket                             (Socket)
 import           System.Timeout                             (timeout)
-import           Data.Pool                                  (createPool, Pool(..))
 --Debug
 
 --import Debug.Trace (trace)

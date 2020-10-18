@@ -39,29 +39,53 @@ module ClickHouseDriver.Core.Client
   )
 where
 
-import           ClickHouseDriver.Core.Block
-import           ClickHouseDriver.Core.Column       hiding (length)
-import           ClickHouseDriver.Core.Connection
-import           ClickHouseDriver.Core.Pool
-import           ClickHouseDriver.Core.Defines
+import ClickHouseDriver.Core.Column ( ClickhouseType )
+import ClickHouseDriver.Core.Connection
+    ( ping',
+      tcpConnect,
+      sendQuery,
+      sendData,
+      processInsertQuery,
+      receiveResult )
+import ClickHouseDriver.Core.Pool ( createConnectionPool )
+import ClickHouseDriver.Core.Defines ( _BUFFER_SIZE )
 import qualified ClickHouseDriver.Core.Defines      as Defines
-import           ClickHouseDriver.Core.Types
-import           ClickHouseDriver.IO.BufferedReader
-import           Control.Concurrent.Async
-import           Control.Exception
-import           Control.Monad.State                hiding (State)
+import ClickHouseDriver.Core.Types
+    ( ConnParams(..),
+      CKResult(CKResult, query_result),
+      TCPConnection(TCPConnection, tcpSocket),
+      getServerInfo,
+      defaultQueryInfo )
+import ClickHouseDriver.IO.BufferedReader ( createBuffer )
+import Control.Concurrent.Async ( mapConcurrently )
+import Control.Exception ( SomeException, try )
+import Control.Monad.State ( StateT(runStateT) )
 import qualified Data.ByteString                    as BS
 import qualified Data.ByteString.Char8              as C8
-import           Data.Hashable
-import           Data.Typeable
-import           Data.Vector                        hiding (length)
-import           Haxl.Core                        
+import Data.Hashable ( Hashable(hashWithSalt) )
+import Data.Typeable ( Typeable )
+import Data.Vector ( Vector )
+import Haxl.Core
+    ( putFailure,
+      putSuccess,
+      dataFetch,
+      initEnv,
+      runHaxl,
+      stateEmpty,
+      stateGet,
+      stateSet,
+      BlockedFetch(..),
+      DataSource(fetch),
+      DataSourceName(..),
+      PerformFetch(SyncFetch),
+      Env(states),
+      GenHaxl,
+      ShowP(..),
+      StateKey(State) )                        
 import qualified Network.Simple.TCP                 as TCP
-import           Network.Socket
-import qualified Network.URI.Encode                 as NE
-import           Text.Printf
+import Text.Printf ( printf )
 import           Data.Pool                          (Pool(..), withResource, destroyAllResources)
-import           Data.Time.Clock
+import Data.Time.Clock ( NominalDiffTime )
 import           Data.Default.Class                 (def)
 
 {-# INLINE _DEFAULT_PING_WAIT_TIME #-}
