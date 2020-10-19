@@ -41,7 +41,12 @@ import           Haxl.Core hiding (fetch)
 import           Data.Default.Class (def)
 import           Data.Time
 
-main = benchmark1
+main :: IO ()
+main = do
+    conn <- defaultClient
+    q <- query conn "SHOW DATABASES"
+    Col.putStrLn q
+    
 
 benchmark1 :: IO()
 benchmark1 = do

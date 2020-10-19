@@ -159,9 +159,11 @@ getJSON cmd = fmap extract (dataFetch $ FetchJSON cmd)
 getTextM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m T.Text)
 getTextM = mapM getText
 
+-- | Fetch data from Clickhouse client in the format of JSON 
 getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m JSONResult)
 getJsonM = mapM getJSON
 
+-- | actual function used by user to perform fetching command
 exec :: String->Env HttpConnection w->IO (Either C8.ByteString String)
 exec cmd' env = do
   let cmd = C8.pack cmd'
@@ -174,6 +176,7 @@ exec cmd' env = do
     then return $ Left ans -- error message
     else return $ Right "Created successfully"
 
+-- | insert one row
 insertOneRow :: String
              -> [ClickhouseType]
              -> Env HttpConnection w
@@ -190,6 +193,7 @@ insertOneRow table_name arr environment = do
     then return $ Left ans -- error message
     else return $ Right "Inserted successfully"
 
+-- | insert one or more rows 
 insertMany :: String
            -> [[ClickhouseType]]
            -> Env HttpConnection w
@@ -209,6 +213,7 @@ insertMany table_name rows environment = do
     then return $ Left ans
     else return $ Right "Successful insertion"
 
+-- | insert data from 
 insertFromFile :: String->Format->FilePath->Env HttpConnection w->IO(Either C8.ByteString String)
 insertFromFile table_name format file environment = do
   fileReqBody <- streamFile file
