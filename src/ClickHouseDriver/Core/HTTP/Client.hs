@@ -74,8 +74,7 @@ import Haxl.Core
       GenHaxl,
       ShowP(..),
       StateKey(State) )
-import           Network.HTTP.Client                   (
-                                                        RequestBody (..),
+import           Network.HTTP.Client                   (RequestBody (..),
                                                         httpLbs, method,
                                                         parseRequest,
                                                         requestBody,

@@ -14,6 +14,7 @@ module ClickHouseDriver.Core.HTTP.Connection (
 ) where
                                 
 import Network.HTTP.Client
+    ( defaultManagerSettings, newManager, Manager )
 
 #define DEFAULT_USERNAME  "default"
 #define DEFAULT_HOST_NAME "localhost"

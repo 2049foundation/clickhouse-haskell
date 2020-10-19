@@ -36,7 +36,11 @@ module ClickHouseDriver.Core.Types
     Block(..),
     CKResult(..),
     writeBlockInfo,
-    ConnParams(..)
+    ConnParams(..),
+    setClientInfo,
+    setClientSetting,
+    setServerInfo,
+    writeSettings
   )
 where
 
