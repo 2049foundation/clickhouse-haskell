@@ -67,6 +67,7 @@ genURL HttpConnection {
          let res = basicUrl ++ NE.encode cmd
          return res
 
+-- | serialize column type into sql string
 toString :: [ClickhouseType]->String
 toString ck = "(" ++ toStr ck ++ ")"
 

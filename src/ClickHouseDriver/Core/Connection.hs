@@ -19,7 +19,9 @@ module ClickHouseDriver.Core.Connection
     receiveResult,
     closeConnection,
     processInsertQuery,
-    ping'
+    ping',
+    versionTuple,
+    sendCancel
   )
 where
 
@@ -188,13 +190,19 @@ receiveHello' = do
         else return $ Left "Error"
 
 tcpConnect ::
-  ByteString ->
-  ByteString ->
-  ByteString ->
-  ByteString ->
-  ByteString ->
-  Bool ->
-  IO (Either String TCPConnection)
+     ByteString
+     -- ^ host name to connect
+  -> ByteString
+     -- ^ port name to connect. Default would be 8123
+  -> ByteString
+     -- ^ username. Default would be "default"
+  -> ByteString
+     -- ^ password. Default would be empty string
+  -> ByteString
+     -- ^ database. Default would be "default"
+  -> Bool
+     -- ^ choose if send and receive data in compressed form. Default would be False. 
+  -> IO (Either String TCPConnection)
 tcpConnect host port user password database compression = do
   (sock, sockaddr) <- TCP.connectSock (unpack host) (unpack port)
   sendHello (database, user, password) sock
@@ -262,7 +270,7 @@ sendQuery
       writeBinaryStr query
     TCP.sendLazy sock (toLazyByteString r)
 
-sendData :: TCPConnection -> ByteString -> Maybe Block -> IO ()
+sendData :: TCPConnection->ByteString->Maybe Block->IO ()
 sendData TCPConnection {tcpSocket = sock, context=ctx} table_name maybe_block = do
   -- TODO: ADD REVISION
   let info = Block.defaultBlockInfo
@@ -283,11 +291,16 @@ sendCancel TCPConnection {tcpSocket = sock} = do
   c <- execWriterT $ writeVarUInt Client._CANCEL
   TCP.sendLazy sock (toLazyByteString c)
 
-processInsertQuery :: TCPConnection
+processInsertQuery  ::  TCPConnection
+                        -- ^ source
                       ->ByteString
+                        -- ^ query without data
                       ->Maybe ByteString
+                        -- ^ query id
                       ->[[ClickhouseType]]
+                        -- ^ data in Haskell type.
                       ->IO ByteString
+                        -- ^ return 1 if insertion successfully completed
 processInsertQuery tcp@TCPConnection{tcpSocket=sock, context=Context{client_setting=client_setting}}
  query_without_data query_id items = do
   sendQuery tcp query_without_data query_id
@@ -324,9 +337,10 @@ processInsertQuery tcp@TCPConnection{tcpSocket=sock, context=Context{client_sett
         runStateT (receivePacket info) buf2
         return "1"
 
+-- | read data from stream.
 receiveData :: ServerInfo -> Reader Block.Block
 receiveData ServerInfo {revision = revision} = do
-  xx <-
+  _ <-
     if revision >= _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES
       then readBinaryStr
       else return ""
@@ -365,6 +379,8 @@ receiveResult info queryinfo = do
 receivePacket :: ServerInfo->Reader Packet
 receivePacket info = do
   packet_type <- readVarInt
+  -- The pattern mactching does not support match with variable name,
+  -- so here we use number instead. 
   case packet_type of
     1 -> (receiveData info) >>= (return . Block) -- Data
     2 -> (Error.readException Nothing) >>= (error . show) -- Exception
@@ -422,7 +438,7 @@ writeInfo
       writeVarUInt (if interface == HTTP then 0 else 1)
       writeBinaryStr "" -- os_user. Seems that haskell modules don't have support of getting system username yet.
       writeBinaryStr host_name
-      writeBinaryStr "haskell" --client_name
+      writeBinaryStr _CLIENT_NAME --client_name
       writeVarUInt client_version_major
       writeVarUInt client_version_minor
       writeVarUInt client_revision

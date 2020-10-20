@@ -165,6 +165,7 @@ writeFixedLengthString col_name spec items = do
                  CKNull-> (\x->()) <$> V.replicateM (fromIntegral len) (writeVarUInt 0)
                  x -> error (typeMismatchError col_name ++ " got: " ++ show x)) items
 ---------------------------------------------------------------------------------------------
+-- |read data in format of bytestring into format of haskell type.
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
 readIntColumn n_rows "Int16" = V.replicateM n_rows (CKInt16 <$> readBinaryInt16)
@@ -468,7 +469,7 @@ readArraySpec sizeArr = do
   return sizes
 
 genSpecs :: ByteString -> [Vector Word64] -> Reader (ByteString, [Vector Word64])
-genSpecs spec rest@(x : xs) = do
+genSpecs spec rest@(x : _) = do
   let l = BS.length spec
   let cktype = BS.take (l - 7) (BS.drop 6 spec)
   if "Array" `isPrefixOf` spec
@@ -693,7 +694,7 @@ writeIPv4 col_name items = V.mapM_ (
                   writeBinaryUInt32 $ unIP4
                   $ ip4FromOctets w1 w2 w3 w4
                 CKNull -> writeBinaryInt32 0
-                x -> error $ typeMismatchError col_name
+                _ -> error $ typeMismatchError col_name
           ) items
 
 writeIPv6 :: ByteString->Vector ClickhouseType->Writer Builder
@@ -702,7 +703,7 @@ writeIPv6 col_name items = V.mapM_ (
                   -> writeBinaryUInt128 $ unIP6
                   $ ip6FromWords w1 w2 w3 w4 w5 w6 w7 w8
                 CKNull -> writeBinaryUInt64 0
-                x -> error $ typeMismatchError col_name
+                _ -> error $ typeMismatchError col_name
           ) items
 ----------------------------------------------------------------------------------------------
 readSimpleAggregateFunction :: Int->ByteString->Reader (Vector ClickhouseType)
