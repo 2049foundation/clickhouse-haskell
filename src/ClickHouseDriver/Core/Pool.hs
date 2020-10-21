@@ -21,12 +21,12 @@ import ClickHouseDriver.Core.Defines
       _DEFAULT_COMPRESSION_SETTING )
 import Data.Pool ( createPool, Pool )
 import Data.Time.Clock ( NominalDiffTime )
-import Network.Socket ( close, maxListenQueue )
+import Network.Socket (close)
 import Data.Default.Class ( Default(..) )
-import GHC.Generics () 
 import ClickHouseDriver.Core.Types
     ( ConnParams(..), TCPConnection(TCPConnection, tcpSocket) )
 
+-- | default connection parameters (settings)
 instance Default ConnParams where
     def = ConnParams{
        username'    = _DEFAULT_USERNAME
@@ -43,7 +43,7 @@ createConnectionPool :: ConnParams
                       ->Int
                       ->IO (Pool TCPConnection)
 createConnectionPool
-  params@ConnParams
+  ConnParams
     { username',
       host',
       port',
@@ -59,5 +59,5 @@ createConnectionPool
           Left err -> error err
           Right tcp -> return tcp
       ) (\TCPConnection{tcpSocket=sock}->close sock) 
-      numStripes idleTime maxListenQueue
+      numStripes idleTime maxResources
 

@@ -21,7 +21,7 @@
 
 module ClickHouseDriver.Core.Client
   ( query,
-    executeWithInfo,
+    queryWithInfo,
     deploySettings,
     client,
     defaultClient,
@@ -118,7 +118,10 @@ _DEFAULT_COMPRESSION_SETTING =  False
 
 
 data Query a where
-  FetchData :: String -> Query (CKResult)
+  FetchData :: String
+               -- ^ SQL statement such as "SELECT * FROM table"
+             ->Query (CKResult)
+               -- ^ result data in Haskell type and additional information
 
 deriving instance Show (Query a)
 
@@ -146,6 +149,7 @@ instance StateKey Query where
 
 class Resource a where
   client :: Either String a->IO(Env () w)
+            -- ^ Either wrong message of resource with type a
 
 fetchData :: State Query-> BlockedFetch Query -> IO ()
 fetchData (CKResource tcpconn)  fetch = do
@@ -211,10 +215,25 @@ createClient ConnParams{
             Left e -> client ((Left e) :: Either String (Pool TCPConnection))
             Right conn -> client $ Right conn
   
-defaultClientPool :: Int->NominalDiffTime->Int->IO (Env () w)
+defaultClientPool :: Int
+                    -- ^ number of stripes
+                   ->NominalDiffTime
+                    -- ^ idle time for each stripe
+                   ->Int
+                    -- ^ maximum resources for reach stripe
+                   ->IO (Env () w)
+                    -- ^ Haxl env wrapped in IO monad.
 defaultClientPool = createClientPool def
 
-createClientPool :: ConnParams->Int->NominalDiffTime->Int->IO(Env () w)
+createClientPool :: ConnParams
+                  -- ^ parameters for connection settings
+                  ->Int
+                  -- ^ number of stripes
+                  ->NominalDiffTime
+                  -- ^ idle time for each stripe
+                  ->Int
+                  -- ^ maximum resources for reach stripe
+                  ->IO(Env () w)
 createClientPool params numberStripes idleTime maxResources = do 
   pool <- createConnectionPool params numberStripes idleTime maxResources
   client $ Right pool
@@ -227,29 +246,46 @@ instance Resource (Pool TCPConnection) where
   client (Left e) = error e
   client (Right src) = initEnv (stateSet (CKPool src) stateEmpty) ()
 
+-- | fetch data alone with query information
 fetchWithInfo :: String->GenHaxl u w CKResult
 fetchWithInfo = dataFetch . FetchData
 
+-- | fetch data only
 fetch :: String->GenHaxl u w (Vector (Vector ClickhouseType))
 fetch str = do
   result_with_info <- fetchWithInfo str
   return $ query_result result_with_info
 
-executeWithInfo :: String->Env () w->IO (CKResult)
-executeWithInfo query source = runHaxl source (executeQuery query)
+-- | query result contains query information.
+queryWithInfo :: String->Env () w->IO (CKResult)
+queryWithInfo query source = runHaxl source (executeQuery query)
   where
-    executeQuery :: String -> GenHaxl u w CKResult
+    executeQuery :: String->GenHaxl u w CKResult
     executeQuery = dataFetch . FetchData
 
-query :: Env () w ->String->IO (Vector (Vector ClickhouseType))
+-- | query command
+query :: Env () w
+        -- ^ Haxl environment for connection
+       ->String
+        -- ^ Query command for "SELECT" and "SHOW" only
+       ->IO (Vector (Vector ClickhouseType))
 query source cmd = do
-  CKResult{query_result=r} <- executeWithInfo cmd source
+  CKResult{query_result=r} <- queryWithInfo cmd source
   return r
 
+-- | for general use e.g. creating table,
+-- | multiple queries, multiple insertions. 
 execute :: Env u w -> GenHaxl u w a -> IO a
 execute = runHaxl
 
-withQuery :: Env () w->String->(Vector (Vector ClickhouseType)->IO a)->IO a
+withQuery :: Env () w
+            -- ^ enviroment i.e. the database resource
+           ->String
+           -- ^ sql statement
+           ->(Vector (Vector ClickhouseType)->IO a)
+           -- ^ callback function that returns type a
+           ->IO a
+           -- ^ type a wrapped in IO monad.
 withQuery source cmd f = query source cmd >>= f
 
 insertMany :: Env () w->String->[[ClickhouseType]]->IO(BS.ByteString)
@@ -265,6 +301,7 @@ insertMany source cmd items = do
 insertOneRow :: Env () w->String->[ClickhouseType]->IO(BS.ByteString)
 insertOneRow source cmd items = insertMany source cmd [items]
 
+-- | ping pong 
 ping :: Env () w->IO()
 ping source = do
   let get :: Maybe (State Query) = stateGet $ states source
@@ -276,6 +313,7 @@ ping source = do
      -> withResource pool $ \src->
        ping' Defines._DEFAULT_PING_WAIT_TIME src >>= print 
 
+-- | close connection
 closeClient :: Env () w -> IO()
 closeClient source = do
   let get :: Maybe (State Query) = stateGet $ states source

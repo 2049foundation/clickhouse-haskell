@@ -95,7 +95,8 @@ import           System.Timeout                             (timeout)
 --Debug
 
 --import Debug.Trace (trace)
-
+-- | This module mainly focuses how to make connection
+-- | to clickhouse database and protocols to send and receive data
 
 versionTuple :: ServerInfo -> (Word, Word, Word)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
@@ -121,6 +122,7 @@ ping' timeLimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
                   }
         else return "PONG!"
 
+-- | send hello has to make for every new connection environment. 
 sendHello :: (ByteString, ByteString, ByteString) -> Socket -> IO ()
 sendHello (database, username, password) sock = do
   (_, w) <- runWriterT writeHello
@@ -137,58 +139,60 @@ sendHello (database, username, password) sock = do
       writeBinaryStr username
       writeBinaryStr password
 
+-- | receive hello
 receiveHello :: Buffer -> IO (Either ByteString ServerInfo)
 receiveHello buf = do
   (res, _) <- runStateT receiveHello' buf
   return res
-
-receiveHello' :: Reader (Either ByteString ServerInfo)
-receiveHello' = do
-  packet_type <- readVarInt
-  if packet_type == Server._HELLO
-    then do
-      server_name <- readBinaryStr
-      server_version_major <- readVarInt
-      server_version_minor <- readVarInt
-      server_revision <- readVarInt
-      server_timezone <-
-        if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE
-          then do
-            s <- readBinaryStr
-            return $ Just s
-          else return Nothing
-      server_displayname <-
-        if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME
-          then do
-            s <- readBinaryStr
-            return s
-          else return ""
-      server_version_dispatch <-
-        if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
-          then do
-            s <- readVarInt
-            return s
-          else return server_revision
-      return $
-        Right
-          ServerInfo
-            { name = server_name,
-              version_major = server_version_major,
-              version_minor = server_version_minor,
-              version_patch = server_version_dispatch,
-              revision = server_revision,
-              timezone = server_timezone,
-              display_name = server_displayname
-            }
-    else
-      if packet_type == Server._EXCEPTION
+  where
+    receiveHello' :: Reader (Either ByteString ServerInfo)
+    receiveHello' = do
+      packet_type <- readVarInt
+      if packet_type == Server._HELLO
         then do
-          e <- readBinaryStr
-          e2 <- readBinaryStr
-          e3 <- readBinaryStr
-          return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
-        else return $ Left "Error"
+          server_name <- readBinaryStr
+          server_version_major <- readVarInt
+          server_version_minor <- readVarInt
+          server_revision <- readVarInt
+          server_timezone <-
+            if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE
+              then do
+                s <- readBinaryStr
+                return $ Just s
+              else return Nothing
+          server_displayname <-
+            if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME
+              then do
+                s <- readBinaryStr
+                return s
+              else return ""
+          server_version_dispatch <-
+            if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
+              then do
+                s <- readVarInt
+                return s
+              else return server_revision
+          return $
+            Right
+              ServerInfo
+                { name = server_name,
+                  version_major = server_version_major,
+                  version_minor = server_version_minor,
+                  version_patch = server_version_dispatch,
+                  revision = server_revision,
+                  timezone = server_timezone,
+                  display_name = server_displayname
+                }
+        else
+          if packet_type == Server._EXCEPTION
+            then do
+              e <- readBinaryStr
+              e2 <- readBinaryStr
+              e3 <- readBinaryStr
+              return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
+            else return $ Left "Error"
 
+-- | connect to database through TCP port, used in Client module.
 tcpConnect ::
      ByteString
      -- ^ host name to connect
@@ -408,6 +412,7 @@ receivePacket info = do
 closeConnection :: TCPConnection->IO ()
 closeConnection TCPConnection{tcpSocket=sock} = TCP.closeSock sock
 
+-- | write client information and server infomation to protocols
 writeInfo :: 
     (MonoidMap ByteString w)=>
     ClientInfo->
