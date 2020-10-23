@@ -292,7 +292,7 @@ instance Default QueryInfo where
   def = defaultQueryInfo
 
 storeProfile :: QueryInfo->BlockStreamProfileInfo->QueryInfo
-storeProfile (QueryInfo profile progress elapsed) newprofile 
+storeProfile (QueryInfo _ progress elapsed) newprofile 
               = QueryInfo newprofile progress elapsed
 
 storeProgress :: QueryInfo->Progress->QueryInfo
@@ -300,7 +300,7 @@ storeProgress (QueryInfo profile progress elapsed) newprogress
               = QueryInfo profile (increment progress newprogress) elapsed
 
 storeElasped :: QueryInfo->Word->QueryInfo
-storeElasped (QueryInfo profile progress elapsed) newelapsed
+storeElasped (QueryInfo profile progress _) newelapsed
               = QueryInfo profile progress newelapsed
 
 defaultQueryInfo :: QueryInfo
