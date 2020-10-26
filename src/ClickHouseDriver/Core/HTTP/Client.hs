@@ -81,7 +81,7 @@ import           Network.HTTP.Client                   (RequestBody (..),
                                                         responseBody,
                                                         streamFile)
 import Text.Printf ( printf )
-import Data.Pool
+import Data.Pool ( withResource, Pool )
 
 {-Implementation in Haxl-}
 --
