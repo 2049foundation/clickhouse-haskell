@@ -81,6 +81,7 @@ import           Network.HTTP.Client                   (RequestBody (..),
                                                         responseBody,
                                                         streamFile)
 import Text.Printf ( printf )
+import Data.Pool
 
 {-Implementation in Haxl-}
 --
@@ -109,24 +110,25 @@ instance DataSourceName HttpClient where
   dataSourceName _ = "ClickhouseDataSource"
 
 instance DataSource u HttpClient where
-  fetch (Settings settings) _flags _usrenv = SyncFetch $ \blockedFetches -> do
+  fetch (settings) _flags _usrenv = SyncFetch $ \blockedFetches -> do
     printf "Fetching %d queries.\n" (length blockedFetches)
     res <- mapConcurrently (fetchData settings) blockedFetches
     case res of
       [()] -> return ()
 
 instance StateKey HttpClient where
-  data State HttpClient = Settings HttpConnection
+  data State HttpClient = SingleHttp HttpConnection
+                        | HttpPool (Pool HttpConnection)
 
 settings :: HttpConnection -> Haxl.Core.State HttpClient
-settings = Settings
+settings = SingleHttp
 
 -- | fetch function
 fetchData ::
-  HttpConnection -> --Connection configuration
+  State HttpClient -> --Connection configuration
   BlockedFetch HttpClient -> --fetched data
   IO ()
-fetchData settings fetches = do
+fetchData (settings) fetches = do
   let (queryWithType, var) = case fetches of
         BlockedFetch (FetchJSON query) var' -> (query ++ " FORMAT JSON", var')
         BlockedFetch (FetchCSV query) var' -> (query ++ " FORMAT CSV", var')
@@ -134,11 +136,13 @@ fetchData settings fetches = do
         BlockedFetch Ping var' -> ("ping", var')
   e <- Control.Exception.try $ do
     case settings of
-      HttpConnection _ _ _ _ mng -> do
-        url <- genURL settings queryWithType
+      SingleHttp http@(HttpConnection _ mng) -> do
+        url <- genURL http queryWithType
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ LBS.toStrict ans
+      HttpPool pool -> do
+        undefined
   either
     (putFailure var)
     (putSuccess var)
@@ -167,7 +171,7 @@ getJsonM = mapM getJSON
 exec :: String->Env HttpConnection w->IO (Either C8.ByteString String)
 exec cmd' env = do
   let cmd = C8.pack cmd'
-  let settings@(HttpConnection _ _ _ _ mng) = userEnv env
+  let settings@(HttpConnection _ mng) = userEnv env
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
@@ -184,13 +188,13 @@ insertOneRow :: String
 insertOneRow table_name arr environment = do
   let row = toString arr
   let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
-  let settings@(HttpConnection _ _ _ _ mng) = userEnv environment
+  let settings@(HttpConnection _ mng) = userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
   , requestBody = RequestBodyLBS cmd} mng
   if ans /= ""
-    then return $ Left ans -- error message
+    then return $ Left ans -- error messagethe hellenic republic
     else return $ Right "Inserted successfully"
 
 -- | insert one or more rows 
@@ -203,7 +207,7 @@ insertMany table_name rows environment = do
       comma =  char8 ','
       preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
       togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
-  let settings@(HttpConnection _ _ _ _ mng) = userEnv environment
+  let settings@(HttpConnection _ mng) = userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{method = "POST"
@@ -217,7 +221,7 @@ insertMany table_name rows environment = do
 insertFromFile :: String->Format->FilePath->Env HttpConnection w->IO(Either C8.ByteString String)
 insertFromFile table_name format file environment = do
   fileReqBody <- streamFile file
-  let settings@(HttpConnection _ _ _ _ mng) = userEnv environment
+  let settings@(HttpConnection _ mng) = userEnv environment
   url <- genURL settings ("INSERT INTO " <> table_name 
     <> case format of
           CSV->" FORMAT CSV"

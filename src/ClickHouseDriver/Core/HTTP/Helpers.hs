@@ -17,9 +17,8 @@ where
 import ClickHouseDriver.Core.Column
     ( ClickhouseType(CKNull, CKTuple, CKArray, CKString, CKInt32) )
 import ClickHouseDriver.Core.HTTP.Connection
-    ( HttpConnection(HttpConnection, httpUsername, httpPort,
-                     httpPassword, httpHost) )
-import ClickHouseDriver.Core.HTTP.Types ( Cmd, JSONResult )
+    ( HttpConnection(HttpConnection, httpParams) )
+import ClickHouseDriver.Core.HTTP.Types ( Cmd, JSONResult, HttpParams(..))
 import ClickHouseDriver.IO.BufferedWriter ( writeIn )
 import Control.Monad.Writer ( WriterT(runWriterT) )
 import qualified Data.Aeson                            as JP
@@ -49,10 +48,14 @@ extract val = getData $ parse JP.json val
 
 genURL :: HttpConnection->Cmd->IO String
 genURL HttpConnection {
-       httpHost = host,
-       httpPassword = pw, 
-       httpPort = port, 
-       httpUsername = usr} cmd = do
+        httpParams = HttpParams{
+            httpHost = host,
+            httpPassword = pw, 
+            httpPort = port, 
+            httpUsername = usr
+        }
+       }
+         cmd = do
          (_,basicUrl) <- runWriterT $ do
            writeIn "http://"
            writeIn usr

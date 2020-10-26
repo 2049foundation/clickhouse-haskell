@@ -60,4 +60,3 @@ createConnectionPool
           Right tcp -> return tcp
       ) (\TCPConnection{tcpSocket=sock}->close sock) 
       numStripes idleTime maxResources
-

@@ -7,7 +7,9 @@ module ClickHouseDriver.Core.HTTP.Types
   ( JSONResult (..),
     Cmd,
     Haxl,
-    Format(..)
+    Format(..),
+    HttpConnection(..),
+    HttpParams(..)
   )
 where
 
@@ -15,7 +17,9 @@ import           Data.Aeson           (Value)
 import           Data.ByteString      (ByteString)
 import           Data.HashMap.Strict  (HashMap)
 import           Data.Text            (Text)
-import           Haxl.Core
+import           Haxl.Core            (GenHaxl)           
+import           Network.HTTP.Client ( Manager )        
+
 
 type JSONResult = Either ByteString [HashMap Text Value]
 
@@ -25,3 +29,18 @@ type Haxl a = GenHaxl () a
 
 data Format = CSV | JSON | TUPLE
     deriving Eq
+
+data HttpParams 
+  = HttpParams
+      {
+        httpHost :: {-# UNPACK #-}     !String,
+        httpPort :: {-# UNPACK #-}     !Int,
+        httpUsername :: {-# UNPACK #-}  !String,
+        httpPassword :: {-# UNPACK #-} !String 
+      }
+
+data HttpConnection
+  = HttpConnection
+      { httpParams :: ! HttpParams,
+        httpManager ::  {-# UNPACK #-} !Manager
+      }
