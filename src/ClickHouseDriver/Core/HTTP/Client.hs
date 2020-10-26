@@ -141,8 +141,12 @@ fetchData (settings) fetches = do
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ LBS.toStrict ans
-      HttpPool pool -> do
-        undefined
+      HttpPool pool -> 
+        withResource pool $ \conn@(HttpConnection _ mng)->do
+          url <- genURL conn queryWithType
+          req <- parseRequest url
+          ans <- responseBody <$> httpLbs req mng
+          return $ LBS.toStrict ans
   either
     (putFailure var)
     (putSuccess var)
