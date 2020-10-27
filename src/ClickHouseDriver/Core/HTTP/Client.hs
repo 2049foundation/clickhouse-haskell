@@ -40,12 +40,11 @@ import ClickHouseDriver.Core.Column ( ClickhouseType )
 import ClickHouseDriver.Core.Defines as Defines
     ( _DEFAULT_HTTP_PORT, _DEFAULT_HOST )
 import ClickHouseDriver.Core.HTTP.Connection
-    ( HttpConnection(HttpConnection),
-      defaultHttpConnection,
+    ( defaultHttpConnection,
       httpConnect, createHttpPool )
 import ClickHouseDriver.Core.HTTP.Helpers
     ( extract, genURL, toString )
-import ClickHouseDriver.Core.HTTP.Types ( Format(..), JSONResult)
+import ClickHouseDriver.Core.HTTP.Types ( Format(..), JSONResult, HttpConnection(..))
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
 import Control.Monad.State.Lazy ( MonadIO(..) )
@@ -79,7 +78,7 @@ import           Network.HTTP.Client                   (RequestBody (..),
                                                         parseRequest,
                                                         requestBody,
                                                         responseBody,
-                                                        streamFile)
+                                                        streamFile, Manager(..))
 import Text.Printf ( printf )
 import Data.Pool ( withResource, Pool )
 import Data.Time.Clock ( NominalDiffTime ) 
@@ -124,12 +123,15 @@ instance StateKey HttpClient where
 
 class HttpEnvironment a where
   toEnv :: a->State HttpClient
+  pick :: a-> IO HttpConnection
 
 instance HttpEnvironment HttpConnection where
   toEnv = SingleHttp
+  pick = return
 
 instance HttpEnvironment (Pool HttpConnection) where
   toEnv = HttpPool
+  pick pool = withResource pool $ return
 
 -- | fetch function
 fetchData ::
@@ -180,11 +182,11 @@ getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m JSONResult)
 getJsonM = mapM getJSON
 
 -- | actual function used by user to perform fetching command
-exec :: String->Env HttpConnection w->IO (Either C8.ByteString String)
+exec :: (HttpEnvironment a)=>String->Env a w->IO (Either C8.ByteString String)
 exec cmd' env = do
   let cmd = C8.pack cmd'
-  let settings@(HttpConnection _ mng) = userEnv env
-  url <- genURL settings ""
+  conn@HttpConnection{httpManager=mng} <- pick $ userEnv env
+  url <- genURL conn ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
   , requestBody = RequestBodyLBS cmd} mng
@@ -193,14 +195,14 @@ exec cmd' env = do
     else return $ Right "Created successfully"
 
 -- | insert one row
-insertOneRow :: String
+insertOneRow :: (HttpEnvironment a)=> String
              -> [ClickhouseType]
-             -> Env HttpConnection w
+             -> Env a w
              -> IO (Either C8.ByteString String)
 insertOneRow table_name arr environment = do
   let row = toString arr
   let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
-  let settings@(HttpConnection _ mng) = userEnv environment
+  settings@HttpConnection{httpManager=mng} <- pick $ userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
@@ -210,16 +212,16 @@ insertOneRow table_name arr environment = do
     else return $ Right "Inserted successfully"
 
 -- | insert one or more rows 
-insertMany :: String
+insertMany :: (HttpEnvironment a)=> String
            -> [[ClickhouseType]]
-           -> Env HttpConnection w
+           -> Env a w
            -> IO(Either C8.ByteString String)
 insertMany table_name rows environment = do
   let rowsString = map (lazyByteString . C8.pack . toString) rows
       comma =  char8 ','
       preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
       togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
-  let settings@(HttpConnection _ mng) = userEnv environment
+  settings@HttpConnection{httpManager=mng} <- pick $ userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{method = "POST"
@@ -230,10 +232,14 @@ insertMany table_name rows environment = do
     else return $ Right "Successful insertion"
 
 -- | insert data from 
-insertFromFile :: String->Format->FilePath->Env HttpConnection w->IO(Either C8.ByteString String)
+insertFromFile :: (HttpEnvironment a)=> String
+                ->Format
+                ->FilePath
+                ->Env a w
+                ->IO(Either C8.ByteString String)
 insertFromFile table_name format file environment = do
   fileReqBody <- streamFile file
-  let settings@(HttpConnection _ mng) = userEnv environment
+  settings@HttpConnection{httpManager=mng} <- pick $ userEnv environment
   url <- genURL settings ("INSERT INTO " <> table_name 
     <> case format of
           CSV->" FORMAT CSV"
