@@ -18,8 +18,7 @@
 {-# LANGUAGE CPP  #-}
 
 module ClickHouseDriver.Core.HTTP.Client
-  ( settings,
-    setupEnv,
+  ( setupEnv,
     runQuery,
     getByteString,
     getJSON,
@@ -32,7 +31,8 @@ module ClickHouseDriver.Core.HTTP.Client
     insertFromFile,
     defaultHttpClient,
     httpClient,
-    exec
+    exec,
+    defaultHttpPool
   )
 where
 
@@ -42,10 +42,10 @@ import ClickHouseDriver.Core.Defines as Defines
 import ClickHouseDriver.Core.HTTP.Connection
     ( HttpConnection(HttpConnection),
       defaultHttpConnection,
-      httpConnect )
+      httpConnect, createHttpPool )
 import ClickHouseDriver.Core.HTTP.Helpers
     ( extract, genURL, toString )
-import ClickHouseDriver.Core.HTTP.Types ( Format(..), JSONResult )
+import ClickHouseDriver.Core.HTTP.Types ( Format(..), JSONResult)
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
 import Control.Monad.State.Lazy ( MonadIO(..) )
@@ -82,6 +82,8 @@ import           Network.HTTP.Client                   (RequestBody (..),
                                                         streamFile)
 import Text.Printf ( printf )
 import Data.Pool ( withResource, Pool )
+import Data.Time.Clock ( NominalDiffTime ) 
+import Data.Default.Class (def)
 
 {-Implementation in Haxl-}
 --
@@ -120,8 +122,14 @@ instance StateKey HttpClient where
   data State HttpClient = SingleHttp HttpConnection
                         | HttpPool (Pool HttpConnection)
 
-settings :: HttpConnection -> Haxl.Core.State HttpClient
-settings = SingleHttp
+class HttpEnvironment a where
+  toEnv :: a->State HttpClient
+
+instance HttpEnvironment HttpConnection where
+  toEnv = SingleHttp
+
+instance HttpEnvironment (Pool HttpConnection) where
+  toEnv = HttpPool
 
 -- | fetch function
 fetchData ::
@@ -242,11 +250,15 @@ ping :: GenHaxl u w BS.ByteString
 ping = dataFetch $ Ping
 
 -- | Default environment
-setupEnv :: (MonadIO m)=>HttpConnection -> m (Env HttpConnection w)
-setupEnv csetting = liftIO $ initEnv (stateSet (settings csetting) stateEmpty) csetting
+setupEnv :: (MonadIO m, HttpEnvironment a)=>a->m (Env a w)
+setupEnv csetting = liftIO $ initEnv (stateSet (toEnv csetting) stateEmpty) csetting
 
 defaultHttpClient :: (MonadIO m)=>m (Env HttpConnection w)
 defaultHttpClient = liftIO $ defaultHttpConnection >>= setupEnv
+
+defaultHttpPool :: (MonadIO m)=>Int->NominalDiffTime->Int->m(Env (Pool HttpConnection) w)
+defaultHttpPool numStripes idleTime maxResources 
+  = liftIO $ createHttpPool def numStripes idleTime maxResources >>= setupEnv
 
 httpClient :: (MonadIO m)=> String->String-> m(Env HttpConnection w)
 httpClient user password = liftIO $ httpConnect user password Defines._DEFAULT_HTTP_PORT Defines._DEFAULT_HOST >>= setupEnv

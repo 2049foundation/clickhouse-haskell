@@ -17,7 +17,7 @@ import           Data.Aeson           (Value)
 import           Data.ByteString      (ByteString)
 import           Data.HashMap.Strict  (HashMap)
 import           Data.Text            (Text)
-import           Haxl.Core            (GenHaxl)           
+import           Haxl.Core            (GenHaxl, Env(..))           
 import           Network.HTTP.Client ( Manager )        
 
 

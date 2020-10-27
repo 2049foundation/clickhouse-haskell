@@ -42,10 +42,7 @@ import           Data.Default.Class (def)
 import           Data.Time
 
 main :: IO ()
-main = do
-    conn <- defaultClient
-    q <- query conn "SHOW DATABASES"
-    Col.putStrLn q
+main = main'
     
 
 benchmark1 :: IO()
@@ -153,7 +150,7 @@ data SocketReader = SocketReader {
 
 main' :: IO()
 main' = do
-    env <- HTTP.httpClient "default" "12345612341"
+    env <- HTTP.httpClient "default" ""
     create <- HTTP.exec "CREATE TABLE test (x Int32) ENGINE = Memory" env
     print create
     isSuccess <- HTTP.insertOneRow "test" [CKInt32 100] env
