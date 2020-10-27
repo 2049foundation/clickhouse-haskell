@@ -78,7 +78,7 @@ import           Network.HTTP.Client                   (RequestBody (..),
                                                         parseRequest,
                                                         requestBody,
                                                         responseBody,
-                                                        streamFile, Manager(..))
+                                                        streamFile)
 import Text.Printf ( printf )
 import Data.Pool ( withResource, Pool )
 import Data.Time.Clock ( NominalDiffTime ) 
