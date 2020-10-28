@@ -46,7 +46,7 @@ genURL HttpConnection {
        httpPort = port, 
        httpUsername = usr,
        httpDatabase = db} cmd = do
-         (_,basicUrl) <- runWriterT $ do
+         (_,url) <- runWriterT $ do
            writeIn "http://"
            writeIn usr
            writeIn ":"
@@ -56,10 +56,10 @@ genURL HttpConnection {
            writeIn ":"
            writeIn $ show port   
            writeIn "/"
-           if cmd == "ping" then return () else writeIn "?query="
-           writeIn $ dbUrl db
-         let res = basicUrl ++ NE.encode cmd
-         return res
+           if (isNothing $ buildUrlParams cmd db)
+             then return () 
+             else writeIn $ fromJust $ buildUrlParams cmd db
+         return url
 
 toString :: [ClickhouseType]->String
 toString ck = "(" ++ toStr ck ++ ")"
@@ -78,4 +78,8 @@ toStr' CKNull = "null"
 toStr' _ = error "unsupported writing type"
 
 dbUrl :: (Maybe String) -> String
-dbUrl = fromMaybe "" . fmap ("?database=" ++)
+dbUrl = fromMaybe "" . fmap ("&database=" ++)
+
+buildUrlParams :: String -> (Maybe String) -> Maybe String
+buildUrlParams "ping" _ = Nothing
+buildUrlParams cmd db = Just $ "?query=" ++ NE.encode cmd ++ (dbUrl db)
