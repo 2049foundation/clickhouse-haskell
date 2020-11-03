@@ -29,8 +29,9 @@ module ClickHouseDriver.IO.BufferedReader
   )
 where
 
-import           Control.Monad.State.Lazy
-import           Data.Binary
+import Control.Monad.State.Lazy ( StateT(StateT) )
+import Data.Binary
+    ( Word8, Word16, Word32, Word64, Binary, decode )
 import           Data.Bits
 import           Data.ByteString          (ByteString)
 import qualified Data.ByteString          as BS
