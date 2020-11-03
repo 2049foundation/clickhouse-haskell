@@ -158,7 +158,7 @@ receiveHello buf = do
                 s <- readBinaryStr
                 return $ Just s
               else return Nothing
-          server_displayname <-
+          server_display_name <-
             if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME
               then do
                 s <- readBinaryStr
@@ -179,7 +179,7 @@ receiveHello buf = do
                   version_patch = server_version_dispatch,
                   revision = server_revision,
                   timezone = server_timezone,
-                  display_name = server_displayname
+                  display_name = server_display_name
                 }
         else
           if packet_type == Server._EXCEPTION
