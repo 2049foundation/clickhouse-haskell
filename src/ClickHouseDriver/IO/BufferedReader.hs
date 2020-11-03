@@ -32,20 +32,16 @@ where
 import Control.Monad.State.Lazy ( StateT(StateT) )
 import Data.Binary
     ( Word8, Word16, Word32, Word64, Binary, decode )
-import           Data.Bits
 import           Data.ByteString          (ByteString)
 import qualified Data.ByteString          as BS
-import qualified Data.ByteString.Char8    as C8
 import qualified Data.ByteString.Lazy     as L
 import qualified Data.ByteString.Unsafe   as UBS
 import           Data.DoubleWord          (Word128 (..))
-import           Data.Int
-import           Data.Maybe
-import qualified Data.Vector              as V
-import           Data.Word
-import           Foreign.C
+import Data.Int ( Int8, Int16, Int32, Int64 )
+import Data.Maybe ( fromJust, isNothing )
+import Foreign.C ( CString )
 import qualified Network.Simple.TCP       as TCP
-import           Network.Socket           hiding (socket)
+import Network.Socket ( Socket )
 
 data Buffer = Buffer {
   bufSize :: !Int,
