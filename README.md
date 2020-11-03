@@ -25,6 +25,7 @@ This project has been heavily referenced from the python version. Link: https://
 * Block by block results streaming.
 * Reading query profile info.
 * Receiving server logs.
+* Applying Haxl(Concurrency library developed by Facebook) for caching query requests and concurrent querying processes.
 
 **Usage of the HTTP Client**
 =====
@@ -239,7 +240,6 @@ queryTests = do
 Fetching 4 queries.
 [[CKString "417ddc5d-e556-4d27-95dd-a34d84e46a50"],...
 ```
-
 
 ## **Stream profile and process infomation**
 

@@ -1,8 +1,15 @@
+-- Copyright (c) 2014-present, EMQX, Inc.
+-- All rights reserved.
+--
+-- This source code is distributed under the terms of a MIT license,
+-- found in the LICENSE file.
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
+ {-# LANGUAGE MultiParamTypeClasses #-}
 
 module ClickHouseDriver.Core.Connection
   ( tcpConnect,
@@ -12,47 +19,92 @@ module ClickHouseDriver.Core.Connection
     receiveResult,
     closeConnection,
     processInsertQuery,
-    ping'
+    ping',
+    versionTuple,
+    sendCancel
   )
 where
 
-import qualified ClickHouseDriver.Core.Block as Block
-import qualified ClickHouseDriver.Core.Block as Block
-import qualified ClickHouseDriver.Core.Error as Error
-import qualified ClickHouseDriver.Core.ClientProtocol as Client
-import ClickHouseDriver.Core.Column
+import qualified ClickHouseDriver.Core.Block                as Block
+import qualified ClickHouseDriver.Core.ClientProtocol       as Client
+import ClickHouseDriver.Core.Column ( ClickhouseType, transpose )
 import ClickHouseDriver.Core.Defines
+    ( _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES,
+      _DBMS_MIN_REVISION_WITH_CLIENT_INFO,
+      _DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE,
+      _DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO,
+      _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME,
+      _DBMS_MIN_REVISION_WITH_VERSION_PATCH,
+      _DEFAULT_INSERT_BLOCK_SIZE,
+      _DBMS_NAME,
+      _CLIENT_NAME,
+      _CLIENT_VERSION_MAJOR,
+      _CLIENT_VERSION_MINOR,
+      _CLIENT_REVISION,
+      _STRINGS_ENCODING,
+      _BUFFER_SIZE )
+import qualified ClickHouseDriver.Core.Error                as Error
 import qualified ClickHouseDriver.Core.QueryProcessingStage as Stage
-import qualified ClickHouseDriver.Core.ServerProtocol as Server
+import qualified ClickHouseDriver.Core.ServerProtocol       as Server
 import ClickHouseDriver.Core.Types
+    ( CKResult(CKResult),
+      QueryInfo,
+      Packet(EndOfStream, StreamProfileInfo, Progress, Hello,
+             MultiString, Block, queryData, ErrorMessage),
+      Context(Context, client_setting, client_info, server_info),
+      Interface(HTTP),
+      ClientSetting(ClientSetting, strings_encoding, strings_as_bytes,
+                    insert_block_size),
+      ClientInfo(ClientInfo),
+      TCPConnection(..),
+      ServerInfo(..),
+      Block(ColumnOrientedBlock, cdata),
+      getServerInfo,
+      getDefaultClientInfo,
+      readProgress,
+      readBlockStreamProfileInfo,
+      storeProfile,
+      storeProgress )
 import ClickHouseDriver.IO.BufferedReader
+    ( Reader,
+      Buffer(socket),
+      createBuffer,
+      refill,
+      readVarInt,
+      readBinaryStr )
 import ClickHouseDriver.IO.BufferedWriter
-import Control.Monad.State.Lazy (runStateT, get)
-import Control.Monad.Writer hiding (Writer)
-import qualified Data.Binary as Binary
-import Data.ByteString hiding (filter, unpack)
-import Data.ByteString.Builder (toLazyByteString, Builder)
-import Data.ByteString.Char8 (unpack)
-import qualified Data.ByteString.Char8 as C8
-import qualified Data.ByteString.Lazy as L
-import qualified Data.Vector as V (fromList, map, concat,length)
-import Data.Vector (Vector, (!))
-import qualified Network.Simple.TCP as TCP (recv, sendLazy, connectSock, closeSock)
-import Network.Socket (Socket)
-import System.Timeout (timeout)
-import Control.Monad.Loops (iterateWhile)
-import qualified Data.List as List (transpose)
---Debug 
---import Debug.Trace (trace)
+    ( Writer, MonoidMap, writeBinaryStr, writeVarUInt )
+import           Control.Monad.Loops                        (iterateWhile)
+import           Control.Monad.State.Lazy                   (get, runStateT)
+import Control.Monad.Writer ( execWriterT, WriterT(runWriterT) )
+import Data.ByteString ( ByteString )
+import           Data.ByteString.Builder                    (Builder,
+                                                             toLazyByteString)
+import           Data.ByteString.Char8                      (unpack)
+import qualified Data.List                                  as List (transpose)
+import           Data.List.Split                            (chunksOf)
+import           Data.Vector                                ((!))
+import qualified Data.Vector                                as V (concat,
+                                                                  fromList,
+                                                                  length, map)
+import qualified Network.Simple.TCP                         as TCP (closeSock,
+                                                                    connectSock,
+                                                                    sendLazy)
+import           Network.Socket                             (Socket)
+import           System.Timeout                             (timeout)
+--Debug
 
+import Debug.Trace (trace)
+-- | This module mainly focuses how to make connection
+-- | to clickhouse database and protocols to send and receive data
 
 versionTuple :: ServerInfo -> (Word, Word, Word)
 versionTuple (ServerInfo _ major minor patch _ _ _) = (major, minor, patch)
 
 -- | set timeout to 10 seconds
 ping' :: Int->TCPConnection->IO(Maybe String)
-ping' timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
-  = timeout timelimit $ do
+ping' timeLimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
+  = timeout timeLimit $ do
       r <- execWriterT $ writeVarUInt Client._PING
       TCP.sendLazy sock (toLazyByteString r)
       buf <- createBuffer 1024 sock
@@ -70,8 +122,9 @@ ping' timelimit TCPConnection{tcpHost=host,tcpPort=port,tcpSocket=sock}
                   }
         else return "PONG!"
 
+-- | send hello has to make for every new connection environment. 
 sendHello :: (ByteString, ByteString, ByteString) -> Socket -> IO ()
-sendHello (database, usrname, password) sock = do
+sendHello (database, username, password) sock = do
   (_, w) <- runWriterT writeHello
   TCP.sendLazy sock (toLazyByteString w)
   where
@@ -83,69 +136,77 @@ sendHello (database, usrname, password) sock = do
       writeVarUInt _CLIENT_VERSION_MINOR
       writeVarUInt _CLIENT_REVISION
       writeBinaryStr database
-      writeBinaryStr usrname
+      writeBinaryStr username
       writeBinaryStr password
 
+-- | receive hello
 receiveHello :: Buffer -> IO (Either ByteString ServerInfo)
 receiveHello buf = do
   (res, _) <- runStateT receiveHello' buf
   return res
-
-receiveHello' :: Reader (Either ByteString ServerInfo)
-receiveHello' = do
-  packet_type <- readVarInt
-  if packet_type == Server._HELLO
-    then do
-      server_name <- readBinaryStr
-      server_version_major <- readVarInt
-      server_version_minor <- readVarInt
-      server_revision <- readVarInt
-      server_timezone <-
-        if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE
-          then do
-            s <- readBinaryStr
-            return $ Just s
-          else return Nothing
-      server_displayname <-
-        if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME
-          then do
-            s <- readBinaryStr
-            return s
-          else return ""
-      server_version_dispatch <-
-        if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
-          then do
-            s <- readVarInt
-            return s
-          else return server_revision
-      return $
-        Right
-          ServerInfo
-            { name = server_name,
-              version_major = server_version_major,
-              version_minor = server_version_minor,
-              version_patch = server_version_dispatch,
-              revision = server_revision,
-              timezone = server_timezone,
-              display_name = server_displayname
-            }
-    else
-      if packet_type == Server._EXCEPTION
+  where
+    receiveHello' :: Reader (Either ByteString ServerInfo)
+    receiveHello' = do
+      packet_type <- readVarInt
+      if packet_type == Server._HELLO
         then do
-          e <- readBinaryStr
-          e2 <- readBinaryStr
-          e3 <- readBinaryStr
-          return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
-        else return $ Left "Error"
+          server_name <- readBinaryStr
+          server_version_major <- readVarInt
+          server_version_minor <- readVarInt
+          server_revision <- readVarInt
+          server_timezone <-
+            if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE
+              then do
+                s <- readBinaryStr
+                return $ Just s
+              else return Nothing
+          server_displayname <-
+            if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME
+              then do
+                s <- readBinaryStr
+                return s
+              else return ""
+          server_version_dispatch <-
+            if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
+              then do
+                s <- readVarInt
+                return s
+              else return server_revision
+          return $
+            Right
+              ServerInfo
+                { name = server_name,
+                  version_major = server_version_major,
+                  version_minor = server_version_minor,
+                  version_patch = server_version_dispatch,
+                  revision = server_revision,
+                  timezone = server_timezone,
+                  display_name = server_displayname
+                }
+        else
+          if packet_type == Server._EXCEPTION
+            then do
+              e <- readBinaryStr
+              e2 <- readBinaryStr
+              e3 <- readBinaryStr
+              return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
+            else return $ Left "Error"
 
+-- | connect to database through TCP port, used in Client module.
 tcpConnect ::
-  ByteString ->
-  ByteString ->
-  ByteString ->
-  ByteString ->
-  ByteString ->
-  Bool ->
-  IO (Either String TCPConnection)
+     ByteString
+     -- ^ host name to connect
+  -> ByteString
+     -- ^ port name to connect. Default would be 8123
+  -> ByteString
+     -- ^ username. Default would be "default"
+  -> ByteString
+     -- ^ password. Default would be empty string
+  -> ByteString
+     -- ^ database. Default would be "default"
+  -> Bool
+     -- ^ choose if send and receive data in compressed form. Default would be False. 
+  -> IO (Either String TCPConnection)
 tcpConnect host port user password database compression = do
   (sock, sockaddr) <- TCP.connectSock (unpack host) (unpack port)
   sendHello (database, user, password) sock
@@ -167,7 +228,11 @@ tcpConnect host port user password database compression = do
               context = Context{
                 server_info = Just x,
                 client_info = Nothing,
-                client_setting = Nothing
+                client_setting = Just $ ClientSetting {
+                  insert_block_size = _DEFAULT_INSERT_BLOCK_SIZE,
+                  strings_as_bytes = False,
+                  strings_encoding = _STRINGS_ENCODING
+                }
               },
               tcpCompression = isCompressed
             }
@@ -180,7 +245,7 @@ tcpConnect host port user password database compression = do
 sendQuery ::TCPConnection-> ByteString -> Maybe ByteString -> IO ()
 sendQuery TCPConnection{context=Context{server_info=Nothing}} _ _ = error "Empty server info"
 sendQuery
-  env@TCPConnection
+  TCPConnection
     { tcpCompression = comp,
       tcpSocket = sock,
       context = Context{
@@ -209,7 +274,7 @@ sendQuery
       writeBinaryStr query
     TCP.sendLazy sock (toLazyByteString r)
 
-sendData :: TCPConnection -> ByteString -> Maybe Block -> IO ()
+sendData :: TCPConnection->ByteString->Maybe Block->IO ()
 sendData TCPConnection {tcpSocket = sock, context=ctx} table_name maybe_block = do
   -- TODO: ADD REVISION
   let info = Block.defaultBlockInfo
@@ -230,12 +295,18 @@ sendCancel TCPConnection {tcpSocket = sock} = do
   c <- execWriterT $ writeVarUInt Client._CANCEL
   TCP.sendLazy sock (toLazyByteString c)
 
-processInsertQuery :: TCPConnection
+processInsertQuery  ::  TCPConnection
+                        -- ^ source
                       ->ByteString
+                        -- ^ query without data
                       ->Maybe ByteString
+                        -- ^ query id
                       ->[[ClickhouseType]]
+                        -- ^ data in Haskell type.
                       ->IO ByteString
-processInsertQuery tcp@TCPConnection{tcpSocket=sock} query_without_data query_id items = do
+                        -- ^ return 1 if insertion successfully completed
+processInsertQuery tcp@TCPConnection{tcpSocket=sock, context=Context{client_setting=client_setting}}
+ query_without_data query_id items = do
   sendQuery tcp query_without_data query_id
   sendData tcp "" Nothing
   buf <- createBuffer 2048 sock
@@ -249,38 +320,49 @@ processInsertQuery tcp@TCPConnection{tcpSocket=sock} query_without_data query_id
                          x -> error ("unexpected packet type: " ++ show x)
                   )
      $ receivePacket info) buf
-  let vectorized = V.map V.fromList (V.fromList $ List.transpose items)
-  let dataBlock = case sample_block of
-        Block typeinfo@ColumnOrientedBlock{
-          columns_with_type = cwt
-        } -> 
-          typeinfo{
-            cdata = vectorized
-          }
-        x -> error ("unexpected packet type: " ++ show x)
-  -- TODO add slicer for blocks
-  sendData tcp "" (Just dataBlock)
-  sendData tcp "" Nothing
-  buf2 <- refill buf
-  runStateT (receivePacket info) buf2
-  return "1"
+  case client_setting of
+    Nothing -> error "empty client settings"
+    Just ClientSetting{insert_block_size=siz} -> do
+        let chunks = chunksOf (fromIntegral siz) items
+        mapM_ (\chunk -> do
+                  let vectorized = V.map V.fromList (V.fromList $ List.transpose chunk)
+                  let dataBlock = case sample_block of
+                        Block typeinfo@ColumnOrientedBlock{
+                          columns_with_type = cwt
+                        } -> 
+                          typeinfo{
+                            cdata = vectorized
+                          }
+                        x -> error ("unexpected packet type: " ++ show x)
+                  sendData tcp "" (Just dataBlock)
+          ) chunks
+        sendData tcp "" Nothing
+        buf2 <- refill buf
+        runStateT (receivePacket info) buf2
+        return "1"
 
+-- | read data from stream.
 receiveData :: ServerInfo -> Reader Block.Block
 receiveData ServerInfo {revision = revision} = do
-  xx <-
+  _ <-
     if revision >= _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES
       then readBinaryStr
       else return ""
   block <- Block.readBlockInputStream
   return block
 
-receiveResult :: ServerInfo->QueryInfo-> Reader CKResult
-receiveResult info queryinfo = do
+receiveResult :: ServerInfo->QueryInfo->Reader (Either String CKResult) --TODO Change to either.
+receiveResult info query_info = do
   packets <- packetGen
   let onlyDataPacket = filter isBlock packets
-      dataVectors = (ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData) <$> onlyDataPacket
-      newQueryInfo = Prelude.foldl updateQueryInfo queryinfo packets
-  return $ CKResult (V.concat dataVectors) newQueryInfo
+  let errors = (\(ErrorMessage str)->str) <$> filter isError packets
+  case errors of
+    []->do 
+      let dataVectors = (ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData) <$> onlyDataPacket
+      let newQueryInfo = Prelude.foldl updateQueryInfo query_info packets
+      return $ Right $ CKResult (V.concat dataVectors) newQueryInfo
+    xs->do
+      return $ Left $ Prelude.concat xs
   where
     updateQueryInfo :: QueryInfo->Packet->QueryInfo
     updateQueryInfo q (Progress prog) 
@@ -288,6 +370,10 @@ receiveResult info queryinfo = do
     updateQueryInfo q (StreamProfileInfo profile) 
       = storeProfile q profile
     updateQueryInfo q _ = q
+
+    isError :: Packet->Bool
+    isError (ErrorMessage _) = True
+    isError _ = False
 
     isBlock :: Packet -> Bool
     isBlock Block {queryData=Block.ColumnOrientedBlock{cdata=d}} 
@@ -299,6 +385,7 @@ receiveResult info queryinfo = do
       packet <- receivePacket info
       case packet of
         EndOfStream -> return []
+        error@(ErrorMessage _) -> return [error]
         _ -> do
           next <- packetGen
           return (packet : next)
@@ -306,16 +393,18 @@ receiveResult info queryinfo = do
 receivePacket :: ServerInfo->Reader Packet
 receivePacket info = do
   packet_type <- readVarInt
+  -- The pattern matching does not support match with variable name,
+  -- so here we use number instead.
   case packet_type of
     1 -> (receiveData info) >>= (return . Block) -- Data
-    2 -> (Error.readException Nothing) >>= (error . show) -- Exception
+    2 -> (Error.readException Nothing) >>= (return . ErrorMessage . show) -- Exception
     3 -> (readProgress $ revision info) >>= (return . Progress) -- Progress
     5 -> return EndOfStream -- End of Stream
     6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo) --Profile
     7 -> (receiveData info) >>= (return . Block) -- Total
     8 -> (receiveData info) >>= (return . Block) -- Extreme
           -- 10 -> return undefined -- Log
-    11 -> do -- MutiStrings message
+    11 -> do -- MultiStrings message
       first <- readBinaryStr
       second <- readBinaryStr
       return $ MultiString (first, second)
@@ -333,11 +422,12 @@ receivePacket info = do
 closeConnection :: TCPConnection->IO ()
 closeConnection TCPConnection{tcpSocket=sock} = TCP.closeSock sock
 
-writeInfo ::
-  (MonoidMap ByteString w) =>
-  ClientInfo ->
-  ServerInfo ->
-  Writer w
+-- | write client information and server infomation to protocols
+writeInfo :: 
+    (MonoidMap ByteString w)=>
+    ClientInfo->
+    ServerInfo ->
+    Writer w
 writeInfo
   ( ClientInfo
       client_name
@@ -363,7 +453,7 @@ writeInfo
       writeVarUInt (if interface == HTTP then 0 else 1)
       writeBinaryStr "" -- os_user. Seems that haskell modules don't have support of getting system username yet.
       writeBinaryStr host_name
-      writeBinaryStr "haskell" --client_name
+      writeBinaryStr _CLIENT_NAME --client_name
       writeVarUInt client_version_major
       writeVarUInt client_version_minor
       writeVarUInt client_revision
@@ -380,4 +470,6 @@ closeBufferSocket :: Reader ()
 closeBufferSocket = do
   buf <- get
   let sock = ClickHouseDriver.IO.BufferedReader.socket buf
-  TCP.closeSock sock
+  case sock of
+    Just sock'->TCP.closeSock sock'
+    Nothing -> return ()

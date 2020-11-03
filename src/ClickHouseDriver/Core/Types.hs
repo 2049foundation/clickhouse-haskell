@@ -1,5 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
+-- Copyright (c) 2014-present, EMQX, Inc.
+-- All rights reserved.
+--
+-- This source code is distributed under the terms of a MIT license,
+-- found in the LICENSE file.
+
 {-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric     #-}
 module ClickHouseDriver.Core.Types
   ( ServerInfo (..),
     TCPConnection (..),
@@ -7,6 +14,7 @@ module ClickHouseDriver.Core.Types
     getClientInfo,
     getClientSetting,
     ClientInfo (..),
+    ClientSetting(..),
     Context (..),
     Interface (..),
     QueryKind (..),
@@ -27,21 +35,31 @@ module ClickHouseDriver.Core.Types
     BlockInfo(..),
     Block(..),
     CKResult(..),
-    writeBlockInfo
+    writeBlockInfo,
+    ConnParams(..),
+    setClientInfo,
+    setClientSetting,
+    setServerInfo,
+    writeSettings
   )
 where
 
-import qualified ClickHouseDriver.Core.Defines as Defines
+import qualified ClickHouseDriver.Core.Defines      as Defines
 import ClickHouseDriver.IO.BufferedReader
+    ( Reader, readVarInt, readBinaryUInt8 )
 import ClickHouseDriver.IO.BufferedWriter
-import Data.ByteString (ByteString)
-import Network.Socket (Socket, SockAddr)
-import qualified ClickHouseDriver.Core.Error as Error
-import Data.Vector (Vector)
-import Data.Int
-import Data.Word
-import Network.IP.Addr (IP4(..), IP6(..))
-import Data.ByteString.Builder
+    ( Writer, writeVarUInt, writeBinaryUInt8, writeBinaryInt32 )
+import           Data.ByteString                    (ByteString)
+import Data.ByteString.Builder ( Builder )
+import Data.Default.Class ( Default(..) )
+import Data.Int ( Int8, Int16, Int32, Int64 )
+import           Data.Vector                        (Vector)
+import Data.Word ( Word8, Word16, Word32, Word64 )
+import GHC.Generics ( Generic )
+import           Network.Socket                     (SockAddr, Socket)
+
+-----------------------------------------------------------
+
 -----------------------------------------------------------
 data BlockInfo = Info
   { is_overflows :: Bool,
@@ -80,8 +98,9 @@ data ClickhouseType
   | CKDecimal32 Float
   | CKDecimal64 Float
   | CKDecimal128 Float
-  | CKIPv4 IP4
-  | CKIPv6 IP6
+  | CKIPv4 (Word8, Word8, Word8, Word8)
+  | CKIPv6 (Word16, Word16, Word16, Word16,
+         Word16, Word16, Word16, Word16)
   | CKDate {
     year :: !Integer,
     month :: !Int,
@@ -177,8 +196,6 @@ setClientSetting client_setting tcp@TCPConnection{context=ctx}
 writeSettings :: ClientSetting->Writer Builder
 writeSettings ClientSetting{insert_block_size,strings_as_bytes,strings_encoding} = do
   writeVarUInt insert_block_size
-  
-
 -------------------------------------------------------------------
 data Interface = TCP | HTTP
   deriving (Show, Eq)
@@ -198,6 +215,7 @@ data Packet
   | Progress {prog :: Progress}
   | StreamProfileInfo {profile :: BlockStreamProfileInfo}
   | MultiString (ByteString, ByteString)
+  | ErrorMessage String
   | Hello
   | EndOfStream
   deriving (Show)
@@ -210,6 +228,9 @@ data Progress = Prog
     written_bytes :: {-# UNPACK #-} !Word
   }
   deriving (Show)
+
+instance Default Progress where
+  def = defaultProgress
 
 increment :: Progress -> Progress -> Progress
 increment (Prog a b c d e) (Prog a' b' c' d' e') =
@@ -246,6 +267,9 @@ data BlockStreamProfileInfo = ProfileInfo
   }
   deriving Show
 
+instance Default BlockStreamProfileInfo where
+  def = defaultProfile
+
 defaultProfile :: BlockStreamProfileInfo
 defaultProfile = ProfileInfo 0 0 0 False 0 False
 
@@ -265,8 +289,11 @@ data QueryInfo = QueryInfo
    elapsed :: {-# UNPACK #-} !Word
  } deriving Show
 
+instance Default QueryInfo where
+  def = defaultQueryInfo
+
 storeProfile :: QueryInfo->BlockStreamProfileInfo->QueryInfo
-storeProfile (QueryInfo profile progress elapsed) newprofile 
+storeProfile (QueryInfo _ progress elapsed) newprofile 
               = QueryInfo newprofile progress elapsed
 
 storeProgress :: QueryInfo->Progress->QueryInfo
@@ -274,7 +301,7 @@ storeProgress (QueryInfo profile progress elapsed) newprogress
               = QueryInfo profile (increment progress newprogress) elapsed
 
 storeElasped :: QueryInfo->Word->QueryInfo
-storeElasped (QueryInfo profile progress elapsed) newelapsed
+storeElasped (QueryInfo profile progress _) newelapsed
               = QueryInfo profile progress newelapsed
 
 defaultQueryInfo :: QueryInfo
@@ -290,3 +317,14 @@ data CKResult = CKResult
    query_info :: {-# UNPACK #-} !QueryInfo
  }
  deriving Show
+-------------------------------------------------------------------------
+
+data ConnParams = ConnParams{
+      username'    :: !ByteString,
+      host'        :: !ByteString,
+      port'        :: !ByteString,
+      password'    :: !ByteString,
+      compression' :: !Bool,
+      database'    :: !ByteString
+    }
+  deriving (Show, Generic)

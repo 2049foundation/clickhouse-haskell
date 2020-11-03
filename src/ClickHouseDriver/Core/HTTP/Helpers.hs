@@ -1,3 +1,9 @@
+-- Copyright (c) 2014-present, EMQX, Inc.
+-- All rights reserved.
+--
+-- This source code is distributed under the terms of a MIT license,
+-- found in the LICENSE file.
+
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -8,20 +14,21 @@ module ClickHouseDriver.Core.HTTP.Helpers
   )
 where
 
-import ClickHouseDriver.Core.HTTP.Connection
-import ClickHouseDriver.Core.HTTP.Types
-import qualified Data.Aeson as JP
-import Data.Attoparsec.ByteString
-import qualified Data.ByteString.Char8 as C8
-import qualified Data.HashMap.Strict as HM
-import Data.Text (pack)
-import Data.Vector (toList)
-import Control.Monad.Writer
-import ClickHouseDriver.IO.BufferedWriter
 import ClickHouseDriver.Core.Column
-import Data.Vector (toList)
-import qualified Network.URI.Encode as NE
-import Data.Maybe
+    ( ClickhouseType(CKNull, CKTuple, CKArray, CKString, CKInt32) )
+import ClickHouseDriver.Core.HTTP.Connection
+    ( HttpConnection(HttpConnection, httpParams) )
+import ClickHouseDriver.Core.HTTP.Types ( Cmd, JSONResult, HttpParams(..))
+import ClickHouseDriver.IO.BufferedWriter ( writeIn )
+import Control.Monad.Writer ( WriterT(runWriterT) )
+import qualified Data.Aeson                            as JP
+import Data.Attoparsec.ByteString ( IResult(Done, Fail), parse )
+import qualified Data.ByteString.Char8                 as C8
+import qualified Data.HashMap.Strict                   as HM
+import           Data.Text                             (pack)
+import           Data.Vector                           (toList)
+import qualified Network.URI.Encode                    as NE
+import Data.Maybe ( fromMaybe )
 
 -- | Trim JSON data
 extract :: C8.ByteString -> JSONResult
@@ -41,12 +48,16 @@ extract val = getData $ parse JP.json val
 
 genURL :: HttpConnection->Cmd->IO String
 genURL HttpConnection {
-       httpHost = host,
-       httpPassword = pw, 
-       httpPort = port, 
-       httpUsername = usr,
-       httpDatabase = db} cmd = do
-         (_,url) <- runWriterT $ do
+        httpParams = HttpParams{
+            httpHost = host,
+            httpPassword = pw, 
+            httpPort = port, 
+            httpUsername = usr,
+            httpDatabase = db
+        }
+       }
+         cmd = do
+         (_,basicUrl) <- runWriterT $ do
            writeIn "http://"
            writeIn usr
            writeIn ":"
@@ -56,11 +67,12 @@ genURL HttpConnection {
            writeIn ":"
            writeIn $ show port   
            writeIn "/"
-           if (isNothing $ buildUrlParams cmd db)
-             then return () 
-             else writeIn $ fromJust $ buildUrlParams cmd db
-         return url
+           if cmd == "ping" then return () else writeIn "?query="
+           writeIn $ dbUrl db
+         let res = basicUrl ++ NE.encode cmd
+         return res
 
+-- | serialize column type into sql string
 toString :: [ClickhouseType]->String
 toString ck = "(" ++ toStr ck ++ ")"
 
@@ -78,8 +90,4 @@ toStr' CKNull = "null"
 toStr' _ = error "unsupported writing type"
 
 dbUrl :: (Maybe String) -> String
-dbUrl = fromMaybe "" . fmap ("&database=" ++)
-
-buildUrlParams :: String -> (Maybe String) -> Maybe String
-buildUrlParams "ping" _ = Nothing
-buildUrlParams cmd db = Just $ "?query=" ++ NE.encode cmd ++ (dbUrl db)
+dbUrl = fromMaybe "" . fmap ("?database=" ++) 

@@ -1,3 +1,9 @@
+-- Copyright (c) 2014-present, EMQX, Inc.
+-- All rights reserved.
+--
+-- This source code is distributed under the terms of a MIT license,
+-- found in the LICENSE file.
+
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -12,8 +18,7 @@
 {-# LANGUAGE CPP  #-}
 
 module ClickHouseDriver.Core.HTTP.Client
-  ( settings,
-    setupEnv,
+  ( setupEnv,
     runQuery,
     getByteString,
     getJSON,
@@ -26,48 +31,58 @@ module ClickHouseDriver.Core.HTTP.Client
     insertFromFile,
     defaultHttpClient,
     httpClient,
-    exec
+    exec,
+    defaultHttpPool
   )
 where
 
-import ClickHouseDriver.Core.HTTP.Connection
-import ClickHouseDriver.Core.HTTP.Helpers
-import ClickHouseDriver.Core.HTTP.Types
+import ClickHouseDriver.Core.Column ( ClickhouseType )
 import ClickHouseDriver.Core.Defines as Defines
-import Control.Concurrent.Async
-import Control.Exception
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString.Lazy.Char8 as C8
-import qualified Data.HashMap.Strict as HM
-import Data.ByteString.Lazy.Builder (toLazyByteString, lazyByteString, char8)
-import Data.Hashable
-import qualified Data.Text as T
-import Data.Text.Encoding
-import Data.Text.Internal.Lazy (Text)
-import Data.Typeable
+    ( _DEFAULT_HTTP_PORT, _DEFAULT_HOST )
+import ClickHouseDriver.Core.HTTP.Connection
+    ( defaultHttpConnection,
+      createHttpPool, httpConnectDb)
+import ClickHouseDriver.Core.HTTP.Helpers
+    ( extract, genURL, toString )
+import ClickHouseDriver.Core.HTTP.Types ( Format(..), JSONResult, HttpConnection(..))
+import Control.Concurrent.Async ( mapConcurrently )
+import Control.Exception ( SomeException, try )
+import Control.Monad.State.Lazy ( MonadIO(..) )
+import qualified Data.ByteString                       as BS
+import qualified Data.ByteString.Lazy                  as LBS
+import           Data.ByteString.Lazy.Builder          (char8, lazyByteString,
+                                                        toLazyByteString)
+import qualified Data.ByteString.Lazy.Char8            as C8
+import Data.Hashable ( Hashable(hashWithSalt) )
+import qualified Data.Text                             as T
+import Data.Text.Encoding ( decodeUtf8 )
+import Data.Typeable ( Typeable )
 import Haxl.Core
-import Network.HTTP.Client
-  ( Manager,
-    defaultManagerSettings,
-    httpLbs,
-    newManager,
-    parseRequest,
-    responseBody,
-    method,
-    requestBody,
-    RequestBody(..),
-    streamFile
-  )
-import qualified Network.Simple.TCP as TCP 
-import Network.Socket (SockAddr, Socket)
-import Text.Printf
-import Data.ByteString.Char8     (pack)
-import Control.Monad.State.Lazy
-import ClickHouseDriver.Core.Column
-import qualified System.IO.Streams as Streams
-import System.IO hiding (char8)
-import System.FilePath
+    ( putFailure,
+      putSuccess,
+      dataFetch,
+      initEnv,
+      runHaxl,
+      stateEmpty,
+      stateSet,
+      BlockedFetch(..),
+      DataSource(fetch),
+      DataSourceName(..),
+      PerformFetch(SyncFetch),
+      Env(userEnv),
+      GenHaxl,
+      ShowP(..),
+      StateKey(State) )
+import           Network.HTTP.Client                   (RequestBody (..),
+                                                        httpLbs, method,
+                                                        parseRequest,
+                                                        requestBody,
+                                                        responseBody,
+                                                        streamFile)
+import Text.Printf ( printf )
+import Data.Pool ( withResource, Pool )
+import Data.Time.Clock ( NominalDiffTime ) 
+import Data.Default.Class (def)
 
 {-Implementation in Haxl-}
 --
@@ -96,24 +111,34 @@ instance DataSourceName HttpClient where
   dataSourceName _ = "ClickhouseDataSource"
 
 instance DataSource u HttpClient where
-  fetch (Settings settings) _flags _usrenv = SyncFetch $ \blockedFetches -> do
+  fetch (settings) _flags _usrenv = SyncFetch $ \blockedFetches -> do
     printf "Fetching %d queries.\n" (length blockedFetches)
     res <- mapConcurrently (fetchData settings) blockedFetches
     case res of
       [()] -> return ()
 
 instance StateKey HttpClient where
-  data State HttpClient = Settings HttpConnection
+  data State HttpClient = SingleHttp HttpConnection
+                        | HttpPool (Pool HttpConnection)
 
-settings :: HttpConnection -> Haxl.Core.State HttpClient
-settings = Settings
+class HttpEnvironment a where
+  toEnv :: a->State HttpClient
+  pick :: a-> IO HttpConnection
+
+instance HttpEnvironment HttpConnection where
+  toEnv = SingleHttp
+  pick = return
+
+instance HttpEnvironment (Pool HttpConnection) where
+  toEnv = HttpPool
+  pick pool = withResource pool $ return
 
 -- | fetch function
 fetchData ::
-  HttpConnection -> --Connection configuration
+  State HttpClient -> --Connection configuration
   BlockedFetch HttpClient -> --fetched data
   IO ()
-fetchData settings fetches = do
+fetchData (settings) fetches = do
   let (queryWithType, var) = case fetches of
         BlockedFetch (FetchJSON query) var' -> (query ++ " FORMAT JSON", var')
         BlockedFetch (FetchCSV query) var' -> (query ++ " FORMAT CSV", var')
@@ -121,11 +146,17 @@ fetchData settings fetches = do
         BlockedFetch Ping var' -> ("ping", var')
   e <- Control.Exception.try $ do
     case settings of
-      HttpConnection _ _ _ _ mng _ -> do
-        url <- genURL settings queryWithType
+      SingleHttp http@(HttpConnection _ mng) -> do
+        url <- genURL http queryWithType
         req <- parseRequest url
         ans <- responseBody <$> httpLbs req mng
         return $ LBS.toStrict ans
+      HttpPool pool -> 
+        withResource pool $ \conn@(HttpConnection _ mng)->do
+          url <- genURL conn queryWithType
+          req <- parseRequest url
+          ans <- responseBody <$> httpLbs req mng
+          return $ LBS.toStrict ans
   either
     (putFailure var)
     (putSuccess var)
@@ -146,14 +177,16 @@ getJSON cmd = fmap extract (dataFetch $ FetchJSON cmd)
 getTextM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m T.Text)
 getTextM = mapM getText
 
+-- | Fetch data from Clickhouse client in the format of JSON 
 getJsonM :: (Monad m, Traversable m) => m String -> GenHaxl u w (m JSONResult)
 getJsonM = mapM getJSON
 
-exec :: String->Env HttpConnection w->IO (Either C8.ByteString String)
+-- | actual function used by user to perform fetching command
+exec :: (HttpEnvironment a)=>String->Env a w->IO (Either C8.ByteString String)
 exec cmd' env = do
   let cmd = C8.pack cmd'
-  let settings@(HttpConnection _ _ _ _ mng _) = userEnv env
-  url <- genURL settings ""
+  conn@HttpConnection{httpManager=mng} <- pick $ userEnv env
+  url <- genURL conn ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
   , requestBody = RequestBodyLBS cmd} mng
@@ -161,32 +194,34 @@ exec cmd' env = do
     then return $ Left ans -- error message
     else return $ Right "Created successfully"
 
-insertOneRow :: String
+-- | insert one row
+insertOneRow :: (HttpEnvironment a)=> String
              -> [ClickhouseType]
-             -> Env HttpConnection w
+             -> Env a w
              -> IO (Either C8.ByteString String)
 insertOneRow table_name arr environment = do
   let row = toString arr
   let cmd = C8.pack ("INSERT INTO " ++ table_name ++ " VALUES " ++ row)
-  let settings@(HttpConnection _ _ _ _ mng _) = userEnv environment
+  settings@HttpConnection{httpManager=mng} <- pick $ userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{ method = "POST"
   , requestBody = RequestBodyLBS cmd} mng
   if ans /= ""
-    then return $ Left ans -- error message
+    then return $ Left ans -- error messagethe hellenic republic
     else return $ Right "Inserted successfully"
 
-insertMany :: String
+-- | insert one or more rows 
+insertMany :: (HttpEnvironment a)=> String
            -> [[ClickhouseType]]
-           -> Env HttpConnection w
+           -> Env a w
            -> IO(Either C8.ByteString String)
 insertMany table_name rows environment = do
   let rowsString = map (lazyByteString . C8.pack . toString) rows
       comma =  char8 ','
       preset = lazyByteString $ C8.pack $ "INSERT INTO " <> table_name <> " VALUES "
       togo = preset <> (foldl1 (\x y-> x <> comma <> y) rowsString)
-  let settings@(HttpConnection _ _ _ _ mng _) = userEnv environment
+  settings@HttpConnection{httpManager=mng} <- pick $ userEnv environment
   url <- genURL settings ""
   req <- parseRequest url
   ans <- responseBody <$> httpLbs req{method = "POST"
@@ -196,10 +231,15 @@ insertMany table_name rows environment = do
     then return $ Left ans
     else return $ Right "Successful insertion"
 
-insertFromFile :: String->Format->FilePath->Env HttpConnection w->IO(Either C8.ByteString String)
+-- | insert data from 
+insertFromFile :: (HttpEnvironment a)=> String
+                ->Format
+                ->FilePath
+                ->Env a w
+                ->IO(Either C8.ByteString String)
 insertFromFile table_name format file environment = do
   fileReqBody <- streamFile file
-  let settings@(HttpConnection _ _ _ _ mng _) = userEnv environment
+  settings@HttpConnection{httpManager=mng} <- pick $ userEnv environment
   url <- genURL settings ("INSERT INTO " <> table_name 
     <> case format of
           CSV->" FORMAT CSV"
@@ -216,14 +256,18 @@ ping :: GenHaxl u w BS.ByteString
 ping = dataFetch $ Ping
 
 -- | Default environment
-setupEnv :: (MonadIO m)=>HttpConnection -> m (Env HttpConnection w)
-setupEnv csetting = liftIO $ initEnv (stateSet (settings csetting) stateEmpty) csetting
+setupEnv :: (MonadIO m, HttpEnvironment a)=>a->m (Env a w)
+setupEnv csetting = liftIO $ initEnv (stateSet (toEnv csetting) stateEmpty) csetting
 
 defaultHttpClient :: (MonadIO m)=>m (Env HttpConnection w)
 defaultHttpClient = liftIO $ defaultHttpConnection >>= setupEnv
 
+defaultHttpPool :: (MonadIO m)=>Int->NominalDiffTime->Int->m(Env (Pool HttpConnection) w)
+defaultHttpPool numStripes idleTime maxResources 
+  = liftIO $ createHttpPool def numStripes idleTime maxResources >>= setupEnv
+
 httpClient :: (MonadIO m)=> String->String-> m(Env HttpConnection w)
-httpClient user password = liftIO $ httpConnect user password Defines._DEFAULT_HTTP_PORT Defines._DEFAULT_HOST >>= setupEnv
+httpClient user password = liftIO $ httpConnectDb user password Defines._DEFAULT_HTTP_PORT Defines._DEFAULT_HOST Nothing >>= setupEnv
 
 -- | rename runHaxl function.
 {-# INLINE runQuery #-}

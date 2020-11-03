@@ -1,7 +1,14 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE ScopedTypeVariables#-}
+-- | Copyright (c) 2014-present, EMQX, Inc.
+-- All rights reserved.
+--
+-- This source code is distributed under the terms of a MIT license,
+-- found in the LICENSE file.
+
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module ClickHouseDriver.Core.Column(
   readColumn,
   ClickhouseType(..),
@@ -10,66 +17,82 @@ module ClickHouseDriver.Core.Column(
   ClickHouseDriver.Core.Column.putStrLn
 ) where
 
-import ClickHouseDriver.Core.Types
+import ClickHouseDriver.Core.Types ( Context, ClickhouseType(..) )
 import ClickHouseDriver.IO.BufferedReader
+    ( Reader,
+      readBinaryStrWithLength,
+      readBinaryStr,
+      readBinaryInt8,
+      readBinaryInt16,
+      readBinaryInt32,
+      readBinaryInt64,
+      readBinaryUInt32,
+      readBinaryUInt8,
+      readBinaryUInt16,
+      readBinaryUInt64,
+      readBinaryUInt128 )
 import ClickHouseDriver.IO.BufferedWriter
-import Data.Binary (Word64, Word8)
+    ( Writer,
+      writeBinaryFixedLengthStr,
+      writeBinaryStr,
+      writeVarUInt,
+      writeBinaryUInt8,
+      writeBinaryInt8,
+      writeBinaryInt16,
+      writeBinaryInt32,
+      writeBinaryInt64,
+      writeBinaryUInt16,
+      writeBinaryUInt32,
+      writeBinaryUInt64,
+      writeBinaryUInt128 )
+import           Data.Binary                        (Word64, Word8)
 
-import Data.Int
-import Data.Bits ((.&.), (.|.), shift)
-import qualified Data.ByteString as BS
-  ( drop,
-    filter,
-    intercalate,
-    length,
-    pack,
-    splitWith,
-    take,
-    unpack,
-  )
-import Data.ByteString (ByteString, isPrefixOf)
-import Data.ByteString.Builder (Builder)
-import qualified Data.ByteString.Char8 as C8
-import Data.ByteString.Char8 (readInt)
-import qualified Data.List as List
-import qualified Data.HashMap.Strict as Map
-import Data.Maybe (fromJust)
-import Data.Time (Day, addDays, diffDays, fromGregorian, toGregorian)
-import Data.UUID as UUID (fromString, fromWords, toString, toWords)
-import Data.UnixTime (UnixTime (..), formatUnixTimeGMT, webDateFormat)
+import           Data.Bits                          (shift, (.&.), (.|.))
+import           Data.ByteString                    (ByteString, isPrefixOf)
+import qualified Data.ByteString                    as BS (drop, filter,
+                                                           intercalate, length,
+                                                           splitWith,
+                                                           take, unpack)
+import           Data.ByteString.Builder            (Builder)
+import           Data.ByteString.Char8              (readInt)
+import qualified Data.ByteString.Char8              as C8
+import qualified Data.HashMap.Strict                as Map
+import Data.Int ( Int64 )
+import qualified Data.List                          as List
+import           Data.Maybe                         (fromJust)
+import           Data.Time                          (addDays, diffDays,
+                                                     fromGregorian, toGregorian)
+import           Data.UnixTime                      (UnixTime (..),
+                                                     formatUnixTimeGMT,
+                                                     webDateFormat)
+import           Data.UUID                          as UUID (fromString,
+                                                             fromWords,
+                                                             toString, toWords)
+import Data.Hashable ( Hashable(hash) )
+import           Data.Vector                        (Vector, (!))
 
-import Data.Time.LocalTime
-import Data.Vector ((!), (!?), Vector)
-import Data.Hashable
-import Control.Monad.IO.Class
-import Data.Time.Zones
+import qualified Data.Vector                        as V (cons, drop, foldl',
+                                                          fromList, generate,
+                                                          length, map, mapM,
+                                                          mapM_, replicateM,
+                                                          scanl', sum, take,
+                                                          toList, zipWith,
+                                                          zipWithM_)
+import           Foreign.C.Types                    (CTime (..))
+import           Network.IP.Addr                    (IP4 (..), IP6 (..),
+                                                     ip4FromOctets, ip4ToOctets,
+                                                     ip6FromWords, ip6ToWords)
 
-import qualified Data.Vector as V
-  ( cons,
-    drop,
-    fromList,
-    generate,
-    length,
-    map,
-    mapM,
-    mapM_,
-    replicateM,
-    scanl',
-    sum,
-    take,
-    toList,
-    zipWith,
-    zipWithM_,
-    foldl'
-  )
-import Foreign.C.Types (CTime (..))
-import Network.IP.Addr (IP4 (..), IP6 (..))
---Debug 
+#define EQUAL 61
+#define COMMA 44
+#define SPACE 32
+#define QUOTE 39
+--Debug
 --import Debug.Trace
 
 -- Notice: Codes in this file might be difficult to read.
 ---------------------------------------------------------------------------------------
----Readers 
+---Readers
 
 readColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readColumn n_rows spec
@@ -102,18 +125,10 @@ writeColumn :: Context
              ->Writer Builder
 writeColumn ctx col_name cktype items
   | "String" `isPrefixOf` cktype = writeStringColumn col_name items
-  | "FixedString(" `isPrefixOf` cktype = do
-    let l = BS.length cktype
-    let Just (len, _) = readInt $ BS.take(l - 13) (BS.drop 12 cktype)
-    writeFixedLengthString col_name (fromIntegral len) items
-  | "Int" `isPrefixOf` cktype || "UInt" `isPrefixOf` cktype =  do
-    let Just (indicator, _) = readInt $ BS.drop 3 cktype
-    writeIntColumn indicator col_name items
-  | "Nullable(" `isPrefixOf` cktype = do
-    let l = BS.length cktype
-    let inner = BS.take (l - 10) (BS.drop 9 cktype)
-    writeNullsMap items
-    writeColumn ctx col_name inner items
+  | "FixedString(" `isPrefixOf` cktype = writeFixedLengthString col_name cktype items
+  | "Int" `isPrefixOf` cktype = writeIntColumn col_name cktype items
+  | "UInt" `isPrefixOf` cktype = writeUIntColumn col_name cktype items
+  | "Nullable(" `isPrefixOf` cktype = writeNullable ctx col_name cktype items
   | "Tuple" `isPrefixOf` cktype = writeTuple ctx col_name cktype items
   | "Enum" `isPrefixOf` cktype = writeEnum col_name cktype items
   | "Array" `isPrefixOf` cktype = writeArray ctx col_name cktype items
@@ -128,7 +143,7 @@ readFixed n_rows spec = do
   let l = BS.length spec
   let strnumber = BS.take (l - 13) (BS.drop 12 spec)
   let number = case readInt strnumber of
-        Nothing -> 0 -- This can't happen
+        Nothing     -> 0 -- This can't happen
         Just (x, _) -> x
   result <- V.replicateM n_rows (readFixedLengthString number)
   return result
@@ -137,17 +152,20 @@ readFixedLengthString :: Int -> Reader ClickhouseType
 readFixedLengthString strlen = (CKString) <$> (readBinaryStrWithLength strlen)
 
 writeStringColumn :: ByteString->Vector ClickhouseType->Writer Builder
-writeStringColumn col_name = V.mapM_ 
+writeStringColumn col_name = V.mapM_
   (\case CKString s -> writeBinaryStr s;
          CKNull-> writeVarUInt 0;
          _ -> error (typeMismatchError col_name))
 
-writeFixedLengthString :: ByteString->Word->Vector ClickhouseType->Writer Builder
-writeFixedLengthString col_name len items = do
-  V.mapM_ (\case CKString s->writeBinaryFixedLengthStr len s
+writeFixedLengthString :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeFixedLengthString col_name spec items = do
+  let l = BS.length spec
+  let Just (len, _) = readInt $ BS.take(l - 13) (BS.drop 12 spec)
+  V.mapM_ (\case CKString s->writeBinaryFixedLengthStr (fromIntegral len) s
                  CKNull-> (\x->()) <$> V.replicateM (fromIntegral len) (writeVarUInt 0)
                  x -> error (typeMismatchError col_name ++ " got: " ++ show x)) items
 ---------------------------------------------------------------------------------------------
+-- |read data in format of bytestring into format of haskell type.
 readIntColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
 readIntColumn n_rows "Int8" = V.replicateM n_rows (CKInt8 <$> readBinaryInt8)
 readIntColumn n_rows "Int16" = V.replicateM n_rows (CKInt16 <$> readBinaryInt16)
@@ -159,69 +177,79 @@ readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt
 readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
 readIntColumn _ _ = error "Not an integer type"
 
-writeIntColumn :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
-writeIntColumn indicator col_name =
-  case indicator of
-    8 ->
-      V.mapM_
-        ( \case
-            CKInt8 x -> writeBinaryInt8 x
-            CKNull -> writeBinaryInt8 0
-            _ -> error (typeMismatchError col_name)
-        )
-    16 ->
-      V.mapM_
-        ( \case
-            CKInt16 x -> writeBinaryInt16 x
-            CKNull -> writeBinaryInt16 0
-            _ -> error (typeMismatchError col_name)
-        )
-    32 ->
-      V.mapM_
-        ( \case
-            CKInt32 x -> writeBinaryInt32 x
-            CKNull -> writeBinaryInt32 0
-            _ -> error (typeMismatchError col_name)
-        )
-    64 ->
-      V.mapM_
-        ( \case
-            CKInt64 x -> writeBinaryInt64 x
-            CKNull -> writeBinaryInt64 0
-            _ -> error (typeMismatchError col_name)
-        )
+writeIntColumn :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeIntColumn col_name spec items = do
+  let Just (indicator, _) = readInt $ BS.drop 3 spec
+  writeIntColumn' indicator col_name items
+  where
+    writeIntColumn' :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
+    writeIntColumn' indicator col_name =
+      case indicator of
+        8 ->
+          V.mapM_
+            ( \case
+                CKInt8 x -> writeBinaryInt8 x
+                CKNull -> writeBinaryInt8 0
+                _ -> error (typeMismatchError col_name)
+            )
+        16 ->
+          V.mapM_
+            ( \case
+                CKInt16 x -> writeBinaryInt16 x
+                CKNull -> writeBinaryInt16 0
+                _ -> error (typeMismatchError col_name)
+            )
+        32 ->
+          V.mapM_
+            ( \case
+                CKInt32 x -> writeBinaryInt32 x
+                CKNull -> writeBinaryInt32 0
+                _ -> error (typeMismatchError col_name)
+            )
+        64 ->
+          V.mapM_
+            ( \case
+                CKInt64 x -> writeBinaryInt64 x
+                CKNull -> writeBinaryInt64 0
+                _ -> error (typeMismatchError col_name)
+            )
 
-writeUIntColumn :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
-writeUIntColumn indicator col_name =
-  case indicator of
-    8 ->
-      V.mapM_
-        ( \case
-            CKUInt8 x -> writeBinaryUInt8 x
-            CKNull -> writeBinaryUInt8 0
-            _ -> error (typeMismatchError col_name)
-        )
-    16 ->
-      V.mapM_
-        ( \case
-            CKUInt16 x -> writeBinaryInt16 $ fromIntegral x
-            CKNull -> writeBinaryInt16 0
-            _ -> error (typeMismatchError col_name)
-        )
-    32 ->
-      V.mapM_
-        ( \case
-            CKUInt32 x -> writeBinaryInt32 $ fromIntegral x
-            CKNull -> writeBinaryInt32 0
-            _ -> error (typeMismatchError col_name)
-        )
-    64 ->
-      V.mapM_
-        ( \case
-            CKUInt64 x -> writeBinaryInt64 $ fromIntegral x
-            CKNull -> writeBinaryInt64 0
-            _ -> error (typeMismatchError col_name)
-        )
+writeUIntColumn :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeUIntColumn col_name spec items = do
+  let Just (indicator, _) = readInt $ BS.drop 4 spec
+  writeUIntColumn' indicator col_name items
+  where
+    writeUIntColumn' :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
+    writeUIntColumn' indicator col_name =
+      case indicator of
+        8 ->
+          V.mapM_
+            ( \case
+                CKUInt8 x -> writeBinaryUInt8 x
+                CKNull -> writeBinaryUInt8 0
+                _ -> error (typeMismatchError col_name)
+            )
+        16 ->
+          V.mapM_
+            ( \case
+                CKUInt16 x -> writeBinaryInt16 $ fromIntegral x
+                CKNull -> writeBinaryInt16 0
+                _ -> error (typeMismatchError col_name)
+            )
+        32 ->
+          V.mapM_
+            ( \case
+                CKUInt32 x -> writeBinaryInt32 $ fromIntegral x
+                CKNull -> writeBinaryInt32 0
+                _ -> error (typeMismatchError col_name)
+            )
+        64 ->
+          V.mapM_
+            ( \case
+                CKUInt64 x -> writeBinaryInt64 $ fromIntegral x
+                CKNull -> writeBinaryInt64 0
+                _ -> error (typeMismatchError col_name)
+            )
 ---------------------------------------------------------------------------------------------
 readDateTime :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTime n_rows spec = do
@@ -240,8 +268,8 @@ readTimeSpec spec'
     let innerspecs = BS.take (l - 12) (BS.drop 11 spec')
     let splited = getSpecs innerspecs
     case splited of
-      [] -> (Nothing, Nothing)
-      [x] -> (Just $ fst $ fromJust $ readInt x, Nothing)
+      []     -> (Nothing, Nothing)
+      [x]    -> (Just $ fst $ fromJust $ readInt x, Nothing)
       [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
   | otherwise = do
     let l = BS.length spec'
@@ -316,7 +344,6 @@ writeLowCardinality ctx col_name spec items = do
           let keys = V.map (\k->key_by_index_element Map.! k + 1) hashedItem
           let index = V.fromList $  0 : (Map.keys $ key_by_index_element)
           return (keys, index)
-        -- let index = 
         else do
           let hashedItem = hashItems False items
           let key_by_index_element = V.foldl' (\m x ->insertKeys m x) Map.empty hashedItem
@@ -329,9 +356,9 @@ writeLowCardinality ctx col_name spec items = do
       let int_type = floor $ logBase 2 (fromIntegral $ V.length index) / 8 :: Int64
       let has_additional_keys_bit = 1 `shift` 9
       let need_update_dictionary = 1 `shift` 10
-      let serialization_type = has_additional_keys_bit 
+      let serialization_type = has_additional_keys_bit
             .|. need_update_dictionary .|. int_type
-      let nullsInner = 
+      let nullsInner =
             if "Nullable" `isPrefixOf` inner
               then BS.take (BS.length inner - 10) (BS.drop 9 spec)
               else inner
@@ -361,8 +388,8 @@ writeLowCardinality ctx col_name spec items = do
                        CKUInt64 x -> hash x
                        CKString str -> hash str
                        CKNull -> if isNullable
-                         then hash (0 :: Int) 
-                         else error $ typeMismatchError col_name 
+                         then hash (0 :: Int)
+                         else error $ typeMismatchError col_name
                        _ -> error $ typeMismatchError col_name
                  ) items
 ---------------------------------------------------------------------------------------------------------------------------------
@@ -384,10 +411,17 @@ readNullable n_rows spec = do
         config <- readBinaryStrWithLength n_rows
         (return . V.fromList . BS.unpack) config
 
-writeNullsMap :: Vector ClickhouseType -> Writer Builder
-writeNullsMap = V.mapM_ 
-  (\case CKNull-> writeBinaryInt8 1
-         _ -> writeBinaryInt8 0)
+writeNullable :: Context->ByteString->ByteString->Vector ClickhouseType-> Writer Builder
+writeNullable ctx col_name spec items = do
+  let l = BS.length spec
+  let inner = BS.take (l - 10) (BS.drop 9 spec)
+  writeNullsMap items
+  writeColumn ctx col_name inner items
+  where
+    writeNullsMap :: Vector ClickhouseType -> Writer Builder
+    writeNullsMap = V.mapM_
+      (\case CKNull-> writeBinaryInt8 1
+             _ -> writeBinaryInt8 0)
 ---------------------------------------------------------------------------------------------------------------------------------
 {-
   Format:
@@ -414,10 +448,8 @@ readArray n_rows spec = do
   let numElem = fromIntegral $ V.sum x
   elems <- readColumn numElem lastSpec
   let result' = foldl combine elems (x : xs)
-  let result = case (result' ! 0) of
-        CKArray arr -> arr
-        _ -> error "wrong type. This cannot happen"
-  return result
+  let CKArray arr = result' ! 0
+  return arr
   where
     combine :: Vector ClickhouseType -> Vector Word64 -> Vector ClickhouseType
     combine elems config =
@@ -437,7 +469,7 @@ readArraySpec sizeArr = do
   return sizes
 
 genSpecs :: ByteString -> [Vector Word64] -> Reader (ByteString, [Vector Word64])
-genSpecs spec rest@(x : xs) = do
+genSpecs spec rest@(x : _) = do
   let l = BS.length spec
   let cktype = BS.take (l - 7) (BS.drop 6 spec)
   if "Array" `isPrefixOf` spec
@@ -466,7 +498,7 @@ writeArray ctx col_name spec items = do
   V.mapM_ (writeBinaryInt64 . fromIntegral) (V.drop 1 lens)
   let innerSpec = BS.take (BS.length spec - 7) (BS.drop 6 spec)
   let innerVector = V.map (\case CKArray xs -> xs) items
-  let flattenVector = 
+  let flattenVector =
         innerVector >>= \v -> do w <- v; return w
   writeColumn ctx col_name innerSpec flattenVector
 --------------------------------------------------------------------------------------
@@ -474,7 +506,7 @@ readTuple :: Int->ByteString->Reader (Vector ClickhouseType)
 readTuple n_rows spec = do
   let l = BS.length spec
   let innerSpecString = BS.take(l - 7) (BS.drop 6 spec)
-  let arr = V.fromList (getSpecs innerSpecString) 
+  let arr = V.fromList (getSpecs innerSpecString)
   datas <- V.mapM (readColumn n_rows) arr
   let transposed = transpose datas
   return $ CKTuple <$> transposed
@@ -513,8 +545,8 @@ readEnum n_rows spec = do
           then BS.take (l - 7) (BS.drop 6 spec)
           else BS.take (l - 8) (BS.drop 7 spec)
       prespecs = getSpecs innerSpec
-      specs = (\(name, Just (n, _)) -> (n, name)) <$> 
-        ((\[x, y]->(x, readInt y)) . BS.splitWith (== 61) <$> prespecs) --61 is '='
+      specs = (\(name, Just (n, _)) -> (n, name)) <$>
+        ((\[x, y]->(x, readInt y)) . BS.splitWith (== EQUAL) <$> prespecs) --61 is '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec
     then do
@@ -534,7 +566,7 @@ writeEnum col_name spec items = do
       prespecs = getSpecs innerSpec
       specs =
         (\(name, Just (n, _)) -> (name, n))
-          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== 61) . BS.filter (/=39) <$> prespecs) --61 is '='
+          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== EQUAL) . BS.filter (/=QUOTE) <$> prespecs) --61 is '='
       specsMap = Map.fromList specs
   V.mapM_
     ( \case
@@ -576,11 +608,11 @@ writeDate col_name items = do
 --------------------------------------------------------------------------------------
 readDecimal :: Int->ByteString->Reader(Vector ClickhouseType)
 readDecimal n_rows spec = do
-  let l = BS.length spec 
+  let l = BS.length spec
   let innerspec = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
   let (specific, Just(scale,_)) = case innerspec of
           [] -> error "No spec"
-          [scale'] -> if "Decimal32" `isPrefixOf` spec 
+          [scale'] -> if "Decimal32" `isPrefixOf` spec
                         then (readDecimal32, readInt scale')
                         else if "Decimal64" `isPrefixOf` spec
                           then (readDecimal64,readInt scale')
@@ -592,7 +624,7 @@ readDecimal n_rows spec = do
                 else if precision <= 18 || "Decimal64" `isPrefixOf` spec
                   then (readDecimal64 , readInt scale')
                   else (readDecimal128 , readInt scale')
-  
+
   raw <- specific n_rows
   let final = fmap (trans scale) raw
   return final
@@ -651,23 +683,27 @@ writeDecimal col_name spec items = do
     writeDecimal128 = undefined
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int->Reader (Vector ClickhouseType)
-readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . IP4 <$> readBinaryUInt32)
+readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . ip4ToOctets . IP4 <$> readBinaryUInt32)
 
 readIPv6 :: Int->Reader (Vector ClickhouseType)
-readIPv6 n_rows = V.replicateM n_rows (CKIPv6 . IP6  <$> readBinaryUInt128)
+readIPv6 n_rows = V.replicateM n_rows (CKIPv6 . ip6ToWords . IP6  <$> readBinaryUInt128)
 
 writeIPv4 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv4 col_name items = V.mapM_ (
-          \case CKIPv4 ip4 -> writeBinaryUInt32 $ unIP4 ip4
+          \case CKIPv4 (w1, w2, w3, w4) ->
+                  writeBinaryUInt32 $ unIP4
+                  $ ip4FromOctets w1 w2 w3 w4
                 CKNull -> writeBinaryInt32 0
-                x -> error $ typeMismatchError col_name
+                _ -> error $ typeMismatchError col_name
           ) items
 
 writeIPv6 :: ByteString->Vector ClickhouseType->Writer Builder
 writeIPv6 col_name items = V.mapM_ (
-          \case CKIPv6 ip6 -> writeBinaryUInt128 $ unIP6 ip6
+          \case CKIPv6 (w1, w2, w3, w4, w5, w6, w7, w8)
+                  -> writeBinaryUInt128 $ unIP6
+                  $ ip6FromWords w1 w2 w3 w4 w5 w6 w7 w8
                 CKNull -> writeBinaryUInt64 0
-                x -> error $ typeMismatchError col_name
+                _ -> error $ typeMismatchError col_name
           ) items
 ----------------------------------------------------------------------------------------------
 readSimpleAggregateFunction :: Int->ByteString->Reader (Vector ClickhouseType)
@@ -683,7 +719,7 @@ readUUID n_rows = do
     w1 <- readBinaryUInt32
     w3 <- readBinaryUInt32
     w4 <- readBinaryUInt32
-    return $ CKString  $ C8.pack $
+    return $ CKString $ C8.pack $
      UUID.toString $ UUID.fromWords w1 w2 w3 w4
 
 writeUUID :: ByteString -> Vector ClickhouseType -> Writer Builder
@@ -691,8 +727,8 @@ writeUUID col_name items =
   V.mapM_
     ( \case CKString uuidstr -> do
               case UUID.fromString $ C8.unpack uuidstr of
-                Nothing -> error $ "UUID parsing error in the column" 
-                          ++ show col_name
+                Nothing -> error $ "UUID parsing error in the column"
+                          ++ show col_name ++ " wrong data: " ++ show uuidstr
                 Just uuid -> do
                   let (w2, w1, w3, w4) = UUID.toWords uuid
                   writeBinaryUInt32 w1
@@ -705,11 +741,12 @@ writeUUID col_name items =
     )
     items
 ----------------------------------------------------------------------------------------------
----Helpers 
-
+---Helpers
+#define COMMA 44
+#define SPACE 32
 -- | Get rid of commas and spaces
 getSpecs :: ByteString -> [ByteString]
-getSpecs str = BS.splitWith (==44) (BS.filter ( /= 32) str) 
+getSpecs str = BS.splitWith (==COMMA) (BS.filter ( /= SPACE) str)
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
 transpose cdata =
@@ -748,6 +785,6 @@ putStrLn v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map tostr v
     help (CKNull) = "null"
     help (CKIPv4 ip4) = C8.pack $ show ip4
     help (CKIPv6 ip6) = C8.pack $ show ip6
-    help (CKDate y m d) = (C8.pack $ show y) 
-                        <> "-" <> (C8.pack $ show m) 
+    help (CKDate y m d) = (C8.pack $ show y)
+                        <> "-" <> (C8.pack $ show m)
                         <> "-" <> (C8.pack $ show d)

@@ -1,11 +1,11 @@
-{-# OPTIONS_GHC -F -pgmF hspec-discover #-}
+module Main where
 
-module Spec where
-
-import           Test.Column
-import           Test.HTTP
+import           Test.ColumnSpec
+import           Test.HTTPSpec
+import           Test.IO
 
 main :: IO()
 main = do
-    spec
+    runTests
+    httpSpec
     columnSpec

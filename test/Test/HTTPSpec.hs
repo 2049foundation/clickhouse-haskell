@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.HTTPSpec (spec) where
+module Test.HTTPSpec (httpSpec) where
 
 import ClickHouseDriver.Core
 import ClickHouseDriver.Core.HTTP
@@ -12,8 +12,8 @@ import Test.HUnit
 import Test.Hspec
 
 
-spec :: Spec
-spec = parallel $ do
+httpSpec :: IO()
+httpSpec = hspec $ parallel $ do
   query1
   query2
   query3
@@ -50,20 +50,20 @@ query3 = describe "format in JSON" $ do
 queryTCP :: Spec
 queryTCP = describe "select 1" $ do
   conn <- runIO $ defaultClient
-  res <- runIO $ query "SELECT 1" conn
+  res <- runIO $ query conn "SELECT 1" 
   it "returns result in ClickhouseType" $ do
     (show res) `shouldBe` (show [[CKUInt8 1]])
 
 lowCardinalityTest :: Spec
 lowCardinalityTest = describe "lowCardinality" $ do
   conn <- runIO $ defaultClient
-  res <- runIO $ query "SELECT * FROM crd3" conn
+  res <- runIO $ query conn "SELECT * FROM crd3" 
   it "returns result in ClickhouseType" $ do
     (show res) `shouldBe` (show [[CKString "abc",CKString "myString",CKNull],[CKString"xyz",CKString "Noctis",CKString "Ross"],[CKString "123",CKString "Alice",CKNull],[CKString "456",CKString "Bob",CKString "Walter"]])
 
 comprehensiveTest :: Spec
 comprehensiveTest = describe "array string number etc." $ do
   conn <- runIO $ defaultClient
-  res <- runIO $ query "SELECT * FROM big" conn
+  res <- runIO $ query conn "SELECT * FROM big" 
   it "returns result in ClickhouseType" $ do
     (show res) `shouldBe` (show "")

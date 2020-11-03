@@ -40,12 +40,17 @@ library
       ClickHouseDriver.Core.Column
       ClickHouseDriver.IO.BufferedWriter
       ClickHouseDriver.IO.BufferedReader
+      ClickHouseDriver.Core.Pool
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
       src
   build-depends:
       aeson
+    , streaming-commons
+    , resource-pool
+    , data-default-class
+    , split
     , uuid
     , QuickCheck
     , io-streams
@@ -98,6 +103,8 @@ executable clickhouse-haskell-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , time
+    , data-default-class
     , io-streams
     , uri-encode
     , mtl
@@ -136,13 +143,16 @@ test-suite clickhouse-haskell-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Test.IO
       Test.ColumnSpec
+      Test.HTTPSpec
       Paths_clickhouse_haskell
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , QuickCheck
     , io-streams
     , uri-encode 
     , mtl
