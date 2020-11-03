@@ -90,9 +90,12 @@ library
     , vector
   default-language: Haskell2010
   c-sources: ./src/ClickHouseDriver/CBits/varuint.c
+           , ./src/ClickHouseDriver/CBits/datetime.c
   include-dirs: ./src/ClickHouseDriver/Include 
   includes: varuint.h
+          , datetime.h
   install-includes: varuint.h
+                  , datetime.h
 
 executable clickhouse-haskell-exe
   main-is: Main.hs
