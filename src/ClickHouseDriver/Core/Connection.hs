@@ -93,8 +93,6 @@ import qualified Network.Simple.TCP                         as TCP (closeSock,
 import           Network.Socket                             (Socket)
 import           System.Timeout                             (timeout)
 --Debug
-
-import Debug.Trace (trace)
 -- | This module mainly focuses how to make connection
 -- | to clickhouse database and protocols to send and receive data
 
