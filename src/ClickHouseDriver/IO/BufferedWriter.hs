@@ -31,27 +31,22 @@ module ClickHouseDriver.IO.BufferedWriter
   )
 where
 
-import           Control.Monad.IO.Class
-import           Control.Monad.State.Lazy
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import           Control.Monad.Writer         (WriterT, tell)
-import qualified Control.Monad.Writer         as W
-import           Data.Binary                  (Binary)
 import qualified Data.Binary                  as Binary
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as BS
-import           Data.ByteString.Builder
-import           Data.ByteString.Char8        (unpack)
+import Data.ByteString.Builder
+    ( Builder, toLazyByteString, byteString )
 import qualified Data.ByteString.Lazy         as L
 import           Data.ByteString.Lazy.Builder (lazyByteString)
-import           Data.ByteString.Unsafe
+import Data.ByteString.Unsafe
+    ( unsafePackCString, unsafePackCStringLen )
 import           Data.DoubleWord              (Word128 (..))
-import           Data.Int
-import           Data.Monoid
-import           Data.Word
-import           Data.Word8
-import           Foreign.C
-import           Foreign.Ptr
-
+import Data.Int ( Int8, Int16, Int32, Int64 )
+import Data.Word ( Word8, Word16, Word32, Word64 )
+import Data.Word8 ()
+import Foreign.C ( CString )
 
 -- Monoid Homomorphism.
 class (Monoid w, Monoid m)=>MonoidMap w m where
