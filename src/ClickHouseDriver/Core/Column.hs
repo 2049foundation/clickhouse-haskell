@@ -103,7 +103,7 @@ readColumn n_rows spec
   | "Date"     `isPrefixOf` spec = readDate n_rows
   | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
   | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
-  | "LowCardinality" `isPrefixOf` spec = readLowCadinality n_rows spec
+  | "LowCardinality" `isPrefixOf` spec = readLowCardinality n_rows spec
   | "Decimal" `isPrefixOf` spec = readDecimal n_rows spec
   | "Enum" `isPrefixOf` spec = readEnum n_rows spec
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
@@ -265,16 +265,16 @@ readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
 readTimeSpec spec'
   | "DateTime64" `isPrefixOf` spec' = do
     let l = BS.length spec'
-    let innerspecs = BS.take (l - 12) (BS.drop 11 spec')
-    let splited = getSpecs innerspecs
-    case splited of
+    let inner_specs = BS.take (l - 12) (BS.drop 11 spec')
+    let split = getSpecs inner_specs
+    case split of
       []     -> (Nothing, Nothing)
       [x]    -> (Just $ fst $ fromJust $ readInt x, Nothing)
       [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
   | otherwise = do
     let l = BS.length spec'
-    let innerspecs = BS.take (l - 10) (BS.drop 9 spec')
-    (Nothing, Just innerspecs)
+    let inner_specs = BS.take (l - 10) (BS.drop 9 spec')
+    (Nothing, Just inner_specs)
 readDateTimeWithSpec :: Int -> Maybe Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTimeWithSpec n_rows Nothing tz_name = do
   data32 <- readIntColumn n_rows "Int32"
@@ -303,9 +303,9 @@ writeDateTime col_name spec items = do
   let (scale, spc) = readTimeSpec spec
   undefined
 ------------------------------------------------------------------------------------------------
-readLowCadinality :: Int -> ByteString -> Reader (Vector ClickhouseType)
-readLowCadinality 0 _ = return (V.fromList [])
-readLowCadinality n spec = do
+readLowCardinality :: Int -> ByteString -> Reader (Vector ClickhouseType)
+readLowCardinality 0 _ = return (V.fromList [])
+readLowCardinality n spec = do
   readBinaryUInt64 --state prefix
   let l = BS.length spec
   let inner = BS.take (l - 16) (BS.drop 15 spec)
@@ -338,7 +338,7 @@ writeLowCardinality ctx col_name spec items = do
   let inner = BS.take (BS.length spec - 16) (BS.drop 15 spec)
   (keys, index) <- if "Nullable" `isPrefixOf` inner
         then do
-          let nullInner = BS.take (BS.length inner - 10) (BS.drop 9 spec)
+          let null_inner_spec = BS.take (BS.length inner - 10) (BS.drop 9 spec)
           let hashedItem = hashItems True items
           let key_by_index_element = V.foldl' (\m x ->insertKeys m x) Map.empty hashedItem
           let keys = V.map (\k->key_by_index_element Map.! k + 1) hashedItem
@@ -642,8 +642,8 @@ readDecimal n_rows spec = do
 writeDecimal :: ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeDecimal col_name spec items = do
   let l = BS.length spec
-  let innerspecs = getSpecs $ BS.take (l - 9) (BS.drop 8 spec)
-  let (specific, Just (prescale, _)) = case innerspecs of
+  let inner_specs = getSpecs $ BS.take (l - 9) (BS.drop 8 spec)
+  let (specific, Just (prescale, _)) = case inner_specs of
         [] -> error "No spec"
         [scale'] ->
           if "Decimal32" `isPrefixOf` spec
