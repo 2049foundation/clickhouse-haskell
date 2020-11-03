@@ -12,8 +12,7 @@ module ClickHouseDriver.Core.HTTP.Connection (
     httpConnectDb,
     defaultHttpConnection,
     HttpConnection(..),
-    createHttpPool,
-    httpConnectDb
+    createHttpPool
 ) where
                                 
 import Network.HTTP.Client
