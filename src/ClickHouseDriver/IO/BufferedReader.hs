@@ -58,7 +58,6 @@ createBuffer size sock = do
     socket = Just sock
   }
 
-
 refill :: Buffer->IO Buffer
 refill Buffer{socket = Just sock, bufSize = size} = do
   newData' <- TCP.recv sock size
@@ -104,7 +103,6 @@ readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
       let tail = BS.drop (fromIntegral skip) str
       return (varint, Buffer size tail sock)
 
-
 readBinaryStr' :: Buffer -> IO (ByteString, Buffer)
 readBinaryStr' str = do
   (len, tail) <- readVarInt' str
@@ -117,7 +115,6 @@ readBinaryHelper fmt str = do
   (cut, tail) <- readBinaryStrWithLength' fmt str
   let v = decode ((L.fromStrict. BS.reverse) cut)
   return (v, tail)
-
 
 class Readable a where
   readIn :: Reader a

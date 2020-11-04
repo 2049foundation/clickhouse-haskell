@@ -82,7 +82,7 @@ import           Foreign.C.Types                    (CTime (..))
 import           Network.IP.Addr                    (IP4 (..), IP6 (..),
                                                      ip4FromOctets, ip4ToOctets,
                                                      ip6FromWords, ip6ToWords)
-
+import           Foreign.C                          ( CString )
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32
@@ -302,6 +302,8 @@ writeDateTime :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
 writeDateTime col_name spec items = do
   let (scale, spc) = readTimeSpec spec
   undefined
+
+foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->IO(CString)
 ------------------------------------------------------------------------------------------------
 readLowCardinality :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readLowCardinality 0 _ = return (V.fromList [])
@@ -458,7 +460,7 @@ readArray n_rows spec = do
           embed = (\(l, r) -> cut (l, r - l + 1)) <$> intervals
        in embed
     intervalize :: Vector Int -> Vector (Int, Int)
-    intervalize vec = V.drop 1 $ V.scanl' (\(a, b) v -> (b + 1, v + b)) (-1, -1) vec
+    intervalize vec = V.drop 1 $ V.scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) vec
 
 readArraySpec :: Vector Word64 -> Reader (Vector Word64)
 readArraySpec sizeArr = do
