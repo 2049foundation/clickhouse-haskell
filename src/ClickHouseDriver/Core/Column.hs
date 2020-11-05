@@ -3,6 +3,8 @@
 --
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
+-----------------------------------------------------------------------------
+-- This module is for serialize and deserialize data types
 
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE CPP                 #-}
@@ -63,9 +65,6 @@ import           Data.Maybe                         (fromJust)
 import           Data.Time                          (addDays, diffDays,
                                                      fromGregorian, toGregorian, 
                                                      getCurrentTimeZone, TimeZone(..))
-import           Data.UnixTime                      (UnixTime (..),
-                                                     formatUnixTimeGMT,
-                                                     webDateFormat)
 import           Data.UUID                          as UUID (fromString,
                                                              fromWords,
                                                              toString, toWords)
@@ -79,7 +78,6 @@ import qualified Data.Vector                        as V (cons, drop, foldl',
                                                           scanl', sum, take,
                                                           toList, zipWith,
                                                           zipWithM_)
-import           Foreign.C.Types                    (CTime (..))
 import           Network.IP.Addr                    (IP4 (..), IP6 (..),
                                                      ip4FromOctets, ip4ToOctets,
                                                      ip6FromWords, ip6ToWords)
