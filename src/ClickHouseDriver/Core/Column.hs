@@ -17,7 +17,7 @@ module ClickHouseDriver.Core.Column(
   ClickHouseDriver.Core.Column.putStrLn
 ) where
 
-import ClickHouseDriver.Core.Types ( Context, ClickhouseType(..), ServerInfo(..))
+import ClickHouseDriver.Core.Types ( Context(..), ClickhouseType(..), ServerInfo(..))
 import ClickHouseDriver.IO.BufferedReader
     ( Reader,
       readBinaryStrWithLength,
@@ -61,7 +61,8 @@ import Data.Int ( Int64, Int32)
 import qualified Data.List                          as List
 import           Data.Maybe                         (fromJust)
 import           Data.Time                          (addDays, diffDays,
-                                                     fromGregorian, toGregorian)
+                                                     fromGregorian, toGregorian, 
+                                                     getCurrentTimeZone, TimeZone(..))
 import           Data.UnixTime                      (UnixTime (..),
                                                      formatUnixTimeGMT,
                                                      webDateFormat)
@@ -141,6 +142,8 @@ writeColumn ctx col_name cktype items
   | "Date" `isPrefixOf` cktype = writeDate col_name items
   | "LowCardinality" `isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
   | "DateTime" `isPrefixOf` cktype = writeDateTime ctx col_name cktype items
+  | "Decimal" `isPrefixOf` cktype = writeDecimal col_name cktype items
+  | otherwise = error ("Unknown Type in the column: " Prelude.++ C8.unpack col_name)
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
@@ -308,23 +311,30 @@ readDateTimeWithSpec server_info n_rows (Just scl) tz_name = do
 
 writeDateTime :: Context->ByteString->ByteString->Vector ClickhouseType->Writer Builder
 writeDateTime ctx col_name spec items = do
-  let (scale, spc) = readTimeSpec spec
-  case spc of
-    Nothing->undefined
-    Just spec->undefined
-  where
-    writeDateTimeWithSpec ::ByteString->Writer Builder
-    writeDateTimeWithSpec tz_name = do
-      V.mapM_ (
-        \case (CKInt32 i32)->do
-                converted <- liftIO $ convert_time_from_int32 i32
-                writeBinaryInt32 converted
-              (CKString time_str)->do
-                converted <- liftIO $ unsafeUseAsCStringLen
-                  (tz_name) (\(tz, l)->unsafeUseAsCStringLen 
-                          (time_str) (\(tstr, l2)->c_write_time tstr tz l l2) )
-                writeBinaryInt32 converted
-       ) items
+  let (scale', spc) = readTimeSpec spec
+  case scale' of
+    Nothing -> do 
+      case spc of
+        Nothing->do
+          TimeZone{timeZoneName=tz'} <- liftIO $ getCurrentTimeZone
+          writeDateTimeWithSpec $ C8.pack tz'
+        Just spec->writeDateTimeWithSpec spec 
+      where
+        writeDateTimeWithSpec ::ByteString->Writer Builder
+        writeDateTimeWithSpec tz_name = do
+          V.mapM_ (
+            \case (CKInt32 i32)->do
+                    converted <- liftIO $ convert_time_from_int32 i32
+                    writeBinaryInt32 converted
+                  (CKString time_str)->do
+                    converted <- liftIO $ unsafeUseAsCStringLen
+                      (tz_name) (\(tz, l)->unsafeUseAsCStringLen 
+                              (time_str) (\(tstr, l2)->c_write_time tstr tz l l2) )
+                    writeBinaryInt32 converted
+                  _ -> error (typeMismatchError col_name)
+            ) items
+    Just scale -> do
+      undefined
 
 foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->Int->IO(CString)
 foreign import ccall unsafe "datetime.h parse_time" c_write_time :: CString->CString->Int->Int->IO(Int32)

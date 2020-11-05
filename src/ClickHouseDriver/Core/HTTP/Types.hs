@@ -45,4 +45,3 @@ data HttpConnection
       { httpParams :: ! HttpParams,
         httpManager ::  {-# UNPACK #-} !Manager
       }
-

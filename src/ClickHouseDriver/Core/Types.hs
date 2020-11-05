@@ -318,7 +318,6 @@ data CKResult = CKResult
  }
  deriving Show
 -------------------------------------------------------------------------
-
 data ConnParams = ConnParams{
       username'    :: !ByteString,
       host'        :: !ByteString,
