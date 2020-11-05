@@ -297,16 +297,24 @@ readDateTimeWithSpec ServerInfo{timezone=maybe_zone} n_rows Nothing tz_name = do
           data32
   toDateTimeString <- liftIO $ toDateTimeStringM
   return $ V.map CKString toDateTimeString
-readDateTimeWithSpec server_info n_rows (Just scl) tz_name = do
+readDateTimeWithSpec ServerInfo{timezone=maybe_zone} n_rows (Just scl) tz_name = do
   data64 <- readIntColumn n_rows "Int64"
   let scale = 10 ^ fromIntegral scl
-  let toDateTimeString =
-        V.map
-          ( \(CKInt64 x) ->
-              formatUnixTimeGMT webDateFormat $
-                UnixTime (CTime $ x `div` scale) 0
+  let tz_to_send = if tz_name /= "" 
+        then "TZ=" <> tz_name 
+        else case maybe_zone of
+          Just zone->zone
+          Nothing -> ""
+  let toDateTimeStringM =
+        V.mapM
+          ( \(CKInt64 x) ->do
+              c_str <- unsafeUseAsCStringLen
+                (tz_to_send) (\(str, l)->c_convert_time64 ((fromIntegral x) / scale) str l)
+              res <- unsafePackCString c_str
+              return res
           )
           data64
+  toDateTimeString <- liftIO $ toDateTimeStringM
   return $ V.map CKString toDateTimeString
 
 writeDateTime :: Context->ByteString->ByteString->Vector ClickhouseType->Writer Builder
@@ -337,6 +345,7 @@ writeDateTime ctx col_name spec items = do
       undefined
 
 foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->Int->IO(CString)
+foreign import ccall unsafe "datetime.h convert_time" c_convert_time64 :: Float->CString->Int->IO(CString)
 foreign import ccall unsafe "datetime.h parse_time" c_write_time :: CString->CString->Int->Int->IO(Int32)
 foreign import ccall unsafe "datetime.h convert_time_from_int32" convert_time_from_int32 :: Int32->IO(Int32)
 ------------------------------------------------------------------------------------------------
@@ -438,13 +447,13 @@ readNullable :: ServerInfo->Int->ByteString->Reader (Vector ClickhouseType)
 readNullable server_info n_rows spec = do
   let l = BS.length spec
   let cktype = BS.take (l - 10) (BS.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
-  config <- readNullableConfig n_rows spec
+  config <- readNullableConfig n_rows
   items <- readColumn server_info n_rows cktype
   let result = V.generate n_rows (\i->if config ! i == 1 then CKNull else items ! i)
   return result
     where
-      readNullableConfig :: Int->ByteString->Reader (Vector Word8)
-      readNullableConfig n_rows spec = do
+      readNullableConfig :: Int->Reader (Vector Word8)
+      readNullableConfig n_rows = do
         config <- readBinaryStrWithLength n_rows
         (return . V.fromList . BS.unpack) config
 
