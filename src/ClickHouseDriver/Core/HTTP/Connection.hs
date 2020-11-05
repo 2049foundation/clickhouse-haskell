@@ -70,7 +70,6 @@ httpConnect :: String->String->Int->String->IO(HttpConnection)
 httpConnect user password port host = 
   httpConnectDb user password port host Nothing
 
-
 httpConnectDb :: String->String->Int->String->Maybe String->IO(HttpConnection)
 httpConnectDb user password port host database = do
   mng <- newManager defaultManagerSettings
