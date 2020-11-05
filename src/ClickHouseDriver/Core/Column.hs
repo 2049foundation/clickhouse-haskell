@@ -623,6 +623,7 @@ writeEnum col_name spec items = do
           if "Enum8" `isPrefixOf` spec
             then writeBinaryInt8 0
             else writeBinaryInt16 0
+        _ -> error $ typeMismatchError col_name
     )
     items
 ----------------------------------------------------------------------
@@ -653,8 +654,8 @@ writeDate col_name items = do
 readDecimal :: Int->ByteString->Reader(Vector ClickhouseType)
 readDecimal n_rows spec = do
   let l = BS.length spec
-  let innerspec = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
-  let (specific, Just(scale,_)) = case innerspec of
+  let inner_spec = getSpecs $ BS.take(l - 9) (BS.drop 8 spec)
+  let (specific, Just(scale,_)) = case inner_spec of
           [] -> error "No spec"
           [scale'] -> if "Decimal32" `isPrefixOf` spec
                         then (readDecimal32, readInt scale')
