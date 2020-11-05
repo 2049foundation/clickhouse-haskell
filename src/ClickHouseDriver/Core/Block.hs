@@ -85,8 +85,8 @@ readInfo info@Info {is_overflows = io, bucket_num = bn} = do
     _ -> return info
 
 -- | Read a stream of data into a block. Data are read into column type
-readBlockInputStream :: Reader Block
-readBlockInputStream = do
+readBlockInputStream :: ServerInfo->Reader Block
+readBlockInputStream server_info = do
   let defaultInfo =
         Info
           { is_overflows = False,
@@ -99,7 +99,7 @@ readBlockInputStream = do
       loop _ = do
         column_name <- readBinaryStr
         column_type <- readBinaryStr
-        column <- readColumn (fromIntegral n_rows) column_type
+        column <- readColumn server_info (fromIntegral n_rows) column_type
         return (column, column_name, column_type)
   v <- V.generateM (fromIntegral n_columns) loop
   let datas = (\(x, _, _) -> x) <$> v

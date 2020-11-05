@@ -17,7 +17,7 @@ module ClickHouseDriver.Core.Column(
   ClickHouseDriver.Core.Column.putStrLn
 ) where
 
-import ClickHouseDriver.Core.Types ( Context, ClickhouseType(..) )
+import ClickHouseDriver.Core.Types ( Context, ClickhouseType(..), ServerInfo(..))
 import ClickHouseDriver.IO.BufferedReader
     ( Reader,
       readBinaryStrWithLength,
@@ -57,7 +57,7 @@ import           Data.ByteString.Builder            (Builder)
 import           Data.ByteString.Char8              (readInt)
 import qualified Data.ByteString.Char8              as C8
 import qualified Data.HashMap.Strict                as Map
-import Data.Int ( Int64 )
+import Data.Int ( Int64, Int32)
 import qualified Data.List                          as List
 import           Data.Maybe                         (fromJust)
 import           Data.Time                          (addDays, diffDays,
@@ -83,6 +83,9 @@ import           Network.IP.Addr                    (IP4 (..), IP6 (..),
                                                      ip4FromOctets, ip4ToOctets,
                                                      ip6FromWords, ip6ToWords)
 import           Foreign.C                          ( CString )
+import           Data.ByteString.Unsafe             ( unsafePackCString,
+                                                      unsafeUseAsCStringLen)
+import           Control.Monad.State.Lazy           ( MonadIO(..) )                                                      
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32
@@ -94,23 +97,23 @@ import Debug.Trace
 ---------------------------------------------------------------------------------------
 ---Readers
 
-readColumn ::  Int -> ByteString -> Reader (Vector ClickhouseType)
-readColumn n_rows spec
+readColumn ::  ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
+readColumn server_info n_rows spec
   | "String" `isPrefixOf` spec = V.replicateM n_rows (CKString <$> readBinaryStr)
-  | "Array" `isPrefixOf` spec = readArray n_rows spec
+  | "Array" `isPrefixOf` spec = readArray server_info n_rows spec
   | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
-  | "DateTime" `isPrefixOf` spec = readDateTime n_rows spec
+  | "DateTime" `isPrefixOf` spec = readDateTime server_info n_rows spec
   | "Date"     `isPrefixOf` spec = readDate n_rows
-  | "Tuple" `isPrefixOf` spec = readTuple n_rows spec
-  | "Nullable" `isPrefixOf` spec = readNullable n_rows spec
-  | "LowCardinality" `isPrefixOf` spec = readLowCardinality n_rows spec
+  | "Tuple" `isPrefixOf` spec = readTuple server_info n_rows spec
+  | "Nullable" `isPrefixOf` spec = readNullable server_info n_rows spec
+  | "LowCardinality" `isPrefixOf` spec = readLowCardinality server_info n_rows spec
   | "Decimal" `isPrefixOf` spec = readDecimal n_rows spec
   | "Enum" `isPrefixOf` spec = readEnum n_rows spec
   | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
   | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
   | "IPv4" `isPrefixOf` spec = readIPv4 n_rows
   | "IPv6" `isPrefixOf` spec = readIPv6 n_rows
-  | "SimpleAggregateFunction" `isPrefixOf` spec = readSimpleAggregateFunction n_rows spec
+  | "SimpleAggregateFunction" `isPrefixOf` spec = readSimpleAggregateFunction server_info n_rows spec
   | "UUID" `isPrefixOf` spec = readUUID n_rows
   | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
 
@@ -137,6 +140,7 @@ writeColumn ctx col_name cktype items
   | "IPv6" `isPrefixOf` cktype = writeIPv6 col_name items
   | "Date" `isPrefixOf` cktype = writeDate col_name items
   | "LowCardinality" `isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
+  | "DateTime" `isPrefixOf` cktype = writeDateTime ctx col_name cktype items
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
@@ -251,16 +255,12 @@ writeUIntColumn col_name spec items = do
                 _ -> error (typeMismatchError col_name)
             )
 ---------------------------------------------------------------------------------------------
-readDateTime :: Int -> ByteString -> Reader (Vector ClickhouseType)
-readDateTime n_rows spec = do
+readDateTime :: ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
+readDateTime server_info n_rows spec = do
   let (scale, spc) = readTimeSpec spec
   case spc of
-    Nothing -> do
-      --tz <- liftIO $ getCurrentTimeZone
-      --undefined
-      error $ "Implementation error: Can't read current time zone so far."
-    Just tz_name -> readDateTimeWithSpec n_rows scale tz_name
-
+    Nothing -> readDateTimeWithSpec server_info n_rows scale ""
+    Just tz_name -> readDateTimeWithSpec server_info n_rows scale tz_name
 readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
 readTimeSpec spec'
   | "DateTime64" `isPrefixOf` spec' = do
@@ -273,20 +273,28 @@ readTimeSpec spec'
       [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
   | otherwise = do
     let l = BS.length spec'
-    let inner_specs = BS.take (l - 10) (BS.drop 9 spec')
+    let inner_specs = BS.take (l - 12) (BS.drop 10 spec')
     (Nothing, Just inner_specs)
-readDateTimeWithSpec :: Int -> Maybe Int -> ByteString -> Reader (Vector ClickhouseType)
-readDateTimeWithSpec n_rows Nothing tz_name = do
+readDateTimeWithSpec :: ServerInfo->Int->Maybe Int->ByteString->Reader (Vector ClickhouseType)
+readDateTimeWithSpec ServerInfo{timezone=maybe_zone} n_rows Nothing tz_name = do
   data32 <- readIntColumn n_rows "Int32"
-  let toDateTimeString =
-        V.map
-          ( \(CKInt32 x) ->
-              formatUnixTimeGMT webDateFormat $
-                UnixTime (CTime $ fromIntegral x) x
+  let tz_to_send = if tz_name /= "" 
+        then "TZ=" <> tz_name 
+        else case maybe_zone of
+          Just zone->zone
+          Nothing -> ""
+  let toDateTimeStringM =
+        V.mapM
+          ( \(CKInt32 x) -> do
+              c_str <- unsafeUseAsCStringLen
+                (tz_to_send) (\(str, l)->c_convert_time (fromIntegral x) str l)
+              res <- unsafePackCString c_str
+              return res
           )
           data32
+  toDateTimeString <- liftIO $ toDateTimeStringM
   return $ V.map CKString toDateTimeString
-readDateTimeWithSpec n_rows (Just scl) tz_name = do
+readDateTimeWithSpec server_info n_rows (Just scl) tz_name = do
   data64 <- readIntColumn n_rows "Int64"
   let scale = 10 ^ fromIntegral scl
   let toDateTimeString =
@@ -298,16 +306,33 @@ readDateTimeWithSpec n_rows (Just scl) tz_name = do
           data64
   return $ V.map CKString toDateTimeString
 
-writeDateTime :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
-writeDateTime col_name spec items = do
+writeDateTime :: Context->ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeDateTime ctx col_name spec items = do
   let (scale, spc) = readTimeSpec spec
-  undefined
+  case spc of
+    Nothing->undefined
+    Just spec->undefined
+  where
+    writeDateTimeWithSpec ::ByteString->Writer Builder
+    writeDateTimeWithSpec tz_name = do
+      V.mapM_ (
+        \case (CKInt32 i32)->do
+                converted <- liftIO $ convert_time_from_int32 i32
+                writeBinaryInt32 converted
+              (CKString time_str)->do
+                converted <- liftIO $ unsafeUseAsCStringLen
+                  (tz_name) (\(tz, l)->unsafeUseAsCStringLen 
+                          (time_str) (\(tstr, l2)->c_write_time tstr tz l l2) )
+                writeBinaryInt32 converted
+       ) items
 
-foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->IO(CString)
+foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->Int->IO(CString)
+foreign import ccall unsafe "datetime.h parse_time" c_write_time :: CString->CString->Int->Int->IO(Int32)
+foreign import ccall unsafe "datetime.h convert_time_from_int32" convert_time_from_int32 :: Int32->IO(Int32)
 ------------------------------------------------------------------------------------------------
-readLowCardinality :: Int -> ByteString -> Reader (Vector ClickhouseType)
-readLowCardinality 0 _ = return (V.fromList [])
-readLowCardinality n spec = do
+readLowCardinality :: ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
+readLowCardinality _ 0 _ = return (V.fromList [])
+readLowCardinality server_info n spec = do
   readBinaryUInt64 --state prefix
   let l = BS.length spec
   let inner = BS.take (l - 16) (BS.drop 15 spec)
@@ -316,7 +341,7 @@ readLowCardinality n spec = do
   let key_type = serialization_type .&. 0xf
   index_size <- readBinaryUInt64
   -- Strip the 'Nullable' tag to avoid null map reading.
-  index <- readColumn (fromIntegral index_size) (stripNullable inner)
+  index <- readColumn server_info (fromIntegral index_size) (stripNullable inner)
   readBinaryUInt64 -- #keys
   keys <- case key_type of
     0 -> V.map fromIntegral <$> V.replicateM n readBinaryUInt8
@@ -399,12 +424,12 @@ writeLowCardinality ctx col_name spec items = do
           Informal description for this config:
           (\Null | \SOH)^{n_rows}
 -}
-readNullable :: Int->ByteString->Reader (Vector ClickhouseType)
-readNullable n_rows spec = do
+readNullable :: ServerInfo->Int->ByteString->Reader (Vector ClickhouseType)
+readNullable server_info n_rows spec = do
   let l = BS.length spec
   let cktype = BS.take (l - 10) (BS.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
   config <- readNullableConfig n_rows spec
-  items <- readColumn n_rows cktype
+  items <- readColumn server_info n_rows cktype
   let result = V.generate n_rows (\i->if config ! i == 1 then CKNull else items ! i)
   return result
     where
@@ -444,11 +469,11 @@ writeNullable ctx col_name spec items = do
       Quoted from https://github.com/mymarilyn/clickhouse-driver/blob/master/clickhouse_driver/columns/arraycolumn.py
 -}
 
-readArray :: Int -> ByteString -> Reader (Vector ClickhouseType)
-readArray n_rows spec = do
+readArray :: ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
+readArray server_info n_rows spec = do
   (lastSpec, x : xs) <- genSpecs spec [V.fromList [fromIntegral n_rows]]
   let numElem = fromIntegral $ V.sum x
-  elems <- readColumn numElem lastSpec
+  elems <- readColumn server_info numElem lastSpec
   let result' = foldl combine elems (x : xs)
   let CKArray arr = result' ! 0
   return arr
@@ -504,12 +529,12 @@ writeArray ctx col_name spec items = do
         innerVector >>= \v -> do w <- v; return w
   writeColumn ctx col_name innerSpec flattenVector
 --------------------------------------------------------------------------------------
-readTuple :: Int->ByteString->Reader (Vector ClickhouseType)
-readTuple n_rows spec = do
+readTuple :: ServerInfo->Int->ByteString->Reader (Vector ClickhouseType)
+readTuple server_info n_rows spec = do
   let l = BS.length spec
   let innerSpecString = BS.take(l - 7) (BS.drop 6 spec)
   let arr = V.fromList (getSpecs innerSpecString)
-  datas <- V.mapM (readColumn n_rows) arr
+  datas <- V.mapM (readColumn server_info n_rows) arr
   let transposed = transpose datas
   return $ CKTuple <$> transposed
 
@@ -708,11 +733,11 @@ writeIPv6 col_name items = V.mapM_ (
                 _ -> error $ typeMismatchError col_name
           ) items
 ----------------------------------------------------------------------------------------------
-readSimpleAggregateFunction :: Int->ByteString->Reader (Vector ClickhouseType)
-readSimpleAggregateFunction n_rows spec = do
+readSimpleAggregateFunction :: ServerInfo->Int->ByteString->Reader (Vector ClickhouseType)
+readSimpleAggregateFunction server_info n_rows spec = do
    let l = BS.length spec
    let [func, cktype] = getSpecs $ BS.take(l - 25) (BS.drop 24 spec)
-   readColumn n_rows cktype
+   readColumn server_info n_rows cktype
 ----------------------------------------------------------------------------------------------
 readUUID :: Int->Reader (Vector ClickhouseType)
 readUUID n_rows = do

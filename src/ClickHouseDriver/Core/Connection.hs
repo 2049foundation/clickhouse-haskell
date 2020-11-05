@@ -341,12 +341,12 @@ processInsertQuery tcp@TCPConnection{tcpSocket=sock, context=Context{client_sett
 
 -- | read data from stream.
 receiveData :: ServerInfo -> Reader Block.Block
-receiveData ServerInfo {revision = revision} = do
+receiveData info@ServerInfo {revision = revision} = do
   _ <-
     if revision >= _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES
       then readBinaryStr
       else return ""
-  block <- Block.readBlockInputStream
+  block <- Block.readBlockInputStream info
   return block
 
 receiveResult :: ServerInfo->QueryInfo->Reader (Either String CKResult) --TODO Change to either.
