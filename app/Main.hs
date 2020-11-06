@@ -42,8 +42,13 @@ import           Data.Default.Class (def)
 import           Data.Time
 
 main :: IO ()
-main = main'
-    
+main = deci
+
+deci :: IO ()
+deci = do
+    conn <- defaultClient
+    res <- query conn "SELECT toDecimal32(2,4) AS x, x / 3"
+    print res
 
 benchmark1 :: IO()
 benchmark1 = do
