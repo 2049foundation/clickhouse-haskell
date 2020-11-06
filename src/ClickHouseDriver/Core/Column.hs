@@ -797,10 +797,10 @@ readUUID n_rows = do
 writeUUID :: ByteString -> Vector ClickhouseType -> Writer Builder
 writeUUID col_name items =
   V.mapM_
-    ( \case CKString uuidstr -> do
-              case UUID.fromString $ C8.unpack uuidstr of
+    ( \case CKString uuid_str -> do
+              case UUID.fromString $ C8.unpack uuid_str of
                 Nothing -> error $ "UUID parsing error in the column"
-                          ++ show col_name ++ " wrong data: " ++ show uuidstr
+                          ++ show col_name ++ " wrong data: " ++ show uuid_str
                 Just uuid -> do
                   let (w2, w1, w3, w4) = UUID.toWords uuid
                   writeBinaryUInt32 w1

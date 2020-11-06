@@ -21,21 +21,21 @@ double word128_division(__int64_t hi, __int64_t lo, int scale){
 }
 
 __int64_t low_bits_128(double x, int scale){
-    __int128_t i128 = pow(x, scale);
+    __int128_t i128 = x * pow(10, scale);
     return i128 & UINT64_MAX;
 }
 
 __int64_t hi_bits_128(double x, int scale){
-    __int128_t i128 = pow(x, scale);
+    __int128_t i128 = x * pow(10, scale);
     return (i128 >> 64) & UINT64_MAX;
 }
 
 __int64_t low_bits_negative_128(double x, int scale){
-    __int128_t i128 = pow(x, scale);
+    __int128_t i128 = x * pow(10, scale);
     return UINT64_MAX - (i128 & UINT64_MAX) + 1;
 }
 
 __int64_t hi_bits_negative_128(double x, int scale){
-    __int128_t i128 = pow(x, scale);
+    __int128_t i128 = x * pow(10, scale);
     return UINT64_MAX - ((i128 >> 64) & UINT64_MAX);
 }
