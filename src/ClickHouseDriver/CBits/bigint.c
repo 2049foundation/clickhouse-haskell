@@ -4,7 +4,7 @@
 #include "bigint.h"
 
 double word128_division(__int64_t hi, __int64_t lo, int scale){
-    __int128_t i_128 = 0;
+    __int128_t i_128;
     if (hi > UINT64_MAX){
         i_128 = UINT64_MAX - hi;
         i_128 = i_128 << 64;
@@ -16,8 +16,8 @@ double word128_division(__int64_t hi, __int64_t lo, int scale){
         i_128 = i_128 << 64;
         i_128 += lo;
     }
-    i_128 /= scale;
-    return i_128;
+    double power = pow(10, scale);
+    return (double) i_128 / power;
 }
 
 __int64_t low_bits_128(double x, int scale){

@@ -84,14 +84,13 @@ import           Network.IP.Addr                    (IP4 (..), IP6 (..),
 import           Foreign.C                          ( CString )
 import           Data.ByteString.Unsafe             ( unsafePackCString,
                                                       unsafeUseAsCStringLen)
-import           Control.Monad.State.Lazy           ( MonadIO(..) )            
-import           Data.DoubleWord                    (Word128 (..))                                          
+import           Control.Monad.State.Lazy           ( MonadIO(..) )                                                   
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32
 #define QUOTE 39
 --Debug
-import Debug.Trace
+--import Debug.Trace
 
 -- Notice: Codes in this file might be difficult to read.
 ---------------------------------------------------------------------------------------
@@ -671,7 +670,7 @@ readDecimal n_rows spec = do
                   then (readDecimal64 , readInt scale')
                   else (readDecimal128 , readInt scale')
   raw <- specific n_rows
-  let final = fmap (trans (10 ^ scale)) raw
+  let final = fmap (trans scale) raw
   return final
   where
     readDecimal32 :: Int->Reader (Vector ClickhouseType)
@@ -682,16 +681,16 @@ readDecimal n_rows spec = do
 
     readDecimal128 :: Int->Reader (Vector ClickhouseType)
     readDecimal128 n_rows = do
-      items <- V.replicateM (2 * n_rows) $ do
+      items <- V.replicateM n_rows $ do
         lo <- readBinaryUInt64
         hi <- readBinaryUInt64
         return $ CKUInt128 lo hi 
       return items
 
     trans :: Int->ClickhouseType->ClickhouseType
-    trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
-    trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
-    trans scale (CKUInt128 lo hi) = CKDecimal128 (word128_division lo hi scale)
+    trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral (10 ^ scale))
+    trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral (10 ^ scale))
+    trans scale (CKUInt128 lo hi) = CKDecimal128 (word128_division hi lo scale)
 
 writeDecimal :: ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeDecimal col_name spec items = do
@@ -743,8 +742,8 @@ writeDecimal col_name spec items = do
                 writeBinaryUInt64 $ low_bits_128 x scale
                 writeBinaryUInt64 $ hi_bits_128 x scale
               else do
-                writeBinaryUInt64 $ low_bits_negative_128 x scale
-                writeBinaryUInt64 $ hi_bits_negative_128 x scale
+                writeBinaryUInt64 $ low_bits_negative_128 (-x) scale
+                writeBinaryUInt64 $ hi_bits_negative_128 (-x) scale
         )
         items
 
