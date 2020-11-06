@@ -1,3 +1,5 @@
+#define __USE_XOPEN
+#define _GNU_SOURCE
 #include<time.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -24,7 +26,7 @@ char * convert_time64(time_t time, char * timezone, size_t length, size_t scale)
     putenv(timezone);
     tzset();
     int exp = pow(10, scale);
-    float scaled = time / exp;
+    time_t scaled = time / exp;
     localtime_r(&scaled, &my_tm);
     return buf;
 }

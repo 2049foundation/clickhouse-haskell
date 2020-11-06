@@ -84,7 +84,8 @@ import           Network.IP.Addr                    (IP4 (..), IP6 (..),
 import           Foreign.C                          ( CString )
 import           Data.ByteString.Unsafe             ( unsafePackCString,
                                                       unsafeUseAsCStringLen)
-import           Control.Monad.State.Lazy           ( MonadIO(..) )                                                      
+import           Control.Monad.State.Lazy           ( MonadIO(..) )            
+import           Data.DoubleWord                    (Word128 (..))                                          
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32
@@ -669,26 +670,34 @@ readDecimal n_rows spec = do
                 else if precision <= 18 || "Decimal64" `isPrefixOf` spec
                   then (readDecimal64 , readInt scale')
                   else (readDecimal128 , readInt scale')
-
   raw <- specific n_rows
-  let final = fmap (trans scale) raw
+  let final = fmap (trans (10 ^ scale)) raw
   return final
   where
     readDecimal32 :: Int->Reader (Vector ClickhouseType)
     readDecimal32 n_rows = readIntColumn n_rows "Int32"
+
     readDecimal64 :: Int->Reader (Vector ClickhouseType)
     readDecimal64 n_rows = readIntColumn n_rows "Int64"
+
     readDecimal128 :: Int->Reader (Vector ClickhouseType)
-    readDecimal128 n_rows = undefined
+    readDecimal128 n_rows = do
+      items <- V.replicateM (2 * n_rows) $ do
+        lo <- readBinaryUInt64
+        hi <- readBinaryUInt64
+        return $ CKUInt128 lo hi 
+      return items
+
     trans :: Int->ClickhouseType->ClickhouseType
     trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral scale)
     trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral scale)
+    trans scale (CKUInt128 lo hi) = CKDecimal128 (word128_division lo hi scale)
 
 writeDecimal :: ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeDecimal col_name spec items = do
   let l = BS.length spec
   let inner_specs = getSpecs $ BS.take (l - 9) (BS.drop 8 spec)
-  let (specific, Just (prescale, _)) = case inner_specs of
+  let (specific, Just (pre_scale, _)) = case inner_specs of
         [] -> error "No spec"
         [scale'] ->
           if "Decimal32" `isPrefixOf` spec
@@ -705,7 +714,7 @@ writeDecimal col_name spec items = do
               if precision <= 18 || "Decimal64" `isPrefixOf` spec
                 then (writeDecimal64, readInt scale')
                 else (writeDecimal128, readInt scale')
-  let scale = 10 ^ prescale
+  let scale = 10 ^ pre_scale
   specific scale items
   where
     writeDecimal32 :: Int -> Vector ClickhouseType -> Writer Builder
@@ -725,7 +734,25 @@ writeDecimal col_name spec items = do
         )
         vec
     writeDecimal128 :: Int -> Vector ClickhouseType -> Writer Builder
-    writeDecimal128 = undefined
+    writeDecimal128 scale items = do
+      V.mapM_
+        (
+          \case
+            CKDecimal128 x->do 
+              if x >= 0 then do
+                writeBinaryUInt64 $ low_bits_128 x scale
+                writeBinaryUInt64 $ hi_bits_128 x scale
+              else do
+                writeBinaryUInt64 $ low_bits_negative_128 x scale
+                writeBinaryUInt64 $ hi_bits_negative_128 x scale
+        )
+        items
+
+foreign import ccall unsafe "bigint.h word128_division" word128_division :: Word64->Word64->Int->Double
+foreign import ccall unsafe "bigint.h low_bits_128" low_bits_128 :: Double->Int->Word64
+foreign import ccall unsafe "bigint.h hi_bits_128" hi_bits_128 :: Double->Int->Word64
+foreign import ccall unsafe "bigint.h low_bits_negative_128" low_bits_negative_128 :: Double->Int->Word64
+foreign import ccall unsafe "bigint.h hi_bits_negative_128" hi_bits_negative_128 :: Double->Int->Word64
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int->Reader (Vector ClickhouseType)
 readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . ip4ToOctets . IP4 <$> readBinaryUInt32)
