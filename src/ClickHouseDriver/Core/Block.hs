@@ -97,7 +97,7 @@ readBlockInputStream server_info = do
   n_columns <- readVarInt
   n_rows <- readVarInt
   let loop :: Int -> Reader (Vector ClickhouseType, ByteString, ByteString)
-      loop _ = do
+      loop n = do
         column_name <- readBinaryStr
         column_type <- readBinaryStr
         column <- readColumn server_info (fromIntegral n_rows) column_type

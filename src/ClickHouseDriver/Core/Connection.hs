@@ -93,6 +93,7 @@ import qualified Network.Simple.TCP                         as TCP (closeSock,
 import           Network.Socket                             (Socket)
 import           System.Timeout                             (timeout)
 --Debug
+--import Debug.Trace ( trace )
 -- | This module mainly focuses how to make connection
 -- | to clickhouse database and protocols to send and receive data
 
@@ -355,7 +356,7 @@ receiveResult info query_info = do
   let onlyDataPacket = filter isBlock packets
   let errors = (\(ErrorMessage str)->str) <$> filter isError packets
   case errors of
-    []->do 
+    []->do
       let dataVectors = (ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData) <$> onlyDataPacket
       let newQueryInfo = Prelude.foldl updateQueryInfo query_info packets
       return $ Right $ CKResult (V.concat dataVectors) newQueryInfo

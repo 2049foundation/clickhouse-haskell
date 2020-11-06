@@ -47,7 +47,7 @@ main = deci
 deci :: IO ()
 deci = do
     conn <- defaultClient
-    res <- query conn "SELECT toDecimal32(2,4) AS x, x / 3"
+    res <- query conn "SELECT toDecimal128(-17,36) AS x, x / 7"
     print res
 
 benchmark1 :: IO()
