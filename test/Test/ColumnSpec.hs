@@ -2,9 +2,13 @@
 module Test.ColumnSpec (columnSpec) where
 
 import ClickHouseDriver.Core
-import Test.HUnit
+    ( ClickhouseType(CKNull, CKTuple, CKArray, CKInt8, CKInt16,
+                     CKString),
+      defaultClient,
+      insertMany,
+      query )
 import Test.Hspec
-import qualified Data.ByteString.Char8 as C8
+    ( hspec, describe, it, parallel, runIO, shouldBe, Spec )
 import Data.Vector (fromList)
 
 
