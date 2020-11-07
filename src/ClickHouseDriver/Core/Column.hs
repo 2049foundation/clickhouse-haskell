@@ -139,7 +139,7 @@ writeColumn ctx col_name cktype items
   | "IPv6" `isPrefixOf` cktype = writeIPv6 col_name items
   | "Date" `isPrefixOf` cktype = writeDate col_name items
   | "LowCardinality" `isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
-  | "DateTime" `isPrefixOf` cktype = writeDateTime ctx col_name cktype items
+  | "DateTime" `isPrefixOf` cktype = writeDateTime col_name cktype items
   | "Decimal" `isPrefixOf` cktype = writeDecimal col_name cktype items
   | otherwise = error ("Unknown Type in the column: " Prelude.++ C8.unpack col_name)
 ---------------------------------------------------------------------------------------------
@@ -315,8 +315,8 @@ readDateTimeWithSpec ServerInfo{timezone=maybe_zone} n_rows (Just scl) tz_name =
   toDateTimeString <- liftIO $ toDateTimeStringM
   return $ V.map CKString toDateTimeString
 
-writeDateTime :: Context->ByteString->ByteString->Vector ClickhouseType->Writer Builder
-writeDateTime ctx col_name spec items = do
+writeDateTime :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
+writeDateTime col_name spec items = do
   let (scale', spc) = readTimeSpec spec
   case scale' of
     Nothing -> do 
@@ -325,7 +325,9 @@ writeDateTime ctx col_name spec items = do
           TimeZone{timeZoneName=tz'} <- liftIO $ getCurrentTimeZone
           writeDateTimeWithSpec $ C8.pack tz'
         Just spec->writeDateTimeWithSpec spec 
-      where
+    Just _ -> do --TODO: Can someone implement this? I am so pissed off!
+      undefined
+    where
         writeDateTimeWithSpec ::ByteString->Writer Builder
         writeDateTimeWithSpec tz_name = do
           V.mapM_ (
@@ -339,8 +341,6 @@ writeDateTime ctx col_name spec items = do
                     writeBinaryInt32 converted
                   _ -> error (typeMismatchError col_name)
             ) items
-    Just scale -> do
-      undefined
 
 foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->Int->IO(CString)
 foreign import ccall unsafe "datetime.h convert_time" c_convert_time64 :: Float->CString->Int->IO(CString)
@@ -558,7 +558,7 @@ readTuple server_info n_rows spec = do
 writeTuple :: Context -> ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeTuple ctx col_name spec items = do
   let inner = BS.take (BS.length spec - 7) (BS.drop 6 spec)
-  let specarr = V.fromList $ getSpecs inner
+  let spec_arr = V.fromList $ getSpecs inner
   let transposed =
         transpose
           ( V.map
@@ -573,13 +573,13 @@ writeTuple ctx col_name spec items = do
               )
               items
           )
-  if V.length specarr /= V.length transposed
+  if V.length spec_arr /= V.length transposed
     then
       error $
         "length of the given array does not match, column name = "
           ++ show col_name
     else do
-      V.zipWithM_ (writeColumn ctx col_name) specarr transposed
+      V.zipWithM_ (writeColumn ctx col_name) spec_arr transposed
 --------------------------------------------------------------------------------------
 readEnum :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readEnum n_rows spec = do
@@ -588,17 +588,17 @@ readEnum n_rows spec = do
         if "Enum8" `isPrefixOf` spec
           then BS.take (l - 7) (BS.drop 6 spec)
           else BS.take (l - 8) (BS.drop 7 spec)
-      prespecs = getSpecs innerSpec
+      pres_pecs = getSpecs innerSpec
       specs = (\(name, Just (n, _)) -> (n, name)) <$>
-        ((\[x, y]->(x, readInt y)) . BS.splitWith (== EQUAL) <$> prespecs) --61 is '='
+        ((\[x, y]->(x, readInt y)) . BS.splitWith (== EQUAL) <$> pres_pecs) --61 is '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec
     then do
-      vals <- V.replicateM n_rows readBinaryInt8
-      return $ (CKString . (specsMap Map.!) . fromIntegral) <$> vals
+      values <- V.replicateM n_rows readBinaryInt8
+      return $ (CKString . (specsMap Map.!) . fromIntegral) <$> values
     else do
-      vals <- V.replicateM n_rows readBinaryInt16
-      return $ (CKString . (specsMap Map.!) . fromIntegral) <$> vals
+      values <- V.replicateM n_rows readBinaryInt16
+      return $ (CKString . (specsMap Map.!) . fromIntegral) <$> values
 
 writeEnum :: ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
 writeEnum col_name spec items = do
@@ -607,10 +607,10 @@ writeEnum col_name spec items = do
         if "Enum8" `isPrefixOf` spec
           then BS.take (l - 7) (BS.drop 6 spec)
           else BS.take (l - 8) (BS.drop 7 spec)
-      prespecs = getSpecs innerSpec
+      pres_pecs = getSpecs innerSpec
       specs =
         (\(name, Just (n, _)) -> (name, n))
-          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== EQUAL) . BS.filter (/=QUOTE) <$> prespecs) --61 is '='
+          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== EQUAL) . BS.filter (/=QUOTE) <$> pres_pecs) --61 is '='
       specsMap = Map.fromList specs
   V.mapM_
     ( \case
@@ -631,9 +631,9 @@ readDate :: Int->Reader(Vector ClickhouseType)
 readDate n_rows = do
   let epoch_start = fromGregorian 1970 1 1
   days <- V.replicateM n_rows readBinaryUInt16
-  let dates = fmap (\x->addDays (fromIntegral x) epoch_start) days
-      toTriple = fmap toGregorian dates
-      toCK = fmap (\(y, m, d)->CKDate y m d) toTriple
+  let dates = V.map (\x->addDays (fromIntegral x) epoch_start) days
+      toTriple = V.map toGregorian dates
+      toCK = V.map (\(y, m, d)->CKDate y m d) toTriple
   return toCK
 
 writeDate :: ByteString -> Vector ClickhouseType -> Writer Builder

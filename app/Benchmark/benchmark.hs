@@ -2,9 +2,10 @@
 module Benchmark  where
 
 import ClickHouseDriver.Core
+    ( ConnParams(password'), createClient, query )
 import Data.Default.Class (def)
-import Data.ByteString hiding (putStrLn)
-import Data.Time 
+import Data.ByteString ()
+import Data.Time ( diffUTCTime, getCurrentTime ) 
 
 benchmark1 :: IO()
 benchmark1 = do
