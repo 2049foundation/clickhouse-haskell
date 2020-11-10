@@ -295,16 +295,16 @@ instance Default QueryInfo where
   def = defaultQueryInfo
 
 storeProfile :: QueryInfo->BlockStreamProfileInfo->QueryInfo
-storeProfile (QueryInfo _ progress elapsed) newprofile 
-              = QueryInfo newprofile progress elapsed
+storeProfile (QueryInfo _ progress elapsed) new_profile 
+              = QueryInfo new_profile progress elapsed
 
 storeProgress :: QueryInfo->Progress->QueryInfo
-storeProgress (QueryInfo profile progress elapsed) newprogress 
-              = QueryInfo profile (increment progress newprogress) elapsed
+storeProgress (QueryInfo profile progress elapsed) new_progress 
+              = QueryInfo profile (increment progress new_progress) elapsed
 
 storeElasped :: QueryInfo->Word->QueryInfo
-storeElasped (QueryInfo profile progress _) newelapsed
-              = QueryInfo profile progress newelapsed
+storeElasped (QueryInfo profile progress _) new_elapsed
+              = QueryInfo profile progress new_elapsed
 
 defaultQueryInfo :: QueryInfo
 defaultQueryInfo = 
@@ -315,8 +315,8 @@ defaultQueryInfo =
   }
 -------------------------------------------------------------------------
 data CKResult = CKResult
- { query_result ::  Vector (Vector ClickhouseType),
-   query_info :: QueryInfo
+ { query_result :: Vector (Vector ClickhouseType),
+   query_info :: !QueryInfo
  }
  deriving Show
 -------------------------------------------------------------------------
