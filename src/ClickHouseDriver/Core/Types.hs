@@ -132,8 +132,8 @@ data TCPConnection = TCPConnection
     tcpPort :: {-# UNPACK #-} !ByteString,
     tcpUsername :: {-# UNPACK #-} !ByteString,
     tcpPassword :: {-# UNPACK #-} !ByteString,
-    tcpSocket :: {-# UNPACK #-}  !Socket,
-    tcpSockAdrr :: {-# UNPACK #-} !SockAddr,
+    tcpSocket :: !Socket,
+    tcpSockAdrr :: !SockAddr,
     context :: !Context,
     tcpCompression :: {-# UNPACK #-} !Word
   }
@@ -159,7 +159,7 @@ data ClientInfo = ClientInfo
     initial_query_id :: {-# UNPACK #-} !ByteString,
     initial_address :: {-# UNPACK #-} !ByteString,
     quota_key :: {-# UNPACK #-} !ByteString,
-    query_kind :: {-#UNPACK#-} ! QueryKind
+    query_kind :: QueryKind
   }
   deriving (Show)
 
@@ -263,9 +263,9 @@ data BlockStreamProfileInfo = ProfileInfo
   { number_rows :: {-# UNPACK #-} !Word,
     blocks :: {-# UNPACK #-} !Word,
     number_bytes :: {-# UNPACK #-} !Word,
-    applied_limit :: {-# UNPACK #-} !Bool,
+    applied_limit :: !Bool,
     rows_before_limit :: {-# UNPACK #-} !Word,
-    calculated_rows_before_limit :: {-# UNPACK #-} !Bool
+    calculated_rows_before_limit :: !Bool
   }
   deriving Show
 
@@ -286,8 +286,8 @@ readBlockStreamProfileInfo = do
   return $ ProfileInfo rows blocks bytes applied_limit rows_before_limit calculated_rows_before_limit
 -----------------------------------------------------------------------
 data QueryInfo = QueryInfo 
- { profile_info :: {-# UNPACK #-} !BlockStreamProfileInfo,
-   progress :: {-# UNPACK #-} !Progress,
+ { profile_info :: BlockStreamProfileInfo,
+   progress :: Progress,
    elapsed :: {-# UNPACK #-} !Word
  } deriving Show
 
@@ -316,7 +316,7 @@ defaultQueryInfo =
 -------------------------------------------------------------------------
 data CKResult = CKResult
  { query_result ::  Vector (Vector ClickhouseType),
-   query_info :: {-# UNPACK #-} !QueryInfo
+   query_info :: QueryInfo
  }
  deriving Show
 -------------------------------------------------------------------------
