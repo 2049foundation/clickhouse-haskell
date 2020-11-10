@@ -213,11 +213,11 @@ data Context = Context
   deriving Show
 
 data Packet
-  = Block {queryData :: Block}
-  | Progress {prog :: Progress}
-  | StreamProfileInfo {profile :: BlockStreamProfileInfo}
-  | MultiString (ByteString, ByteString)
-  | ErrorMessage String
+  = Block {queryData :: !Block}
+  | Progress {prog :: !Progress}
+  | StreamProfileInfo {profile :: !BlockStreamProfileInfo}
+  | MultiString !(ByteString, ByteString)
+  | ErrorMessage !String
   | Hello
   | EndOfStream
   deriving (Show)
