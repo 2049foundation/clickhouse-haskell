@@ -186,7 +186,7 @@ readIntColumn n_rows "UInt8" = V.replicateM n_rows (CKUInt8 <$> readBinaryUInt8)
 readIntColumn n_rows "UInt16" = V.replicateM n_rows (CKUInt16 <$> readBinaryUInt16)
 readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt32)
 readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
-readIntColumn _ x = error (typeMismatchError col_name ++ " got: " ++ show x)
+readIntColumn _ x = error ("expect an integer but got: " ++ show x)
 
 writeIntColumn :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
 writeIntColumn col_name spec items = do
