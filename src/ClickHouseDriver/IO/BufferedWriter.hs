@@ -73,6 +73,7 @@ instance MonoidMap Builder ByteString where
 instance (Monoid w)=>MonoidMap w w where
   transform = id
 
+-- | The writer monad writes bytestring builders and combine them as a monoid. 
 type Writer w = WriterT w IO ()
 
 writeBinaryFixedLengthStr :: (MonoidMap ByteString w)=>Word->ByteString->Writer w

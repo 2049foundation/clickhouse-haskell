@@ -151,7 +151,7 @@ class Resource a where
   client :: Either String a->IO(Env () w)
             -- ^ Either wrong message of resource with type a
 
--- | 用以提取数据的函数
+-- | fetch data
 fetchData :: State Query-> BlockedFetch Query -> IO ()
 fetchData (CKResource tcpconn)  fetch = do
   let (queryStr, var) = case fetch of

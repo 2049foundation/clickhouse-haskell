@@ -129,13 +129,20 @@ setServerInfo server_info tcp@TCPConnection{context=ctx}
 ---------------------------------------------------------
 data TCPConnection = TCPConnection
   { tcpHost :: {-# UNPACK #-} !ByteString,
+    -- ^ host name, default = "localhost" 
     tcpPort :: {-# UNPACK #-} !ByteString,
+    -- ^ port number, default = "8123"
     tcpUsername :: {-# UNPACK #-} !ByteString,
+    -- ^ username, default = "default"
     tcpPassword :: {-# UNPACK #-} !ByteString,
+    -- ^ password, dafault = ""
     tcpSocket :: !Socket,
+    -- ^ socket for communication
     tcpSockAdrr :: !SockAddr,
     context :: !Context,
+    -- ^ server and client informations
     tcpCompression :: {-# UNPACK #-} !Word
+    -- ^ should the data be compressed or not. Not applied yet. 
   }
   deriving (Show)
 

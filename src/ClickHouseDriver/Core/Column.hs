@@ -96,7 +96,13 @@ import           Control.Monad.State.Lazy           ( MonadIO(..) )
 ---------------------------------------------------------------------------------------
 ---Readers
 
-readColumn ::  ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
+readColumn ::  ServerInfo
+              -- ^ Server information is needed in case of some parameters are missing
+             ->Int 
+             -- ^ number of rows
+             ->ByteString 
+             -- ^ data type
+             ->Reader (Vector ClickhouseType)
 readColumn server_info n_rows spec
   | "String" `isPrefixOf` spec = V.replicateM n_rows (CKString <$> readBinaryStr)
   | "Array" `isPrefixOf` spec = readArray server_info n_rows spec
@@ -180,18 +186,18 @@ readIntColumn n_rows "UInt8" = V.replicateM n_rows (CKUInt8 <$> readBinaryUInt8)
 readIntColumn n_rows "UInt16" = V.replicateM n_rows (CKUInt16 <$> readBinaryUInt16)
 readIntColumn n_rows "UInt32" = V.replicateM n_rows (CKUInt32 <$> readBinaryUInt32)
 readIntColumn n_rows "UInt64" = V.replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
-readIntColumn _ _ = error "Not an integer type"
+readIntColumn _ x = error (typeMismatchError col_name ++ " got: " ++ show x)
 
 writeIntColumn :: ByteString->ByteString->Vector ClickhouseType->Writer Builder
 writeIntColumn col_name spec items = do
-  let Just (indicator, _) = readInt $ BS.drop 3 spec
+  let Just (indicator, _) = readInt $ BS.drop 3 spec -- indicator indicates which integer type, is it Int8 or Int64 etc.
   writeIntColumn' indicator col_name items
   where
     writeIntColumn' :: Int -> ByteString -> Vector ClickhouseType -> Writer Builder
     writeIntColumn' indicator col_name =
       case indicator of
         8 ->
-          V.mapM_
+          V.mapM_ -- mapM_ acts like for-loop in this context, since it repeats monadic actions. 
             ( \case
                 CKInt8 x -> writeBinaryInt8 x
                 CKNull -> writeBinaryInt8 0
@@ -256,6 +262,9 @@ writeUIntColumn col_name spec items = do
                 _ -> error (typeMismatchError col_name)
             )
 ---------------------------------------------------------------------------------------------
+-- | There are two types of Datetime
+-- DateTime(TZ) or DateTime64(precision,TZ)
+-- server information is required if TZ parameter is missing. 
 readDateTime :: ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTime server_info n_rows spec = do
   let (scale, spc) = readTimeSpec spec
@@ -438,8 +447,9 @@ writeLowCardinality ctx col_name spec items = do
                  ) items
 ---------------------------------------------------------------------------------------------------------------------------------
 {-
-          Informal description for this config:
+          Informal description (in terms of regular expression form) for this config:
           (\Null | \SOH)^{n_rows}
+          \Null means null and \SOH which equals 1 means not null. The `|` in the middle means or. 
 -}
 readNullable :: ServerInfo->Int->ByteString->Reader (Vector ClickhouseType)
 readNullable server_info n_rows spec = do
@@ -484,12 +494,37 @@ writeNullable ctx col_name spec items = do
       After sizes info comes flatten data: 3 -> 4 -> 5 -> 6
   "
       Quoted from https://github.com/mymarilyn/clickhouse-driver/blob/master/clickhouse_driver/columns/arraycolumn.py
--}
 
-readArray :: ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
+Here we dont implement in the form of BFS; instead, we use bottom up method:
+First off, we compute the array of integer in which elements represents the size of subarrays(we call them spec arrays)
+, where the function `readArraySpec`, `cut`, and `intervalize` do their jobs.
+Second, we place the array of atomic elements (or flatten data) at the last position.
+Then we cut the array of atomic elements according to the last spec array and form nested a nested array.
+Finally we pop out the last spec array.
+Repeat this process until all spec arrays are gone. 
+
+For example:
+The target array is [[3, 4], [5, 6]]
+The array on the right hand side of `|` is array of atomic elements.
+The algorithm would be like this: 
+[2] [2,2] | [3,4,5,6]
+-> [2] | [[3,4],[5,6]]
+-> [[3,4],[5,6]]
+
+For another example:
+   target [[["Alex","Bob"], ["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
+   [3] [2,2,1] [2,1,1,3,2] | ["Alex","Bob","John","Jane","Steven","Mike","Sarah","Hello","world"]
+-> [3] [2,2,1] | [["Alex","Bob"],["John"],["Jane"],["Steven","Mike","Sarah"],["Hello","world"]]
+-> [3] | [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
+-> [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
+
+-}
+readArray :: ServerInfo->Int->ByteString->Reader (Vector ClickhouseType)
 readArray server_info n_rows spec = do
   (lastSpec, x : xs) <- genSpecs spec [V.fromList [fromIntegral n_rows]]
-  let numElem = fromIntegral $ V.sum x
+  --  lastSpec which is not `Array`
+  --  x:xs is the 
+  let numElem = fromIntegral $ V.sum x -- number of elements in the nested array.
   elems <- readColumn server_info numElem lastSpec
   let result' = foldl combine elems (x : xs)
   let CKArray arr = result' ! 0
@@ -498,11 +533,11 @@ readArray server_info n_rows spec = do
     combine :: Vector ClickhouseType -> Vector Word64 -> Vector ClickhouseType
     combine elems config =
       let intervals = intervalize (fromIntegral <$> config)
-          cut (a, b) = CKArray $ V.take b (V.drop a elems)
+          cut (a, b) = CKArray $ V.take b (V.drop a elems) -- cut element array
           embed = (\(l, r) -> cut (l, r - l + 1)) <$> intervals
        in embed
-    intervalize :: Vector Int -> Vector (Int, Int)
-    intervalize vec = V.drop 1 $ V.scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) vec
+    intervalize :: Vector Int -> Vector (Int, Int) 
+    intervalize vec = V.drop 1 $ V.scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) vec -- drop the first tuple (-1,-1)
 
 readArraySpec :: Vector Word64 -> Reader (Vector Word64)
 readArraySpec sizeArr = do
@@ -549,7 +584,7 @@ writeArray ctx col_name spec items = do
 readTuple :: ServerInfo->Int->ByteString->Reader (Vector ClickhouseType)
 readTuple server_info n_rows spec = do
   let l = BS.length spec
-  let innerSpecString = BS.take(l - 7) (BS.drop 6 spec)
+  let innerSpecString = BS.take(l - 7) (BS.drop 6 spec) -- Tuple(...) the dots represent innerSpecString
   let arr = V.fromList (getSpecs innerSpecString)
   datas <- V.mapM (readColumn server_info n_rows) arr
   let transposed = transpose datas
@@ -587,10 +622,10 @@ readEnum n_rows spec = do
       innerSpec =
         if "Enum8" `isPrefixOf` spec
           then BS.take (l - 7) (BS.drop 6 spec)
-          else BS.take (l - 8) (BS.drop 7 spec)
+          else BS.take (l - 8) (BS.drop 7 spec) -- otherwise it is `Enum16`
       pres_pecs = getSpecs innerSpec
       specs = (\(name, Just (n, _)) -> (n, name)) <$>
-        ((\[x, y]->(x, readInt y)) . BS.splitWith (== EQUAL) <$> pres_pecs) --61 is '='
+        ((\[x, y]->(x, readInt y)) . BS.splitWith (== EQUAL) <$> pres_pecs) --61 means '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec
     then do
