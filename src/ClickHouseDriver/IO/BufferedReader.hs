@@ -43,22 +43,26 @@ import Foreign.C ( CString )
 import qualified Network.Simple.TCP       as TCP
 import Network.Socket ( Socket )
 
+-- | Buffer is for receiving data from TCP stream. Whenever all bytes are read, it automatically
+-- refill from the stream.
 data Buffer = Buffer {
   bufSize :: !Int,
   bytesData :: ByteString,
   socket :: Maybe Socket
 }
 
+-- | create buffer with size and socket.
 createBuffer :: Int->Socket->IO Buffer
 createBuffer size sock = do
-  receive <- TCP.recv sock size
+  receive <- TCP.recv sock size -- receive data
   return Buffer{
-    bufSize = size,
-    bytesData = if isNothing receive then "" else fromJust receive,
+    bufSize = size, -- set the size 
+    bytesData = if isNothing receive then "" else fromJust receive, 
     socket = Just sock
   }
 
-refill :: Buffer->IO Buffer
+-- | refill buffer from stream
+refill :: Buffer->IO Buffer 
 refill Buffer{socket = Just sock, bufSize = size} = do
   newData' <- TCP.recv sock size
   let newBuffer = case newData' of
@@ -73,7 +77,12 @@ refill Buffer{socket=Nothing} = error "empty socket"
 
 type Reader a = StateT Buffer IO a
 
-readBinaryStrWithLength' :: Int -> Buffer -> IO (ByteString, Buffer)
+readBinaryStrWithLength' :: Int
+                         -- ^ length of string
+                         -> Buffer
+                         -- ^ buffer to read
+                         -> IO (ByteString, Buffer)
+                         -- ^ (the string read from buffer, buffer after reading)
 readBinaryStrWithLength' n buf@Buffer{bufSize=size, bytesData=str, socket=sock} = do
   let l = BS.length str
   let (part, tail) = BS.splitAt n str
@@ -85,7 +94,10 @@ readBinaryStrWithLength' n buf@Buffer{bufSize=size, bytesData=str, socket=sock} 
     else do
       return (part, Buffer size tail sock)
 
-readVarInt' :: Buffer -> IO (Word, Buffer)
+readVarInt' :: Buffer
+              -- ^ buffer to be read
+            -> IO (Word, Buffer)
+              -- ^ (the word read from buffer, the buffer after reading)
 readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
   let l = fromIntegral $ BS.length str
   skip <- UBS.unsafeUseAsCString str (\x -> c_count x l)
@@ -103,13 +115,20 @@ readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
       let tail = BS.drop (fromIntegral skip) str
       return (varint, Buffer size tail sock)
 
-readBinaryStr' :: Buffer -> IO (ByteString, Buffer)
+-- | read binary string from buffer.
+-- It first read the integer(n) in front of the desired string,
+-- then it read n bytes to capture the whole string.
+readBinaryStr' :: Buffer 
+               -- ^ Buffer to be read
+               -> IO (ByteString, Buffer)
+               -- ^ (the string read from Buffer, the buffer after reading)
 readBinaryStr' str = do
-  (len, tail) <- readVarInt' str
+  (len, tail) <- readVarInt' str -- 
   (head, tail') <- readBinaryStrWithLength' (fromIntegral len) tail
   
   return (head, tail')
 
+-- | read n bytes and then transform into a binary type such as bytestring, Int8, UInt16 etc.
 readBinaryHelper :: Binary a => Int -> Buffer -> IO (a, Buffer)
 readBinaryHelper fmt str = do
   (cut, tail) <- readBinaryStrWithLength' fmt str
@@ -188,6 +207,8 @@ readBinaryUInt128 = do
   lo <- readBinaryUInt64
   return $ Word128 hi lo
 
+-- | read bytes in the little endian format and transform into integer, see CBits/varuint.c
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO Word
 
+-- | Helper of c_read_varint. it counts how many bits it needs to read.   
 foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word

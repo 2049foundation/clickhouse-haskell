@@ -1,3 +1,11 @@
+-- Copyright (c) 2014-present, EMQX, Inc.
+-- All rights reserved.
+--
+-- This source code is distributed under the terms of a MIT license,
+-- found in the LICENSE file.
+---------------------------------------------------------------------------
+-- This file contains the details of handling error message from server. 
+
 {-# LANGUAGE OverloadedStrings #-}
 module ClickHouseDriver.Core.Error where
 

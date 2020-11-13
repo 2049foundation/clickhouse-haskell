@@ -197,6 +197,7 @@ setClientSetting client_setting tcp@TCPConnection{context=ctx}
 
 writeSettings :: ClientSetting->Writer Builder
 writeSettings ClientSetting{insert_block_size,strings_as_bytes,strings_encoding} = do
+  let is_important = 0
   writeVarUInt insert_block_size
 -------------------------------------------------------------------
 data Interface = TCP | HTTP
