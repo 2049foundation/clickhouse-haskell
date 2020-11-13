@@ -3,7 +3,8 @@
 --
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
-
+-------------------------------------------------------------------------------
+-- This module provides implementation of Connection pool for TCP network
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module ClickHouseDriver.Core.Pool 

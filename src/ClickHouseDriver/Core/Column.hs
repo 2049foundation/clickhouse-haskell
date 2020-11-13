@@ -4,7 +4,7 @@
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
 -----------------------------------------------------------------------------
--- This module is for serialize and deserialize data types
+-- This module is for serializing and deserializing data types
 
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE CPP                 #-}

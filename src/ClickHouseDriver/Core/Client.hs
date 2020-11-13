@@ -3,6 +3,8 @@
 --
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
+----------------------------------------------------------------------------
+-- This module provides implementation of user's API
 
 {-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE CPP                        #-}
