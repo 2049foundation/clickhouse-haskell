@@ -4,7 +4,6 @@
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
 ----------------------------------------------------------------------------
--- This module provides implementation of user's API
 
 {-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE CPP                        #-}
@@ -21,13 +20,14 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 
+-- | This module provides implementation of user's API
+--
+
 module ClickHouseDriver.Core.Client
-  ( query,
+  ( -- * Data Fetch and Insert
+    query,
     queryWithInfo,
     deploySettings,
-    client,
-    defaultClient,
-    closeClient,
     insertMany,
     insertOneRow,
     ping,
@@ -35,6 +35,11 @@ module ClickHouseDriver.Core.Client
     ClickHouseDriver.Core.Client.fetch,
     fetchWithInfo,
     execute,
+    -- * Communication
+    client,
+    defaultClient,
+    closeClient,
+    -- * Connection pool
     defaultClientPool,
     createClient,
     createClientPool

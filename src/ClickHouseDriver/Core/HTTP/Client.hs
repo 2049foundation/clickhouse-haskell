@@ -8,18 +8,21 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP  #-}
 
+-- | This module provides implementation of user's API
+
 module ClickHouseDriver.Core.HTTP.Client
-  ( setupEnv,
+  ( 
+    -- * Setting
+    setupEnv,
     runQuery,
+    -- * Query
     getByteString,
     getJSON,
     getText,
@@ -28,10 +31,11 @@ module ClickHouseDriver.Core.HTTP.Client
     insertOneRow,
     insertMany,
     ping,
+    exec,
     insertFromFile,
+    -- * Connection
     defaultHttpClient,
     httpClient,
-    exec,
     defaultHttpPool
   )
 where

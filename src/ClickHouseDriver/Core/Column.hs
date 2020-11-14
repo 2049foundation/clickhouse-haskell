@@ -3,14 +3,13 @@
 --
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
------------------------------------------------------------------------------
--- This module is for serializing and deserializing data types
-
+-------------------------------------------------------------------------
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module ClickHouseDriver.Core.Column(
   readColumn,
   ClickhouseType(..),
@@ -61,14 +60,14 @@ import qualified Data.ByteString.Char8              as C8
 import qualified Data.HashMap.Strict                as Map
 import Data.Int ( Int64, Int32)
 import qualified Data.List                          as List
-import           Data.Maybe                         (fromJust)
+import           Data.Maybe                         (fromJust, fromMaybe)
 import           Data.Time                          (addDays, diffDays,
                                                      fromGregorian, toGregorian, 
                                                      getCurrentTimeZone, TimeZone(..))
 import           Data.UUID                          as UUID (fromString,
                                                              fromWords,
                                                              toString, toWords)
-import Data.Hashable ( Hashable(hash) )
+import           Data.Hashable                      ( Hashable(hash) )
 import           Data.Vector                        (Vector, (!))
 
 import qualified Data.Vector                        as V (cons, drop, foldl',
@@ -84,8 +83,7 @@ import           Network.IP.Addr                    (IP4 (..), IP6 (..),
 import           Foreign.C                          ( CString )
 import           Data.ByteString.Unsafe             ( unsafePackCString,
                                                       unsafeUseAsCStringLen)
-import           Control.Monad.State.Lazy           ( MonadIO(..) )          
-import Data.Maybe ( fromMaybe )                                         
+import           Control.Monad.State.Lazy           ( MonadIO(..) )                                               
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32

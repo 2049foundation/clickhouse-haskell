@@ -40,6 +40,12 @@ import           Data.Bits
 import           Haxl.Core hiding (fetch)
 import           Data.Default.Class (def)
 import           Data.Time
+import ClickHouseDriver.Core.Types
+    ( ConnParams(password'),
+      TCPConnection(TCPConnection, tcpSocket),
+      ClickhouseType(CKArray, CKInt8, CKTuple, CKNull, CKInt16, CKString,
+                     CKInt32) )
+import ClickHouseDriver.Core.Connection ( sendData, sendQuery )
 
 main :: IO ()
 main = deci

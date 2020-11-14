@@ -7,6 +7,11 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric     #-}
+
+-- | Implementation of data types for internal use  Most users should
+-- import "ClickHouseDriver.Core" instead.
+--
+
 module ClickHouseDriver.Core.Types
   ( ServerInfo (..),
     TCPConnection (..),
