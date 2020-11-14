@@ -84,7 +84,8 @@ import           Network.IP.Addr                    (IP4 (..), IP6 (..),
 import           Foreign.C                          ( CString )
 import           Data.ByteString.Unsafe             ( unsafePackCString,
                                                       unsafeUseAsCStringLen)
-import           Control.Monad.State.Lazy           ( MonadIO(..) )                                                   
+import           Control.Monad.State.Lazy           ( MonadIO(..) )          
+import Data.Maybe ( fromMaybe )                                         
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32
@@ -290,16 +291,13 @@ readDateTimeWithSpec ServerInfo{timezone=maybe_zone} n_rows Nothing tz_name = do
   data32 <- readIntColumn n_rows "Int32"
   let tz_to_send = if tz_name /= "" 
         then "TZ=" <> tz_name 
-        else case maybe_zone of
-          Just zone->zone
-          Nothing -> ""
+        else fromMaybe "" maybe_zone
   let toDateTimeStringM =
         V.mapM
           ( \(CKInt32 x) -> do
               c_str <- unsafeUseAsCStringLen
-                (tz_to_send) (\(str, l)->c_convert_time (fromIntegral x) str l)
-              res <- unsafePackCString c_str
-              return res
+                tz_to_send (uncurry (c_convert_time (fromIntegral x)))
+              unsafePackCString c_str
           )
           data32
   toDateTimeString <- liftIO $ toDateTimeStringM
@@ -309,16 +307,13 @@ readDateTimeWithSpec ServerInfo{timezone=maybe_zone} n_rows (Just scl) tz_name =
   let scale = 10 ^ fromIntegral scl
   let tz_to_send = if tz_name /= "" 
         then "TZ=" <> tz_name 
-        else case maybe_zone of
-          Just zone->zone
-          Nothing -> ""
+        else fromMaybe "" maybe_zone
   let toDateTimeStringM =
         V.mapM
           ( \(CKInt64 x) ->do
               c_str <- unsafeUseAsCStringLen
-                (tz_to_send) (\(str, l)->c_convert_time64 ((fromIntegral x) / scale) str l)
-              res <- unsafePackCString c_str
-              return res
+                tz_to_send (uncurry (c_convert_time64 ((fromIntegral x) / scale)))
+              unsafePackCString c_str
           )
           data64
   toDateTimeString <- liftIO $ toDateTimeStringM
@@ -351,10 +346,10 @@ writeDateTime col_name spec items = do
                   _ -> error (typeMismatchError col_name)
             ) items
 
-foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->Int->IO(CString)
-foreign import ccall unsafe "datetime.h convert_time" c_convert_time64 :: Float->CString->Int->IO(CString)
-foreign import ccall unsafe "datetime.h parse_time" c_write_time :: CString->CString->Int->Int->IO(Int32)
-foreign import ccall unsafe "datetime.h convert_time_from_int32" convert_time_from_int32 :: Int32->IO(Int32)
+foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64->CString->Int->IO CString
+foreign import ccall unsafe "datetime.h convert_time" c_convert_time64 :: Float->CString->Int->IO CString
+foreign import ccall unsafe "datetime.h parse_time" c_write_time :: CString->CString->Int->Int->IO Int32
+foreign import ccall unsafe "datetime.h convert_time_from_int32" convert_time_from_int32 :: Int32->IO Int32
 ------------------------------------------------------------------------------------------------
 readLowCardinality :: ServerInfo->Int -> ByteString -> Reader (Vector ClickhouseType)
 readLowCardinality _ 0 _ = return (V.fromList [])
@@ -378,7 +373,7 @@ readLowCardinality server_info n spec = do
     then do
       let nullable = fmap (\k -> if k == 0 then CKNull else index ! k) keys
       return nullable
-    else return $ fmap (\k -> index ! k) keys
+    else return $ fmap (index !) keys
   where
     stripNullable :: ByteString -> ByteString
     stripNullable spec
@@ -391,16 +386,17 @@ writeLowCardinality ctx col_name spec items = do
   let inner = BS.take (BS.length spec - 16) (BS.drop 15 spec)
   (keys, index) <- if "Nullable" `isPrefixOf` inner
         then do
-          let null_inner_spec = BS.take (BS.length inner - 10) (BS.drop 9 spec)
+          --let null_inner_spec = BS.take (BS.length inner - 10) (BS.drop 9 spec)
           let hashedItem = hashItems True items
-          let key_by_index_element = V.foldl' (\m x ->insertKeys m x) Map.empty hashedItem
+          let key_by_index_element = V.foldl' insertKeys Map.empty hashedItem
           let keys = V.map (\k->key_by_index_element Map.! k + 1) hashedItem
+          -- First element is NULL if column is nullable
           let index = V.fromList $  0 : (Map.keys $ key_by_index_element)
           return (keys, index)
         else do
           let hashedItem = hashItems False items
-          let key_by_index_element = V.foldl' (\m x ->insertKeys m x) Map.empty hashedItem
-          let keys = V.map (\k->key_by_index_element Map.! k) hashedItem
+          let key_by_index_element = V.foldl' insertKeys Map.empty hashedItem
+          let keys = V.map (key_by_index_element Map.!) hashedItem
           let index = V.fromList $ Map.keys $ key_by_index_element
           return (keys, index)
   if V.length index == 0
