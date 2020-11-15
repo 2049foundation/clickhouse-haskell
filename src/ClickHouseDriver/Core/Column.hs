@@ -398,11 +398,11 @@ writeDateTime col_name spec items = do
               converted <-
                 liftIO $
                   unsafeUseAsCStringLen
-                    (tz_name)
+                    tz_name
                     ( \(tz, l) ->
                         unsafeUseAsCStringLen
-                          (time_str)
-                          (\(tstr, l2) -> c_write_time tstr tz l l2)
+                          time_str
+                          (\(time_str, l2) -> c_write_time time_str tz l l2)
                     )
               writeBinaryInt32 converted
             _ -> error (typeMismatchError col_name)
@@ -958,23 +958,22 @@ getSpecs :: ByteString -> [ByteString]
 getSpecs str = BS.splitWith (== COMMA) (BS.filter (/= SPACE) str)
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
-transpose cdata =
-  rotate cdata
+transpose = rotate 
   where
     rotate matrix =
       let transposedList = List.transpose (V.toList <$> V.toList matrix)
-          toVector = V.fromList <$> (V.fromList transposedList)
+          toVector = V.fromList <$> V.fromList transposedList
        in toVector
 
 typeMismatchError :: ByteString -> String
-typeMismatchError col_name = "Type mismatch in the column " ++ (show col_name)
+typeMismatchError col_name = "Type mismatch in the column " ++ show col_name
 
 -- | print in format
 putStrLn :: Vector (Vector ClickhouseType) -> IO ()
-putStrLn v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map tostr v
+putStrLn v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map to_str v
   where
-    tostr :: Vector ClickhouseType -> ByteString
-    tostr row = BS.intercalate "," $ V.toList $ V.map help row
+    to_str :: Vector ClickhouseType -> ByteString
+    to_str row = BS.intercalate "," $ V.toList $ V.map help row
 
     help :: ClickhouseType -> ByteString
     help (CKString s) = s
@@ -989,8 +988,8 @@ putStrLn v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map tostr v
     help (CKUInt16 n) = C8.pack $ show n
     help (CKUInt32 n) = C8.pack $ show n
     help (CKUInt64 n) = C8.pack $ show n
-    help (CKTuple xs) = "(" <> tostr xs <> ")"
-    help (CKArray xs) = "[" <> tostr xs <> "]"
+    help (CKTuple xs) = "(" <> to_str xs <> ")"
+    help (CKArray xs) = "[" <> to_str xs <> "]"
     help  CKNull = "null"
     help (CKIPv4 ip4) = C8.pack $ show ip4
     help (CKIPv6 ip6) = C8.pack $ show ip6
