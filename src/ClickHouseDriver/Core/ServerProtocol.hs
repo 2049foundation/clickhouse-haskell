@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | This module provides constants the
+
 module ClickHouseDriver.Core.ServerProtocol where
 
 import           Data.ByteString (ByteString)

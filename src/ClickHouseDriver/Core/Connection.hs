@@ -347,8 +347,8 @@ receiveData info@ServerInfo {revision = revision} = do
     if revision >= _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES
       then readBinaryStr
       else return ""
-  block <- Block.readBlockInputStream info
-  return block
+  Block.readBlockInputStream info
+
 
 receiveResult :: ServerInfo->QueryInfo->Reader (Either String CKResult) --TODO Change to either.
 receiveResult info query_info = do

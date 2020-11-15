@@ -5,6 +5,7 @@
 -- found in the LICENSE file.
 ---------------------------------------------------------------------------
 -- This file contains the details of handling error messages from server.
+-- For internal use only
 {-# LANGUAGE OverloadedStrings #-}
 
 module ClickHouseDriver.Core.Error

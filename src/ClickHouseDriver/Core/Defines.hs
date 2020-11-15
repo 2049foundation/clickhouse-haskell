@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | This module defines constants for internal use. 
+
 module ClickHouseDriver.Core.Defines where
 
 import           Data.ByteString.Internal

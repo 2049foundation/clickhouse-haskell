@@ -159,7 +159,7 @@ class Resource a where
             -- ^ Either wrong message of resource with type a
 
 -- | fetch data
-fetchData :: State Query-> BlockedFetch Query -> IO ()
+fetchData :: State Query->BlockedFetch Query->IO ()
 fetchData (CKResource tcpconn)  fetch = do
   let (queryStr, var) = case fetch of
         BlockedFetch (FetchData q) var' -> (C8.pack q, var')
@@ -259,7 +259,10 @@ fetchWithInfo :: String->GenHaxl u w (Either String CKResult)
 fetchWithInfo = dataFetch . FetchData
 
 -- | fetch data only
-fetch :: String->GenHaxl u w (Either String (Vector (Vector ClickhouseType)))
+fetch :: String
+        -- ^ SQL SELECT command
+       ->GenHaxl u w (Either String (Vector (Vector ClickhouseType)))
+        -- ^ result wrapped in Haxl monad for other tasks run with concurrency.
 fetch str = do
   result_with_info <- fetchWithInfo str
   case result_with_info of
@@ -310,7 +313,13 @@ insertMany source cmd items = do
       withResource pool $ \tcp->do
         processInsertQuery tcp (C8.pack cmd) Nothing items
 
-insertOneRow :: Env () w->String->[ClickhouseType]->IO(BS.ByteString)
+insertOneRow :: Env () w
+              ->String
+              -- ^ SQL command
+              ->[ClickhouseType]
+              -- ^ a row of local clickhouse data type to be serialize and insert. 
+              ->IO(BS.ByteString)
+              -- ^ The result bytestring indicate success or failure.
 insertOneRow source cmd items = insertMany source cmd [items]
 
 -- | ping pong 

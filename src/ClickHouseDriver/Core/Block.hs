@@ -7,7 +7,9 @@
 
 {-# LANGUAGE FlexibleContexts #-}
 
--- | This module provides functions for handling data streaming communications. 
+-- | This module provides functions for handling data streaming communications.
+--   For internal use only.
+-- 
 
 module ClickHouseDriver.Core.Block
   ( BlockInfo (..),

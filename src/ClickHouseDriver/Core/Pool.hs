@@ -38,10 +38,15 @@ instance Default ConnParams where
       ,database'    = _DEFAULT_DATABASE
     }
 
+-- | Create connection pool
 createConnectionPool :: ConnParams
+                      -- ^ parameters for basic connection. 
                       ->Int
+                      -- ^ number of stripes
                       ->NominalDiffTime
+                      -- ^ idleTime for each resource when not using.
                       ->Int
+                      -- ^ maximum number of resources.
                       ->IO (Pool TCPConnection)
 createConnectionPool
   ConnParams
