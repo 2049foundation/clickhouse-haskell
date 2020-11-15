@@ -10,7 +10,7 @@
 {-# LANGUAGE MultiParamTypeClasses    #-}
 {-# LANGUAGE OverloadedStrings        #-}
 
--- | Tools to serialize data sent to server. This module is for internal use only.
+-- | Tools to serialize data sent server. This module is for internal use only.
 
 module ClickHouseDriver.IO.BufferedWriter
   ( writeBinaryStr,
@@ -47,7 +47,6 @@ import Data.ByteString.Unsafe
 import           Data.DoubleWord              (Word128 (..))
 import Data.Int ( Int8, Int16, Int32, Int64 )
 import Data.Word ( Word8, Word16, Word32, Word64 )
-import Data.Word8 ()
 import Foreign.C ( CString )
 
 -- Monoid Homomorphism.
@@ -81,7 +80,7 @@ type Writer w = WriterT w IO ()
 writeBinaryFixedLengthStr :: (MonoidMap ByteString w)=>Word->ByteString->Writer w
 writeBinaryFixedLengthStr len str = do
   let l = fromIntegral $ BS.length str
-  if (len /= l) 
+  if len /= l
     then error "Error: the length of the given bytestring does not equal to the given length"
     else do
       writeIn str
@@ -100,12 +99,10 @@ writeVarUInt n = do
       leb128 :: Word->IO ByteString
       leb128 0 = do
         ostr' <- c_write_varint 0
-        ostr <- unsafePackCStringLen (ostr', 1)
-        return ostr
+        unsafePackCStringLen (ostr', 1)
       leb128 n = do
         ostr' <- c_write_varint n
-        ostr <- unsafePackCString ostr'
-        return ostr
+        unsafePackCString ostr'
 
 writeBinaryUInt8 :: (MonoidMap L.ByteString w)=>Word8->Writer w
 writeBinaryUInt8 = tell . transform . L.reverse . Binary.encode

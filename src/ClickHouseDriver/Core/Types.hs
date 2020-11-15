@@ -44,8 +44,7 @@ module ClickHouseDriver.Core.Types
     ConnParams(..),
     setClientInfo,
     setClientSetting,
-    setServerInfo,
-    writeSettings
+    setServerInfo
   )
 where
 
@@ -53,7 +52,7 @@ import qualified ClickHouseDriver.Core.Defines      as Defines
 import ClickHouseDriver.IO.BufferedReader
     ( Reader, readVarInt, readBinaryUInt8 )
 import ClickHouseDriver.IO.BufferedWriter
-    ( Writer, writeVarUInt, writeBinaryUInt8, writeBinaryInt32, writeBinaryStr )
+    ( Writer, writeVarUInt, writeBinaryUInt8, writeBinaryInt32)
 import           Data.ByteString                    (ByteString)
 import Data.ByteString.Builder ( Builder )
 import Data.Default.Class ( Default(..) )
@@ -207,12 +206,6 @@ setClientSetting :: Maybe ClientSetting->TCPConnection->TCPConnection
 setClientSetting client_setting tcp@TCPConnection{context=ctx} 
   = tcp{context=ctx{client_setting=client_setting}}
 
-writeSettings :: ClientSetting->Writer Builder
-writeSettings ClientSetting{insert_block_size,strings_as_bytes,strings_encoding} = do
-  let is_important = 0
-  writeVarUInt insert_block_size
-  writeBinaryStr ""
-  
 -------------------------------------------------------------------
 data Interface = TCP | HTTP
   deriving (Show, Eq)
