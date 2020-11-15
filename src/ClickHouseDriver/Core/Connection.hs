@@ -11,9 +11,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE BlockArguments #-}
 
--- | This module contains the implementations of communication with Clickhouse server
---   most of functions are for internal use. 
---   user should just use ClickHouseDriver.Core
+-- | This module contains the implementations of communication with Clickhouse server.
+--   Most of functions are for internal use. 
+--   User should just use ClickHouseDriver.Core.
 --
 
 module ClickHouseDriver.Core.Connection
@@ -188,10 +188,11 @@ sendHello (database, username, password) sock = do
       writeBinaryStr username
       writeBinaryStr password
 
--- | receive hello
+-- | receive server information if connection is successful, otherwise it would receive error message.
 receiveHello :: Buffer
               -- ^ Read `Hello` response from server
               ->IO (Either ByteString ServerInfo)
+              -- ^ Either error message or server information will be received.
 receiveHello buf = do
   (res, _) <- runStateT receiveHello' buf
   return res
@@ -350,6 +351,7 @@ sendData TCPConnection {tcpSocket = sock, context = ctx} table_name maybe_block 
         Block.writeBlockOutputStream ctx block
   TCP.sendLazy sock $ toLazyByteString r
 
+-- | Cancel last query sent to server
 sendCancel :: TCPConnection -> IO ()
 sendCancel TCPConnection {tcpSocket = sock} = do
   c <- execWriterT $ writeVarUInt Client._CANCEL
@@ -423,7 +425,12 @@ receiveData info@ServerInfo {revision = revision} = do
   Block.readBlockInputStream info
 
 -- | Transform received query data into Clickhouse type
-receiveResult :: ServerInfo -> QueryInfo -> Reader (Either String CKResult) --TODO Change to either.
+receiveResult :: ServerInfo
+                -- ^ Server information
+              -> QueryInfo
+               -- ^ Query information
+              -> Reader (Either String CKResult) --TODO Change to either.
+              -- ^ Receive either error message or query result.
 receiveResult info query_info = do
   packets <- packetGen
   let onlyDataPacket = filter isBlock packets

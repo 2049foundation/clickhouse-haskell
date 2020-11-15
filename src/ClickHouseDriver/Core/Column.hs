@@ -570,8 +570,8 @@ writeNullable ctx col_name spec items = do
   "
       Quoted from https://github.com/mymarilyn/clickhouse-driver/blob/master/clickhouse_driver/columns/arraycolumn.py
 
-Here we dont implement in the form of BFS; instead, we use bottom up method:
-First off, we compute the array of integer in which elements represent the size of subarrays(we call them spec arrays)
+Here we don't implement in the form of BFS; instead, we use bottom up method:
+First off, we compute the array of integer in which elements represent the size of subarrays (we call them spec arrays)
 , where the function `readArraySpec`, `cut`, and `intervalize` do their jobs.
 Second, we place the array of atomic elements (or flatten data) at the last position.
 Then we cut the array of atomic elements according to the last spec array and form nested a nested array.
