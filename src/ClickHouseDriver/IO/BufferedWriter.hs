@@ -10,6 +10,8 @@
 {-# LANGUAGE MultiParamTypeClasses    #-}
 {-# LANGUAGE OverloadedStrings        #-}
 
+-- | Tools to serialize data sent to server. This module is for internal use only.
+
 module ClickHouseDriver.IO.BufferedWriter
   ( writeBinaryStr,
     writeBinaryFixedLengthStr,

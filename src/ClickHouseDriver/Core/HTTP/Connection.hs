@@ -7,6 +7,8 @@
 {-# LANGUAGE CPP  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Connection pool for HTTP connection. User should import ClickHouseDriver.Core.HTTP instead
+
 module ClickHouseDriver.Core.HTTP.Connection (
     httpConnect,
     httpConnectDb,
@@ -54,17 +56,11 @@ createHttpPool HttpParams{
                 httpUsername = user,
                 httpDatabase = db
               } 
-               numStripes 
-               idleTime 
-               maxResources 
   = createPool(
       do
-        conn <- httpConnectDb user password port host db
-        return conn
-  )(\HttpConnection{httpManager=mng}->return ())
-  numStripes 
-  idleTime 
-  maxResources 
+        httpConnectDb user password port host db
+  )(\_->return ())
+
 
 httpConnect :: String->String->Int->String->IO(HttpConnection)
 httpConnect user password port host = 

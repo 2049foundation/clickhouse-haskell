@@ -1,8 +1,5 @@
--- | Copyright (c) 2014-present, EMQX, Inc.
--- All rights reserved.
---
--- This source code is distributed under the terms of a MIT license,
--- found in the LICENSE file.
+-- | Definition of types
+
 module ClickHouseDriver.Core.HTTP.Types
   ( JSONResult (..),
     Cmd,

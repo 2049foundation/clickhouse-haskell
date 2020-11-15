@@ -7,6 +7,8 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings        #-}
 
+-- | Tools to analyze protocol and deserialize data sent from server. This module is for internal use only.
+
 module ClickHouseDriver.IO.BufferedReader
   ( readBinaryStrWithLength,
     readVarInt',

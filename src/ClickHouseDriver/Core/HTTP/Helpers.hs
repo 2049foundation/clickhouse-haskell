@@ -5,7 +5,8 @@
 -- found in the LICENSE file.
 
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+
+-- | Miscellaneous helper functions. User should not import it. 
 
 module ClickHouseDriver.Core.HTTP.Helpers
   ( extract,
