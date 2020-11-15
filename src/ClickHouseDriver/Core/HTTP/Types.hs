@@ -30,15 +30,17 @@ data Format = CSV | JSON | TUPLE
 data HttpParams 
   = HttpParams
       {
-        httpHost :: {-# UNPACK #-}     !String,
-        httpPort :: {-# UNPACK #-}     !Int,
-        httpUsername :: {-# UNPACK #-}  !String,
-        httpPassword :: {-# UNPACK #-} !String,
-        httpDatabase :: {-# UNPACK #-} !(Maybe String)
+        httpHost :: !String,
+        httpPort :: {-# UNPACK #-}  !Int,
+        httpUsername :: !String,
+        httpPassword :: !String,
+        httpDatabase :: Maybe String
       }
 
 data HttpConnection
   = HttpConnection
-      { httpParams :: ! HttpParams,
-        httpManager ::  {-# UNPACK #-} !Manager
+      { httpParams :: !HttpParams,
+        -- ^ basic parameters
+        httpManager ::  !Manager
+        -- ^ http manager 
       }

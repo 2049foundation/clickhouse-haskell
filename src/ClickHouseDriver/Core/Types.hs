@@ -53,7 +53,7 @@ import qualified ClickHouseDriver.Core.Defines      as Defines
 import ClickHouseDriver.IO.BufferedReader
     ( Reader, readVarInt, readBinaryUInt8 )
 import ClickHouseDriver.IO.BufferedWriter
-    ( Writer, writeVarUInt, writeBinaryUInt8, writeBinaryInt32 )
+    ( Writer, writeVarUInt, writeBinaryUInt8, writeBinaryInt32, writeBinaryStr )
 import           Data.ByteString                    (ByteString)
 import Data.ByteString.Builder ( Builder )
 import Data.Default.Class ( Default(..) )
@@ -211,6 +211,8 @@ writeSettings :: ClientSetting->Writer Builder
 writeSettings ClientSetting{insert_block_size,strings_as_bytes,strings_encoding} = do
   let is_important = 0
   writeVarUInt insert_block_size
+  writeBinaryStr ""
+  
 -------------------------------------------------------------------
 data Interface = TCP | HTTP
   deriving (Show, Eq)

@@ -429,7 +429,7 @@ receiveResult :: ServerInfo
                 -- ^ Server information
               -> QueryInfo
                -- ^ Query information
-              -> Reader (Either String CKResult) --TODO Change to either.
+              -> Reader (Either String CKResult)
               -- ^ Receive either error message or query result.
 receiveResult info query_info = do
   packets <- packetGen
