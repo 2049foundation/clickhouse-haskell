@@ -424,6 +424,7 @@ receiveData info@ServerInfo {revision = revision} = do
       else return ""
   Block.readBlockInputStream info
 
+
 -- | Transform received query data into Clickhouse type
 receiveResult :: ServerInfo
                 -- ^ Server information

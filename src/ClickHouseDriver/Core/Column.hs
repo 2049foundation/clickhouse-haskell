@@ -116,7 +116,6 @@ import Network.IP.Addr
     ip6FromWords,
     ip6ToWords,
   )
-
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32
@@ -127,7 +126,6 @@ import Network.IP.Addr
 -- Notice: Codes in this file might be difficult to read.
 ---------------------------------------------------------------------------------------
 ---Readers
-
 readColumn ::
   -- | Server information is needed in case of some parameters are missing
   ServerInfo ->
@@ -183,7 +181,6 @@ writeColumn ctx col_name cktype items
   | "DateTime" `isPrefixOf` cktype = writeDateTime col_name cktype items
   | "Decimal" `isPrefixOf` cktype = writeDecimal col_name cktype items
   | otherwise = error ("Unknown Type in the column: " Prelude.++ C8.unpack col_name)
-
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> ByteString -> Reader (Vector ClickhouseType)
 readFixed n_rows spec = do
@@ -307,6 +304,7 @@ writeUIntColumn col_name spec items = do
             )
 
 ---------------------------------------------------------------------------------------------
+
 {-
   There are two types of Datetime
   DateTime(TZ) or DateTime64(precision,TZ)
@@ -318,7 +316,7 @@ readDateTime server_info n_rows spec = do
   case spc of
     Nothing -> readDateTimeWithSpec server_info n_rows scale ""
     Just tz_name -> readDateTimeWithSpec server_info n_rows scale tz_name
-
+    
 readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
 readTimeSpec spec'
   | "DateTime64" `isPrefixOf` spec' = do
@@ -333,7 +331,7 @@ readTimeSpec spec'
     let l = BS.length spec'
     let inner_specs = BS.take (l - 12) (BS.drop 10 spec')
     (Nothing, Just inner_specs)
-
+    
 readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows Nothing tz_name = do
   data32 <- readIntColumn n_rows "Int32"
@@ -353,6 +351,7 @@ readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows Nothing tz_name =
           data32
   toDateTimeString <- liftIO $ toDateTimeStringM
   return $ V.map CKString toDateTimeString
+
 readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows (Just scl) tz_name = do
   data64 <- readIntColumn n_rows "Int64"
   let scale = 10 ^ fromIntegral scl
@@ -793,7 +792,7 @@ readDecimal n_rows spec = do
   where
     readDecimal32 :: Int -> Reader (Vector ClickhouseType)
     readDecimal32 n_rows = readIntColumn n_rows "Int32"
-
+    
     readDecimal64 :: Int -> Reader (Vector ClickhouseType)
     readDecimal64 n_rows = readIntColumn n_rows "Int64"
 
@@ -873,7 +872,6 @@ foreign import ccall unsafe "bigint.h hi_bits_128" hi_bits_128 :: Double -> Int 
 foreign import ccall unsafe "bigint.h low_bits_negative_128" low_bits_negative_128 :: Double -> Int -> Word64
 
 foreign import ccall unsafe "bigint.h hi_bits_negative_128" hi_bits_negative_128 :: Double -> Int -> Word64
-
 ----------------------------------------------------------------------------------------------
 readIPv4 :: Int -> Reader (Vector ClickhouseType)
 readIPv4 n_rows = V.replicateM n_rows (CKIPv4 . ip4ToOctets . IP4 <$> readBinaryUInt32)
@@ -911,7 +909,6 @@ readSimpleAggregateFunction server_info n_rows spec = do
   let l = BS.length spec
   let [func, cktype] = getSpecs $ BS.take (l - 25) (BS.drop 24 spec)
   readColumn server_info n_rows cktype
-
 ----------------------------------------------------------------------------------------------
 readUUID :: Int -> Reader (Vector ClickhouseType)
 readUUID n_rows = do

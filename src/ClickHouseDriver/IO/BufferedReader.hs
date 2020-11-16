@@ -116,7 +116,6 @@ readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
       varint <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
       let tail = BS.drop (fromIntegral skip) str
       return (varint, Buffer size tail sock)
-
 -- | read binary string from buffer.
 -- It first read the integer(n) in front of the desired string,
 -- then it read n bytes to capture the whole string.
