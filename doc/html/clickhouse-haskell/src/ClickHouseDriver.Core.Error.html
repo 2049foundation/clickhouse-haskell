@@ -1,0 +1,804 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- Copyright (c) 2014-present, EMQX, Inc.</span><span>
+</span><a name="line-2"></a><span class="hs-comment">-- All rights reserved.</span><span>
+</span><a name="line-3"></a><span class="hs-comment">--</span><span>
+</span><a name="line-4"></a><span class="hs-comment">-- This source code is distributed under the terms of a MIT license,</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- found in the LICENSE file.</span><span>
+</span><a name="line-6"></a><span class="hs-comment">---------------------------------------------------------------------------</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- This file contains the details of handling error messages from server.</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- For internal use only</span><span>
+</span><a name="line-9"></a><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><a name="line-10"></a><span>
+</span><a name="line-11"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">ClickHouseDriver.Core.Error</span><span>
+</span><a name="line-12"></a><span>  </span><span class="hs-special">(</span><span> </span><a href="ClickHouseDriver.Core.Error.html#readException"><span class="hs-identifier hs-var">readException</span></a><span class="hs-special">,</span><span>
+</span><a name="line-13"></a><span>    </span><a href="ClickHouseDriver.Core.Error.html#ClickhouseException"><span class="hs-identifier hs-type">ClickhouseException</span></a><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><a name="line-14"></a><span>    </span><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_PACKET_FROM_SERVER"><span class="hs-identifier hs-var">_UNEXPECTED_PACKET_FROM_SERVER</span></a><span class="hs-special">,</span><span>
+</span><a name="line-15"></a><span>    </span><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_PACKET_FROM_SERVER"><span class="hs-identifier hs-var">_UNKNOWN_PACKET_FROM_SERVER</span></a><span class="hs-special">,</span><span>
+</span><a name="line-16"></a><span>  </span><span class="hs-special">)</span><span>
+</span><a name="line-17"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-18"></a><span>
+</span><a name="line-19"></a><span class="hs-keyword">import</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html"><span class="hs-identifier">ClickHouseDriver.IO.BufferedReader</span></a><span>
+</span><a name="line-20"></a><span>  </span><span class="hs-special">(</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html#Reader"><span class="hs-identifier hs-type">Reader</span></a><span class="hs-special">,</span><span>
+</span><a name="line-21"></a><span>    </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryInt32"><span class="hs-identifier hs-var">readBinaryInt32</span></a><span class="hs-special">,</span><span>
+</span><a name="line-22"></a><span>    </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryStr"><span class="hs-identifier hs-var">readBinaryStr</span></a><span class="hs-special">,</span><span>
+</span><a name="line-23"></a><span>    </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryUInt8"><span class="hs-identifier hs-var">readBinaryUInt8</span></a><span class="hs-special">,</span><span>
+</span><a name="line-24"></a><span>  </span><span class="hs-special">)</span><span>
+</span><a name="line-25"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.ByteString.Char8</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">unpack</span><span class="hs-special">)</span><span>
+</span><a name="line-26"></a><span>
+</span><a name="line-27"></a><span class="hs-comment">--import           Debug.Trace</span><span>
+</span><a name="line-28"></a><span>
+</span><a name="line-29"></a><span class="hs-keyword">data</span><span> </span><a name="ClickhouseException"><a href="ClickHouseDriver.Core.Error.html#ClickhouseException"><span class="hs-identifier">ClickhouseException</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="ServerException"><a href="ClickHouseDriver.Core.Error.html#ServerException"><span class="hs-identifier">ServerException</span></a></a><span>
+</span><a name="line-30"></a><span>  </span><span class="hs-special">{</span><span> </span><a name="message"><a href="ClickHouseDriver.Core.Error.html#message"><span class="hs-identifier">message</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">String</span><span class="hs-special">,</span><span>
+</span><a name="line-31"></a><span>    </span><a name="code"><a href="ClickHouseDriver.Core.Error.html#code"><span class="hs-identifier">code</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier hs-type">Integer</span><span class="hs-special">,</span><span>
+</span><a name="line-32"></a><span>    </span><a name="nested"><a href="ClickHouseDriver.Core.Error.html#nested"><span class="hs-identifier">nested</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Maybe</span><span> </span><a href="ClickHouseDriver.Core.Error.html#ClickhouseException"><span class="hs-identifier hs-type">ClickhouseException</span></a><span>
+</span><a name="line-33"></a><span>  </span><span class="hs-special">}</span><span>
+</span><a name="line-34"></a><span>
+</span><a name="line-35"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Show</span><span> </span><a href="ClickHouseDriver.Core.Error.html#ClickhouseException"><span class="hs-identifier hs-type">ClickhouseException</span></a><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-36"></a><span>  </span><a name="local-8214565720323792008"><span class="hs-identifier">show</span></a><span> </span><span class="hs-special">(</span><a href="ClickHouseDriver.Core.Error.html#ServerException"><span class="hs-identifier hs-var">ServerException</span></a><span> </span><a name="local-6989586621679110316"><a href="#local-6989586621679110316"><span class="hs-identifier">message</span></a></a><span> </span><a name="local-6989586621679110317"><a href="#local-6989586621679110317"><span class="hs-identifier">code</span></a></a><span> </span><a name="local-6989586621679110318"><a href="#local-6989586621679110318"><span class="hs-identifier">nested</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a name="line-37"></a><span>    </span><span class="hs-string">&quot;Code &quot;</span><span> </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-identifier hs-var">show</span><span> </span><a href="#local-6989586621679110317"><span class="hs-identifier hs-var">code</span></a><span> </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-string">&quot;.&quot;</span><span>
+</span><a name="line-38"></a><span>      </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-special">(</span><span> </span><span class="hs-keyword">case</span><span> </span><a href="#local-6989586621679110318"><span class="hs-identifier hs-var">nested</span></a><span> </span><span class="hs-keyword">of</span><span>
+</span><a name="line-39"></a><span>             </span><span class="hs-identifier hs-var">Nothing</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-string">&quot;&quot;</span><span>
+</span><a name="line-40"></a><span>             </span><span class="hs-identifier hs-var">Just</span><span> </span><a name="local-6989586621679110319"><a href="#local-6989586621679110319"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">show</span><span> </span><a href="#local-6989586621679110319"><span class="hs-identifier hs-var">s</span></a><span>
+</span><a name="line-41"></a><span>         </span><span class="hs-special">)</span><span>
+</span><a name="line-42"></a><span>      </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-string">&quot; &quot;</span><span>
+</span><a name="line-43"></a><span>      </span><span class="hs-operator hs-var">++</span><span> </span><a href="#local-6989586621679110316"><span class="hs-identifier hs-var">message</span></a><span>
+</span><a name="line-44"></a><span>
+</span><a name="line-45"></a><span class="hs-identifier">readException</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Maybe</span><span> </span><span class="hs-identifier hs-type">String</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html#Reader"><span class="hs-identifier hs-type">Reader</span></a><span> </span><a href="ClickHouseDriver.Core.Error.html#ClickhouseException"><span class="hs-identifier hs-type">ClickhouseException</span></a><span>
+</span><a name="line-46"></a><a name="readException"><a href="ClickHouseDriver.Core.Error.html#readException"><span class="hs-identifier">readException</span></a></a><span> </span><a name="local-6989586621679110320"><a href="#local-6989586621679110320"><span class="hs-identifier">additional</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-47"></a><span>  </span><a name="local-6989586621679110321"><a href="#local-6989586621679110321"><span class="hs-identifier">code</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryInt32"><span class="hs-identifier hs-var">readBinaryInt32</span></a><span>
+</span><a name="line-48"></a><span>  </span><a name="local-6989586621679110322"><a href="#local-6989586621679110322"><span class="hs-identifier">name</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryStr"><span class="hs-identifier hs-var">readBinaryStr</span></a><span>
+</span><a name="line-49"></a><span>  </span><a name="local-6989586621679110323"><a href="#local-6989586621679110323"><span class="hs-identifier">messange</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryStr"><span class="hs-identifier hs-var">readBinaryStr</span></a><span>
+</span><a name="line-50"></a><span>  </span><a name="local-6989586621679110324"><a href="#local-6989586621679110324"><span class="hs-identifier">stack_trace</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryStr"><span class="hs-identifier hs-var">readBinaryStr</span></a><span>
+</span><a name="line-51"></a><span>  </span><a name="local-6989586621679110339"><a href="#local-6989586621679110339"><span class="hs-identifier">has_nested</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">(</span><span class="hs-operator hs-var">==</span><span> </span><span class="hs-number">1</span><span class="hs-special">)</span><span> </span><span class="hs-operator hs-var">&lt;$&gt;</span><span> </span><a href="ClickHouseDriver.IO.BufferedReader.html#readBinaryUInt8"><span class="hs-identifier hs-var">readBinaryUInt8</span></a><span>
+</span><a name="line-52"></a><span>  </span><span class="hs-keyword">let</span><span> </span><a name="local-6989586621679110340"><a href="#local-6989586621679110340"><span class="hs-identifier">hasAdditional</span></a></a><span> </span><span class="hs-glyph">=</span><span>
+</span><a name="line-53"></a><span>        </span><span class="hs-special">(</span><span> </span><span class="hs-keyword">case</span><span> </span><a href="#local-6989586621679110320"><span class="hs-identifier hs-var">additional</span></a><span> </span><span class="hs-keyword">of</span><span>
+</span><a name="line-54"></a><span>            </span><span class="hs-identifier hs-var">Nothing</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-string">&quot;&quot;</span><span>
+</span><a name="line-55"></a><span>            </span><span class="hs-identifier hs-var">Just</span><span> </span><a name="local-6989586621679110341"><a href="#local-6989586621679110341"><span class="hs-identifier">msg</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679110341"><span class="hs-identifier hs-var">msg</span></a><span> </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-string">&quot;.&quot;</span><span>
+</span><a name="line-56"></a><span>        </span><span class="hs-special">)</span><span>
+</span><a name="line-57"></a><span>          </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-keyword">if</span><span> </span><a href="#local-6989586621679110322"><span class="hs-identifier hs-var">name</span></a><span> </span><span class="hs-operator hs-var">/=</span><span> </span><span class="hs-string">&quot;DB::Exception&quot;</span><span>
+</span><a name="line-58"></a><span>            </span><span class="hs-keyword">then</span><span> </span><span class="hs-identifier hs-var">unpack</span><span> </span><a href="#local-6989586621679110322"><span class="hs-identifier hs-var">name</span></a><span>
+</span><a name="line-59"></a><span>            </span><span class="hs-keyword">else</span><span> </span><span class="hs-string">&quot;&quot;</span><span> </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-string">&quot;.&quot;</span><span>
+</span><a name="line-60"></a><span>  </span><span class="hs-keyword">let</span><span> </span><a name="local-6989586621679110342"><a href="#local-6989586621679110342"><span class="hs-identifier">new_message</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="#local-6989586621679110340"><span class="hs-identifier hs-var">hasAdditional</span></a><span> </span><span class="hs-operator hs-var">&lt;&gt;</span><span> </span><span class="hs-identifier hs-var">show</span><span> </span><a href="#local-6989586621679110323"><span class="hs-identifier hs-var">messange</span></a><span> </span><span class="hs-operator hs-var">&lt;&gt;</span><span> </span><span class="hs-string">&quot;. Stack trace:\n\n&quot;</span><span> </span><span class="hs-operator hs-var">&lt;&gt;</span><span> </span><span class="hs-identifier hs-var">show</span><span> </span><a href="#local-6989586621679110324"><span class="hs-identifier hs-var">stack_trace</span></a><span>
+</span><a name="line-61"></a><span>  </span><span class="hs-keyword">if</span><span> </span><a href="#local-6989586621679110339"><span class="hs-identifier hs-var">has_nested</span></a><span>
+</span><a name="line-62"></a><span>    </span><span class="hs-keyword">then</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-63"></a><span>      </span><a name="local-6989586621679110343"><a href="#local-6989586621679110343"><span class="hs-identifier">nested</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="ClickHouseDriver.Core.Error.html#readException"><span class="hs-identifier hs-var">readException</span></a><span> </span><span class="hs-identifier hs-var">Nothing</span><span>
+</span><a name="line-64"></a><span>      </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="ClickHouseDriver.Core.Error.html#ServerException"><span class="hs-identifier hs-var">ServerException</span></a><span> </span><a href="#local-6989586621679110342"><span class="hs-identifier hs-var">new_message</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">fromIntegral</span><span> </span><a href="#local-6989586621679110321"><span class="hs-identifier hs-var">code</span></a><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Just</span><span> </span><a href="#local-6989586621679110343"><span class="hs-identifier hs-var">nested</span></a><span class="hs-special">)</span><span>
+</span><a name="line-65"></a><span>    </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-66"></a><span>      </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="ClickHouseDriver.Core.Error.html#ServerException"><span class="hs-identifier hs-var">ServerException</span></a><span> </span><a href="#local-6989586621679110342"><span class="hs-identifier hs-var">new_message</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">fromIntegral</span><span> </span><a href="#local-6989586621679110321"><span class="hs-identifier hs-var">code</span></a><span class="hs-special">)</span><span> </span><span class="hs-identifier hs-var">Nothing</span><span>
+</span><a name="line-67"></a><span>
+</span><a name="line-68"></a><a name="_UNSUPPORTED_METHOD"><a href="ClickHouseDriver.Core.Error.html#_UNSUPPORTED_METHOD"><span class="hs-identifier">_UNSUPPORTED_METHOD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">1</span><span>
+</span><a name="line-69"></a><span>
+</span><a name="line-70"></a><a name="_UNSUPPORTED_PARAMETER"><a href="ClickHouseDriver.Core.Error.html#_UNSUPPORTED_PARAMETER"><span class="hs-identifier">_UNSUPPORTED_PARAMETER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">2</span><span>
+</span><a name="line-71"></a><span>
+</span><a name="line-72"></a><a name="_UNEXPECTED_END_OF_FILE"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_END_OF_FILE"><span class="hs-identifier">_UNEXPECTED_END_OF_FILE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">3</span><span>
+</span><a name="line-73"></a><span>
+</span><a name="line-74"></a><a name="_EXPECTED_END_OF_FILE"><a href="ClickHouseDriver.Core.Error.html#_EXPECTED_END_OF_FILE"><span class="hs-identifier">_EXPECTED_END_OF_FILE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">4</span><span>
+</span><a name="line-75"></a><span>
+</span><a name="line-76"></a><a name="_CANNOT_PARSE_TEXT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_TEXT"><span class="hs-identifier">_CANNOT_PARSE_TEXT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">6</span><span>
+</span><a name="line-77"></a><span>
+</span><a name="line-78"></a><a name="_INCORRECT_NUMBER_OF_COLUMNS"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_NUMBER_OF_COLUMNS"><span class="hs-identifier">_INCORRECT_NUMBER_OF_COLUMNS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">7</span><span>
+</span><a name="line-79"></a><span>
+</span><a name="line-80"></a><a name="_THERE_IS_NO_COLUMN"><a href="ClickHouseDriver.Core.Error.html#_THERE_IS_NO_COLUMN"><span class="hs-identifier">_THERE_IS_NO_COLUMN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">8</span><span>
+</span><a name="line-81"></a><span>
+</span><a name="line-82"></a><a name="_SIZES_OF_COLUMNS_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_SIZES_OF_COLUMNS_DOESNT_MATCH"><span class="hs-identifier">_SIZES_OF_COLUMNS_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">9</span><span>
+</span><a name="line-83"></a><span>
+</span><a name="line-84"></a><a name="_NOT_FOUND_COLUMN_IN_BLOCK"><a href="ClickHouseDriver.Core.Error.html#_NOT_FOUND_COLUMN_IN_BLOCK"><span class="hs-identifier">_NOT_FOUND_COLUMN_IN_BLOCK</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">10</span><span>
+</span><a name="line-85"></a><span>
+</span><a name="line-86"></a><a name="_POSITION_OUT_OF_BOUND"><a href="ClickHouseDriver.Core.Error.html#_POSITION_OUT_OF_BOUND"><span class="hs-identifier">_POSITION_OUT_OF_BOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">11</span><span>
+</span><a name="line-87"></a><span>
+</span><a name="line-88"></a><a name="_PARAMETER_OUT_OF_BOUND"><a href="ClickHouseDriver.Core.Error.html#_PARAMETER_OUT_OF_BOUND"><span class="hs-identifier">_PARAMETER_OUT_OF_BOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">12</span><span>
+</span><a name="line-89"></a><span>
+</span><a name="line-90"></a><a name="_SIZES_OF_COLUMNS_IN_TUPLE_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_SIZES_OF_COLUMNS_IN_TUPLE_DOESNT_MATCH"><span class="hs-identifier">_SIZES_OF_COLUMNS_IN_TUPLE_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">13</span><span>
+</span><a name="line-91"></a><span>
+</span><a name="line-92"></a><a name="_DUPLICATE_COLUMN"><a href="ClickHouseDriver.Core.Error.html#_DUPLICATE_COLUMN"><span class="hs-identifier">_DUPLICATE_COLUMN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">15</span><span>
+</span><a name="line-93"></a><span>
+</span><a name="line-94"></a><a name="_NO_SUCH_COLUMN_IN_TABLE"><a href="ClickHouseDriver.Core.Error.html#_NO_SUCH_COLUMN_IN_TABLE"><span class="hs-identifier">_NO_SUCH_COLUMN_IN_TABLE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">16</span><span>
+</span><a name="line-95"></a><span>
+</span><a name="line-96"></a><a name="_DELIMITER_IN_STRING_LITERAL_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_DELIMITER_IN_STRING_LITERAL_DOESNT_MATCH"><span class="hs-identifier">_DELIMITER_IN_STRING_LITERAL_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">17</span><span>
+</span><a name="line-97"></a><span>
+</span><a name="line-98"></a><a name="_CANNOT_INSERT_ELEMENT_INTO_CONSTANT_COLUMN"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_INSERT_ELEMENT_INTO_CONSTANT_COLUMN"><span class="hs-identifier">_CANNOT_INSERT_ELEMENT_INTO_CONSTANT_COLUMN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">18</span><span>
+</span><a name="line-99"></a><span>
+</span><a name="line-100"></a><a name="_SIZE_OF_FIXED_STRING_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_SIZE_OF_FIXED_STRING_DOESNT_MATCH"><span class="hs-identifier">_SIZE_OF_FIXED_STRING_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">19</span><span>
+</span><a name="line-101"></a><span>
+</span><a name="line-102"></a><a name="_NUMBER_OF_COLUMNS_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_NUMBER_OF_COLUMNS_DOESNT_MATCH"><span class="hs-identifier">_NUMBER_OF_COLUMNS_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">20</span><span>
+</span><a name="line-103"></a><span>
+</span><a name="line-104"></a><a name="_CANNOT_READ_ALL_DATA_FROM_TAB_SEPARATED_INPUT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_ALL_DATA_FROM_TAB_SEPARATED_INPUT"><span class="hs-identifier">_CANNOT_READ_ALL_DATA_FROM_TAB_SEPARATED_INPUT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">21</span><span>
+</span><a name="line-105"></a><span>
+</span><a name="line-106"></a><a name="_CANNOT_PARSE_ALL_VALUE_FROM_TAB_SEPARATED_INPUT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_ALL_VALUE_FROM_TAB_SEPARATED_INPUT"><span class="hs-identifier">_CANNOT_PARSE_ALL_VALUE_FROM_TAB_SEPARATED_INPUT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">22</span><span>
+</span><a name="line-107"></a><span>
+</span><a name="line-108"></a><a name="_CANNOT_READ_FROM_ISTREAM"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_FROM_ISTREAM"><span class="hs-identifier">_CANNOT_READ_FROM_ISTREAM</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">23</span><span>
+</span><a name="line-109"></a><span>
+</span><a name="line-110"></a><a name="_CANNOT_WRITE_TO_OSTREAM"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WRITE_TO_OSTREAM"><span class="hs-identifier">_CANNOT_WRITE_TO_OSTREAM</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">24</span><span>
+</span><a name="line-111"></a><span>
+</span><a name="line-112"></a><a name="_CANNOT_PARSE_ESCAPE_SEQUENCE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_ESCAPE_SEQUENCE"><span class="hs-identifier">_CANNOT_PARSE_ESCAPE_SEQUENCE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">25</span><span>
+</span><a name="line-113"></a><span>
+</span><a name="line-114"></a><a name="_CANNOT_PARSE_QUOTED_STRING"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_QUOTED_STRING"><span class="hs-identifier">_CANNOT_PARSE_QUOTED_STRING</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">26</span><span>
+</span><a name="line-115"></a><span>
+</span><a name="line-116"></a><a name="_CANNOT_PARSE_INPUT_ASSERTION_FAILED"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_INPUT_ASSERTION_FAILED"><span class="hs-identifier">_CANNOT_PARSE_INPUT_ASSERTION_FAILED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">27</span><span>
+</span><a name="line-117"></a><span>
+</span><a name="line-118"></a><a name="_CANNOT_PRINT_FLOAT_OR_DOUBLE_NUMBER"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PRINT_FLOAT_OR_DOUBLE_NUMBER"><span class="hs-identifier">_CANNOT_PRINT_FLOAT_OR_DOUBLE_NUMBER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">28</span><span>
+</span><a name="line-119"></a><span>
+</span><a name="line-120"></a><a name="_CANNOT_PRINT_INTEGER"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PRINT_INTEGER"><span class="hs-identifier">_CANNOT_PRINT_INTEGER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">29</span><span>
+</span><a name="line-121"></a><span>
+</span><a name="line-122"></a><a name="_CANNOT_READ_SIZE_OF_COMPRESSED_CHUNK"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_SIZE_OF_COMPRESSED_CHUNK"><span class="hs-identifier">_CANNOT_READ_SIZE_OF_COMPRESSED_CHUNK</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">30</span><span>
+</span><a name="line-123"></a><span>
+</span><a name="line-124"></a><a name="_CANNOT_READ_COMPRESSED_CHUNK"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_COMPRESSED_CHUNK"><span class="hs-identifier">_CANNOT_READ_COMPRESSED_CHUNK</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">31</span><span>
+</span><a name="line-125"></a><span>
+</span><a name="line-126"></a><a name="_ATTEMPT_TO_READ_AFTER_EOF"><a href="ClickHouseDriver.Core.Error.html#_ATTEMPT_TO_READ_AFTER_EOF"><span class="hs-identifier">_ATTEMPT_TO_READ_AFTER_EOF</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">32</span><span>
+</span><a name="line-127"></a><span>
+</span><a name="line-128"></a><a name="_CANNOT_READ_ALL_DATA"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_ALL_DATA"><span class="hs-identifier">_CANNOT_READ_ALL_DATA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">33</span><span>
+</span><a name="line-129"></a><span>
+</span><a name="line-130"></a><a name="_TOO_MANY_ARGUMENTS_FOR_FUNCTION"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_ARGUMENTS_FOR_FUNCTION"><span class="hs-identifier">_TOO_MANY_ARGUMENTS_FOR_FUNCTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">34</span><span>
+</span><a name="line-131"></a><span>
+</span><a name="line-132"></a><a name="_TOO_LESS_ARGUMENTS_FOR_FUNCTION"><a href="ClickHouseDriver.Core.Error.html#_TOO_LESS_ARGUMENTS_FOR_FUNCTION"><span class="hs-identifier">_TOO_LESS_ARGUMENTS_FOR_FUNCTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">35</span><span>
+</span><a name="line-133"></a><span>
+</span><a name="line-134"></a><a name="_BAD_ARGUMENTS"><a href="ClickHouseDriver.Core.Error.html#_BAD_ARGUMENTS"><span class="hs-identifier">_BAD_ARGUMENTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">36</span><span>
+</span><a name="line-135"></a><span>
+</span><a name="line-136"></a><a name="_UNKNOWN_ELEMENT_IN_AST"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_ELEMENT_IN_AST"><span class="hs-identifier">_UNKNOWN_ELEMENT_IN_AST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">37</span><span>
+</span><a name="line-137"></a><span>
+</span><a name="line-138"></a><a name="_CANNOT_PARSE_DATE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_DATE"><span class="hs-identifier">_CANNOT_PARSE_DATE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">38</span><span>
+</span><a name="line-139"></a><span>
+</span><a name="line-140"></a><a name="_TOO_LARGE_SIZE_COMPRESSED"><a href="ClickHouseDriver.Core.Error.html#_TOO_LARGE_SIZE_COMPRESSED"><span class="hs-identifier">_TOO_LARGE_SIZE_COMPRESSED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">39</span><span>
+</span><a name="line-141"></a><span>
+</span><a name="line-142"></a><a name="_CHECKSUM_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_CHECKSUM_DOESNT_MATCH"><span class="hs-identifier">_CHECKSUM_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">40</span><span>
+</span><a name="line-143"></a><span>
+</span><a name="line-144"></a><a name="_CANNOT_PARSE_DATETIME"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_DATETIME"><span class="hs-identifier">_CANNOT_PARSE_DATETIME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">41</span><span>
+</span><a name="line-145"></a><span>
+</span><a name="line-146"></a><a name="_NUMBER_OF_ARGUMENTS_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_NUMBER_OF_ARGUMENTS_DOESNT_MATCH"><span class="hs-identifier">_NUMBER_OF_ARGUMENTS_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">42</span><span>
+</span><a name="line-147"></a><span>
+</span><a name="line-148"></a><a name="_ILLEGAL_TYPE_OF_ARGUMENT"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_TYPE_OF_ARGUMENT"><span class="hs-identifier">_ILLEGAL_TYPE_OF_ARGUMENT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">43</span><span>
+</span><a name="line-149"></a><span>
+</span><a name="line-150"></a><a name="_ILLEGAL_COLUMN"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_COLUMN"><span class="hs-identifier">_ILLEGAL_COLUMN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">44</span><span>
+</span><a name="line-151"></a><span>
+</span><a name="line-152"></a><a name="_ILLEGAL_NUMBER_OF_RESULT_COLUMNS"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_NUMBER_OF_RESULT_COLUMNS"><span class="hs-identifier">_ILLEGAL_NUMBER_OF_RESULT_COLUMNS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">45</span><span>
+</span><a name="line-153"></a><span>
+</span><a name="line-154"></a><a name="_UNKNOWN_FUNCTION"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_FUNCTION"><span class="hs-identifier">_UNKNOWN_FUNCTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">46</span><span>
+</span><a name="line-155"></a><span>
+</span><a name="line-156"></a><a name="_UNKNOWN_IDENTIFIER"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_IDENTIFIER"><span class="hs-identifier">_UNKNOWN_IDENTIFIER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">47</span><span>
+</span><a name="line-157"></a><span>
+</span><a name="line-158"></a><a name="_NOT_IMPLEMENTED"><a href="ClickHouseDriver.Core.Error.html#_NOT_IMPLEMENTED"><span class="hs-identifier">_NOT_IMPLEMENTED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">48</span><span>
+</span><a name="line-159"></a><span>
+</span><a name="line-160"></a><a name="_LOGICAL_ERROR"><a href="ClickHouseDriver.Core.Error.html#_LOGICAL_ERROR"><span class="hs-identifier">_LOGICAL_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">49</span><span>
+</span><a name="line-161"></a><span>
+</span><a name="line-162"></a><a name="_UNKNOWN_TYPE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_TYPE"><span class="hs-identifier">_UNKNOWN_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">50</span><span>
+</span><a name="line-163"></a><span>
+</span><a name="line-164"></a><a name="_EMPTY_LIST_OF_COLUMNS_QUERIED"><a href="ClickHouseDriver.Core.Error.html#_EMPTY_LIST_OF_COLUMNS_QUERIED"><span class="hs-identifier">_EMPTY_LIST_OF_COLUMNS_QUERIED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">51</span><span>
+</span><a name="line-165"></a><span>
+</span><a name="line-166"></a><a name="_COLUMN_QUERIED_MORE_THAN_ONCE"><a href="ClickHouseDriver.Core.Error.html#_COLUMN_QUERIED_MORE_THAN_ONCE"><span class="hs-identifier">_COLUMN_QUERIED_MORE_THAN_ONCE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">52</span><span>
+</span><a name="line-167"></a><span>
+</span><a name="line-168"></a><a name="_TYPE_MISMATCH"><a href="ClickHouseDriver.Core.Error.html#_TYPE_MISMATCH"><span class="hs-identifier">_TYPE_MISMATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">53</span><span>
+</span><a name="line-169"></a><span>
+</span><a name="line-170"></a><a name="_STORAGE_DOESNT_ALLOW_PARAMETERS"><a href="ClickHouseDriver.Core.Error.html#_STORAGE_DOESNT_ALLOW_PARAMETERS"><span class="hs-identifier">_STORAGE_DOESNT_ALLOW_PARAMETERS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">54</span><span>
+</span><a name="line-171"></a><span>
+</span><a name="line-172"></a><a name="_STORAGE_REQUIRES_PARAMETER"><a href="ClickHouseDriver.Core.Error.html#_STORAGE_REQUIRES_PARAMETER"><span class="hs-identifier">_STORAGE_REQUIRES_PARAMETER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">55</span><span>
+</span><a name="line-173"></a><span>
+</span><a name="line-174"></a><a name="_UNKNOWN_STORAGE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_STORAGE"><span class="hs-identifier">_UNKNOWN_STORAGE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">56</span><span>
+</span><a name="line-175"></a><span>
+</span><a name="line-176"></a><a name="_TABLE_ALREADY_EXISTS"><a href="ClickHouseDriver.Core.Error.html#_TABLE_ALREADY_EXISTS"><span class="hs-identifier">_TABLE_ALREADY_EXISTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">57</span><span>
+</span><a name="line-177"></a><span>
+</span><a name="line-178"></a><a name="_TABLE_METADATA_ALREADY_EXISTS"><a href="ClickHouseDriver.Core.Error.html#_TABLE_METADATA_ALREADY_EXISTS"><span class="hs-identifier">_TABLE_METADATA_ALREADY_EXISTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">58</span><span>
+</span><a name="line-179"></a><span>
+</span><a name="line-180"></a><a name="_ILLEGAL_TYPE_OF_COLUMN_FOR_FILTER"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_TYPE_OF_COLUMN_FOR_FILTER"><span class="hs-identifier">_ILLEGAL_TYPE_OF_COLUMN_FOR_FILTER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">59</span><span>
+</span><a name="line-181"></a><span>
+</span><a name="line-182"></a><a name="_UNKNOWN_TABLE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_TABLE"><span class="hs-identifier">_UNKNOWN_TABLE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">60</span><span>
+</span><a name="line-183"></a><span>
+</span><a name="line-184"></a><a name="_ONLY_FILTER_COLUMN_IN_BLOCK"><a href="ClickHouseDriver.Core.Error.html#_ONLY_FILTER_COLUMN_IN_BLOCK"><span class="hs-identifier">_ONLY_FILTER_COLUMN_IN_BLOCK</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">61</span><span>
+</span><a name="line-185"></a><span>
+</span><a name="line-186"></a><a name="_SYNTAX_ERROR"><a href="ClickHouseDriver.Core.Error.html#_SYNTAX_ERROR"><span class="hs-identifier">_SYNTAX_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">62</span><span>
+</span><a name="line-187"></a><span>
+</span><a name="line-188"></a><a name="_UNKNOWN_AGGREGATE_FUNCTION"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_AGGREGATE_FUNCTION"><span class="hs-identifier">_UNKNOWN_AGGREGATE_FUNCTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">63</span><span>
+</span><a name="line-189"></a><span>
+</span><a name="line-190"></a><a name="_CANNOT_READ_AGGREGATE_FUNCTION_FROM_TEXT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_AGGREGATE_FUNCTION_FROM_TEXT"><span class="hs-identifier">_CANNOT_READ_AGGREGATE_FUNCTION_FROM_TEXT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">64</span><span>
+</span><a name="line-191"></a><span>
+</span><a name="line-192"></a><a name="_CANNOT_WRITE_AGGREGATE_FUNCTION_AS_TEXT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WRITE_AGGREGATE_FUNCTION_AS_TEXT"><span class="hs-identifier">_CANNOT_WRITE_AGGREGATE_FUNCTION_AS_TEXT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">65</span><span>
+</span><a name="line-193"></a><span>
+</span><a name="line-194"></a><a name="_NOT_A_COLUMN"><a href="ClickHouseDriver.Core.Error.html#_NOT_A_COLUMN"><span class="hs-identifier">_NOT_A_COLUMN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">66</span><span>
+</span><a name="line-195"></a><span>
+</span><a name="line-196"></a><a name="_ILLEGAL_KEY_OF_AGGREGATION"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_KEY_OF_AGGREGATION"><span class="hs-identifier">_ILLEGAL_KEY_OF_AGGREGATION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">67</span><span>
+</span><a name="line-197"></a><span>
+</span><a name="line-198"></a><a name="_CANNOT_GET_SIZE_OF_FIELD"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_GET_SIZE_OF_FIELD"><span class="hs-identifier">_CANNOT_GET_SIZE_OF_FIELD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">68</span><span>
+</span><a name="line-199"></a><span>
+</span><a name="line-200"></a><a name="_ARGUMENT_OUT_OF_BOUND"><a href="ClickHouseDriver.Core.Error.html#_ARGUMENT_OUT_OF_BOUND"><span class="hs-identifier">_ARGUMENT_OUT_OF_BOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">69</span><span>
+</span><a name="line-201"></a><span>
+</span><a name="line-202"></a><a name="_CANNOT_CONVERT_TYPE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CONVERT_TYPE"><span class="hs-identifier">_CANNOT_CONVERT_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">70</span><span>
+</span><a name="line-203"></a><span>
+</span><a name="line-204"></a><a name="_CANNOT_WRITE_AFTER_END_OF_BUFFER"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WRITE_AFTER_END_OF_BUFFER"><span class="hs-identifier">_CANNOT_WRITE_AFTER_END_OF_BUFFER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">71</span><span>
+</span><a name="line-205"></a><span>
+</span><a name="line-206"></a><a name="_CANNOT_PARSE_NUMBER"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_NUMBER"><span class="hs-identifier">_CANNOT_PARSE_NUMBER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">72</span><span>
+</span><a name="line-207"></a><span>
+</span><a name="line-208"></a><a name="_UNKNOWN_FORMAT"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_FORMAT"><span class="hs-identifier">_UNKNOWN_FORMAT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">73</span><span>
+</span><a name="line-209"></a><span>
+</span><a name="line-210"></a><a name="_CANNOT_READ_FROM_FILE_DESCRIPTOR"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_FROM_FILE_DESCRIPTOR"><span class="hs-identifier">_CANNOT_READ_FROM_FILE_DESCRIPTOR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">74</span><span>
+</span><a name="line-211"></a><span>
+</span><a name="line-212"></a><a name="_CANNOT_WRITE_TO_FILE_DESCRIPTOR"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WRITE_TO_FILE_DESCRIPTOR"><span class="hs-identifier">_CANNOT_WRITE_TO_FILE_DESCRIPTOR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">75</span><span>
+</span><a name="line-213"></a><span>
+</span><a name="line-214"></a><a name="_CANNOT_OPEN_FILE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_OPEN_FILE"><span class="hs-identifier">_CANNOT_OPEN_FILE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">76</span><span>
+</span><a name="line-215"></a><span>
+</span><a name="line-216"></a><a name="_CANNOT_CLOSE_FILE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CLOSE_FILE"><span class="hs-identifier">_CANNOT_CLOSE_FILE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">77</span><span>
+</span><a name="line-217"></a><span>
+</span><a name="line-218"></a><a name="_UNKNOWN_TYPE_OF_QUERY"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_TYPE_OF_QUERY"><span class="hs-identifier">_UNKNOWN_TYPE_OF_QUERY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">78</span><span>
+</span><a name="line-219"></a><span>
+</span><a name="line-220"></a><a name="_INCORRECT_FILE_NAME"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_FILE_NAME"><span class="hs-identifier">_INCORRECT_FILE_NAME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">79</span><span>
+</span><a name="line-221"></a><span>
+</span><a name="line-222"></a><a name="_INCORRECT_QUERY"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_QUERY"><span class="hs-identifier">_INCORRECT_QUERY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">80</span><span>
+</span><a name="line-223"></a><span>
+</span><a name="line-224"></a><a name="_UNKNOWN_DATABASE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_DATABASE"><span class="hs-identifier">_UNKNOWN_DATABASE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">81</span><span>
+</span><a name="line-225"></a><span>
+</span><a name="line-226"></a><a name="_DATABASE_ALREADY_EXISTS"><a href="ClickHouseDriver.Core.Error.html#_DATABASE_ALREADY_EXISTS"><span class="hs-identifier">_DATABASE_ALREADY_EXISTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">82</span><span>
+</span><a name="line-227"></a><span>
+</span><a name="line-228"></a><a name="_DIRECTORY_DOESNT_EXIST"><a href="ClickHouseDriver.Core.Error.html#_DIRECTORY_DOESNT_EXIST"><span class="hs-identifier">_DIRECTORY_DOESNT_EXIST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">83</span><span>
+</span><a name="line-229"></a><span>
+</span><a name="line-230"></a><a name="_DIRECTORY_ALREADY_EXISTS"><a href="ClickHouseDriver.Core.Error.html#_DIRECTORY_ALREADY_EXISTS"><span class="hs-identifier">_DIRECTORY_ALREADY_EXISTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">84</span><span>
+</span><a name="line-231"></a><span>
+</span><a name="line-232"></a><a name="_FORMAT_IS_NOT_SUITABLE_FOR_INPUT"><a href="ClickHouseDriver.Core.Error.html#_FORMAT_IS_NOT_SUITABLE_FOR_INPUT"><span class="hs-identifier">_FORMAT_IS_NOT_SUITABLE_FOR_INPUT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">85</span><span>
+</span><a name="line-233"></a><span>
+</span><a name="line-234"></a><a name="_RECEIVED_ERROR_FROM_REMOTE_IO_SERVER"><a href="ClickHouseDriver.Core.Error.html#_RECEIVED_ERROR_FROM_REMOTE_IO_SERVER"><span class="hs-identifier">_RECEIVED_ERROR_FROM_REMOTE_IO_SERVER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">86</span><span>
+</span><a name="line-235"></a><span>
+</span><a name="line-236"></a><a name="_CANNOT_SEEK_THROUGH_FILE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_SEEK_THROUGH_FILE"><span class="hs-identifier">_CANNOT_SEEK_THROUGH_FILE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">87</span><span>
+</span><a name="line-237"></a><span>
+</span><a name="line-238"></a><a name="_CANNOT_TRUNCATE_FILE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_TRUNCATE_FILE"><span class="hs-identifier">_CANNOT_TRUNCATE_FILE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">88</span><span>
+</span><a name="line-239"></a><span>
+</span><a name="line-240"></a><a name="_UNKNOWN_COMPRESSION_METHOD"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_COMPRESSION_METHOD"><span class="hs-identifier">_UNKNOWN_COMPRESSION_METHOD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">89</span><span>
+</span><a name="line-241"></a><span>
+</span><a name="line-242"></a><a name="_EMPTY_LIST_OF_COLUMNS_PASSED"><a href="ClickHouseDriver.Core.Error.html#_EMPTY_LIST_OF_COLUMNS_PASSED"><span class="hs-identifier">_EMPTY_LIST_OF_COLUMNS_PASSED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">90</span><span>
+</span><a name="line-243"></a><span>
+</span><a name="line-244"></a><a name="_SIZES_OF_MARKS_FILES_ARE_INCONSISTENT"><a href="ClickHouseDriver.Core.Error.html#_SIZES_OF_MARKS_FILES_ARE_INCONSISTENT"><span class="hs-identifier">_SIZES_OF_MARKS_FILES_ARE_INCONSISTENT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">91</span><span>
+</span><a name="line-245"></a><span>
+</span><a name="line-246"></a><a name="_EMPTY_DATA_PASSED"><a href="ClickHouseDriver.Core.Error.html#_EMPTY_DATA_PASSED"><span class="hs-identifier">_EMPTY_DATA_PASSED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">92</span><span>
+</span><a name="line-247"></a><span>
+</span><a name="line-248"></a><a name="_UNKNOWN_AGGREGATED_DATA_VARIANT"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_AGGREGATED_DATA_VARIANT"><span class="hs-identifier">_UNKNOWN_AGGREGATED_DATA_VARIANT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">93</span><span>
+</span><a name="line-249"></a><span>
+</span><a name="line-250"></a><a name="_CANNOT_MERGE_DIFFERENT_AGGREGATED_DATA_VARIANTS"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_MERGE_DIFFERENT_AGGREGATED_DATA_VARIANTS"><span class="hs-identifier">_CANNOT_MERGE_DIFFERENT_AGGREGATED_DATA_VARIANTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">94</span><span>
+</span><a name="line-251"></a><span>
+</span><a name="line-252"></a><a name="_CANNOT_READ_FROM_SOCKET"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_FROM_SOCKET"><span class="hs-identifier">_CANNOT_READ_FROM_SOCKET</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">95</span><span>
+</span><a name="line-253"></a><span>
+</span><a name="line-254"></a><a name="_CANNOT_WRITE_TO_SOCKET"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WRITE_TO_SOCKET"><span class="hs-identifier">_CANNOT_WRITE_TO_SOCKET</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">96</span><span>
+</span><a name="line-255"></a><span>
+</span><a name="line-256"></a><a name="_CANNOT_READ_ALL_DATA_FROM_CHUNKED_INPUT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_ALL_DATA_FROM_CHUNKED_INPUT"><span class="hs-identifier">_CANNOT_READ_ALL_DATA_FROM_CHUNKED_INPUT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">97</span><span>
+</span><a name="line-257"></a><span>
+</span><a name="line-258"></a><a name="_CANNOT_WRITE_TO_EMPTY_BLOCK_OUTPUT_STREAM"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WRITE_TO_EMPTY_BLOCK_OUTPUT_STREAM"><span class="hs-identifier">_CANNOT_WRITE_TO_EMPTY_BLOCK_OUTPUT_STREAM</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">98</span><span>
+</span><a name="line-259"></a><span>
+</span><a name="line-260"></a><a name="_UNKNOWN_PACKET_FROM_CLIENT"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_PACKET_FROM_CLIENT"><span class="hs-identifier">_UNKNOWN_PACKET_FROM_CLIENT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">99</span><span>
+</span><a name="line-261"></a><span>
+</span><a name="line-262"></a><a name="_UNKNOWN_PACKET_FROM_SERVER"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_PACKET_FROM_SERVER"><span class="hs-identifier">_UNKNOWN_PACKET_FROM_SERVER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">100</span><span>
+</span><a name="line-263"></a><span>
+</span><a name="line-264"></a><a name="_UNEXPECTED_PACKET_FROM_CLIENT"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_PACKET_FROM_CLIENT"><span class="hs-identifier">_UNEXPECTED_PACKET_FROM_CLIENT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">101</span><span>
+</span><a name="line-265"></a><span>
+</span><a name="line-266"></a><a name="_UNEXPECTED_PACKET_FROM_SERVER"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_PACKET_FROM_SERVER"><span class="hs-identifier">_UNEXPECTED_PACKET_FROM_SERVER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">102</span><span>
+</span><a name="line-267"></a><span>
+</span><a name="line-268"></a><a name="_RECEIVED_DATA_FOR_WRONG_QUERY_ID"><a href="ClickHouseDriver.Core.Error.html#_RECEIVED_DATA_FOR_WRONG_QUERY_ID"><span class="hs-identifier">_RECEIVED_DATA_FOR_WRONG_QUERY_ID</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">103</span><span>
+</span><a name="line-269"></a><span>
+</span><a name="line-270"></a><a name="_TOO_SMALL_BUFFER_SIZE"><a href="ClickHouseDriver.Core.Error.html#_TOO_SMALL_BUFFER_SIZE"><span class="hs-identifier">_TOO_SMALL_BUFFER_SIZE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">104</span><span>
+</span><a name="line-271"></a><span>
+</span><a name="line-272"></a><a name="_CANNOT_READ_HISTORY"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_HISTORY"><span class="hs-identifier">_CANNOT_READ_HISTORY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">105</span><span>
+</span><a name="line-273"></a><span>
+</span><a name="line-274"></a><a name="_CANNOT_APPEND_HISTORY"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_APPEND_HISTORY"><span class="hs-identifier">_CANNOT_APPEND_HISTORY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">106</span><span>
+</span><a name="line-275"></a><span>
+</span><a name="line-276"></a><a name="_FILE_DOESNT_EXIST"><a href="ClickHouseDriver.Core.Error.html#_FILE_DOESNT_EXIST"><span class="hs-identifier">_FILE_DOESNT_EXIST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">107</span><span>
+</span><a name="line-277"></a><span>
+</span><a name="line-278"></a><a name="_NO_DATA_TO_INSERT"><a href="ClickHouseDriver.Core.Error.html#_NO_DATA_TO_INSERT"><span class="hs-identifier">_NO_DATA_TO_INSERT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">108</span><span>
+</span><a name="line-279"></a><span>
+</span><a name="line-280"></a><a name="_CANNOT_BLOCK_SIGNAL"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_BLOCK_SIGNAL"><span class="hs-identifier">_CANNOT_BLOCK_SIGNAL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">109</span><span>
+</span><a name="line-281"></a><span>
+</span><a name="line-282"></a><a name="_CANNOT_UNBLOCK_SIGNAL"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_UNBLOCK_SIGNAL"><span class="hs-identifier">_CANNOT_UNBLOCK_SIGNAL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">110</span><span>
+</span><a name="line-283"></a><span>
+</span><a name="line-284"></a><a name="_CANNOT_MANIPULATE_SIGSET"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_MANIPULATE_SIGSET"><span class="hs-identifier">_CANNOT_MANIPULATE_SIGSET</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">111</span><span>
+</span><a name="line-285"></a><span>
+</span><a name="line-286"></a><a name="_CANNOT_WAIT_FOR_SIGNAL"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WAIT_FOR_SIGNAL"><span class="hs-identifier">_CANNOT_WAIT_FOR_SIGNAL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">112</span><span>
+</span><a name="line-287"></a><span>
+</span><a name="line-288"></a><a name="_THERE_IS_NO_SESSION"><a href="ClickHouseDriver.Core.Error.html#_THERE_IS_NO_SESSION"><span class="hs-identifier">_THERE_IS_NO_SESSION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">113</span><span>
+</span><a name="line-289"></a><span>
+</span><a name="line-290"></a><a name="_CANNOT_CLOCK_GETTIME"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CLOCK_GETTIME"><span class="hs-identifier">_CANNOT_CLOCK_GETTIME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">114</span><span>
+</span><a name="line-291"></a><span>
+</span><a name="line-292"></a><a name="_UNKNOWN_SETTING"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_SETTING"><span class="hs-identifier">_UNKNOWN_SETTING</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">115</span><span>
+</span><a name="line-293"></a><span>
+</span><a name="line-294"></a><a name="_THERE_IS_NO_DEFAULT_VALUE"><a href="ClickHouseDriver.Core.Error.html#_THERE_IS_NO_DEFAULT_VALUE"><span class="hs-identifier">_THERE_IS_NO_DEFAULT_VALUE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">116</span><span>
+</span><a name="line-295"></a><span>
+</span><a name="line-296"></a><a name="_INCORRECT_DATA"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_DATA"><span class="hs-identifier">_INCORRECT_DATA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">117</span><span>
+</span><a name="line-297"></a><span>
+</span><a name="line-298"></a><a name="_ENGINE_REQUIRED"><a href="ClickHouseDriver.Core.Error.html#_ENGINE_REQUIRED"><span class="hs-identifier">_ENGINE_REQUIRED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">119</span><span>
+</span><a name="line-299"></a><span>
+</span><a name="line-300"></a><a name="_CANNOT_INSERT_VALUE_OF_DIFFERENT_SIZE_INTO_TUPLE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_INSERT_VALUE_OF_DIFFERENT_SIZE_INTO_TUPLE"><span class="hs-identifier">_CANNOT_INSERT_VALUE_OF_DIFFERENT_SIZE_INTO_TUPLE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">120</span><span>
+</span><a name="line-301"></a><span>
+</span><a name="line-302"></a><a name="_UNKNOWN_SET_DATA_VARIANT"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_SET_DATA_VARIANT"><span class="hs-identifier">_UNKNOWN_SET_DATA_VARIANT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">121</span><span>
+</span><a name="line-303"></a><span>
+</span><a name="line-304"></a><a name="_INCOMPATIBLE_COLUMNS"><a href="ClickHouseDriver.Core.Error.html#_INCOMPATIBLE_COLUMNS"><span class="hs-identifier">_INCOMPATIBLE_COLUMNS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">122</span><span>
+</span><a name="line-305"></a><span>
+</span><a name="line-306"></a><a name="_UNKNOWN_TYPE_OF_AST_NODE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_TYPE_OF_AST_NODE"><span class="hs-identifier">_UNKNOWN_TYPE_OF_AST_NODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">123</span><span>
+</span><a name="line-307"></a><span>
+</span><a name="line-308"></a><a name="_INCORRECT_ELEMENT_OF_SET"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_ELEMENT_OF_SET"><span class="hs-identifier">_INCORRECT_ELEMENT_OF_SET</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">124</span><span>
+</span><a name="line-309"></a><span>
+</span><a name="line-310"></a><a name="_INCORRECT_RESULT_OF_SCALAR_SUBQUERY"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_RESULT_OF_SCALAR_SUBQUERY"><span class="hs-identifier">_INCORRECT_RESULT_OF_SCALAR_SUBQUERY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">125</span><span>
+</span><a name="line-311"></a><span>
+</span><a name="line-312"></a><a name="_CANNOT_GET_RETURN_TYPE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_GET_RETURN_TYPE"><span class="hs-identifier">_CANNOT_GET_RETURN_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">126</span><span>
+</span><a name="line-313"></a><span>
+</span><a name="line-314"></a><a name="_ILLEGAL_INDEX"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_INDEX"><span class="hs-identifier">_ILLEGAL_INDEX</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">127</span><span>
+</span><a name="line-315"></a><span>
+</span><a name="line-316"></a><a name="_TOO_LARGE_ARRAY_SIZE"><a href="ClickHouseDriver.Core.Error.html#_TOO_LARGE_ARRAY_SIZE"><span class="hs-identifier">_TOO_LARGE_ARRAY_SIZE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">128</span><span>
+</span><a name="line-317"></a><span>
+</span><a name="line-318"></a><a name="_FUNCTION_IS_SPECIAL"><a href="ClickHouseDriver.Core.Error.html#_FUNCTION_IS_SPECIAL"><span class="hs-identifier">_FUNCTION_IS_SPECIAL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">129</span><span>
+</span><a name="line-319"></a><span>
+</span><a name="line-320"></a><a name="_CANNOT_READ_ARRAY_FROM_TEXT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_READ_ARRAY_FROM_TEXT"><span class="hs-identifier">_CANNOT_READ_ARRAY_FROM_TEXT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">130</span><span>
+</span><a name="line-321"></a><span>
+</span><a name="line-322"></a><a name="_TOO_LARGE_STRING_SIZE"><a href="ClickHouseDriver.Core.Error.html#_TOO_LARGE_STRING_SIZE"><span class="hs-identifier">_TOO_LARGE_STRING_SIZE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">131</span><span>
+</span><a name="line-323"></a><span>
+</span><a name="line-324"></a><a name="_CANNOT_CREATE_TABLE_FROM_METADATA"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CREATE_TABLE_FROM_METADATA"><span class="hs-identifier">_CANNOT_CREATE_TABLE_FROM_METADATA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">132</span><span>
+</span><a name="line-325"></a><span>
+</span><a name="line-326"></a><a name="_AGGREGATE_FUNCTION_DOESNT_ALLOW_PARAMETERS"><a href="ClickHouseDriver.Core.Error.html#_AGGREGATE_FUNCTION_DOESNT_ALLOW_PARAMETERS"><span class="hs-identifier">_AGGREGATE_FUNCTION_DOESNT_ALLOW_PARAMETERS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">133</span><span>
+</span><a name="line-327"></a><span>
+</span><a name="line-328"></a><a name="_PARAMETERS_TO_AGGREGATE_FUNCTIONS_MUST_BE_LITERALS"><a href="ClickHouseDriver.Core.Error.html#_PARAMETERS_TO_AGGREGATE_FUNCTIONS_MUST_BE_LITERALS"><span class="hs-identifier">_PARAMETERS_TO_AGGREGATE_FUNCTIONS_MUST_BE_LITERALS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">134</span><span>
+</span><a name="line-329"></a><span>
+</span><a name="line-330"></a><a name="_ZERO_ARRAY_OR_TUPLE_INDEX"><a href="ClickHouseDriver.Core.Error.html#_ZERO_ARRAY_OR_TUPLE_INDEX"><span class="hs-identifier">_ZERO_ARRAY_OR_TUPLE_INDEX</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">135</span><span>
+</span><a name="line-331"></a><span>
+</span><a name="line-332"></a><a name="_UNKNOWN_ELEMENT_IN_CONFIG"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_ELEMENT_IN_CONFIG"><span class="hs-identifier">_UNKNOWN_ELEMENT_IN_CONFIG</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">137</span><span>
+</span><a name="line-333"></a><span>
+</span><a name="line-334"></a><a name="_EXCESSIVE_ELEMENT_IN_CONFIG"><a href="ClickHouseDriver.Core.Error.html#_EXCESSIVE_ELEMENT_IN_CONFIG"><span class="hs-identifier">_EXCESSIVE_ELEMENT_IN_CONFIG</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">138</span><span>
+</span><a name="line-335"></a><span>
+</span><a name="line-336"></a><a name="_NO_ELEMENTS_IN_CONFIG"><a href="ClickHouseDriver.Core.Error.html#_NO_ELEMENTS_IN_CONFIG"><span class="hs-identifier">_NO_ELEMENTS_IN_CONFIG</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">139</span><span>
+</span><a name="line-337"></a><span>
+</span><a name="line-338"></a><a name="_ALL_REQUESTED_COLUMNS_ARE_MISSING"><a href="ClickHouseDriver.Core.Error.html#_ALL_REQUESTED_COLUMNS_ARE_MISSING"><span class="hs-identifier">_ALL_REQUESTED_COLUMNS_ARE_MISSING</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">140</span><span>
+</span><a name="line-339"></a><span>
+</span><a name="line-340"></a><a name="_SAMPLING_NOT_SUPPORTED"><a href="ClickHouseDriver.Core.Error.html#_SAMPLING_NOT_SUPPORTED"><span class="hs-identifier">_SAMPLING_NOT_SUPPORTED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">141</span><span>
+</span><a name="line-341"></a><span>
+</span><a name="line-342"></a><a name="_NOT_FOUND_NODE"><a href="ClickHouseDriver.Core.Error.html#_NOT_FOUND_NODE"><span class="hs-identifier">_NOT_FOUND_NODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">142</span><span>
+</span><a name="line-343"></a><span>
+</span><a name="line-344"></a><a name="_FOUND_MORE_THAN_ONE_NODE"><a href="ClickHouseDriver.Core.Error.html#_FOUND_MORE_THAN_ONE_NODE"><span class="hs-identifier">_FOUND_MORE_THAN_ONE_NODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">143</span><span>
+</span><a name="line-345"></a><span>
+</span><a name="line-346"></a><a name="_FIRST_DATE_IS_BIGGER_THAN_LAST_DATE"><a href="ClickHouseDriver.Core.Error.html#_FIRST_DATE_IS_BIGGER_THAN_LAST_DATE"><span class="hs-identifier">_FIRST_DATE_IS_BIGGER_THAN_LAST_DATE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">144</span><span>
+</span><a name="line-347"></a><span>
+</span><a name="line-348"></a><a name="_UNKNOWN_OVERFLOW_MODE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_OVERFLOW_MODE"><span class="hs-identifier">_UNKNOWN_OVERFLOW_MODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">145</span><span>
+</span><a name="line-349"></a><span>
+</span><a name="line-350"></a><a name="_QUERY_SECTION_DOESNT_MAKE_SENSE"><a href="ClickHouseDriver.Core.Error.html#_QUERY_SECTION_DOESNT_MAKE_SENSE"><span class="hs-identifier">_QUERY_SECTION_DOESNT_MAKE_SENSE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">146</span><span>
+</span><a name="line-351"></a><span>
+</span><a name="line-352"></a><a name="_NOT_FOUND_FUNCTION_ELEMENT_FOR_AGGREGATE"><a href="ClickHouseDriver.Core.Error.html#_NOT_FOUND_FUNCTION_ELEMENT_FOR_AGGREGATE"><span class="hs-identifier">_NOT_FOUND_FUNCTION_ELEMENT_FOR_AGGREGATE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">147</span><span>
+</span><a name="line-353"></a><span>
+</span><a name="line-354"></a><a name="_NOT_FOUND_RELATION_ELEMENT_FOR_CONDITION"><a href="ClickHouseDriver.Core.Error.html#_NOT_FOUND_RELATION_ELEMENT_FOR_CONDITION"><span class="hs-identifier">_NOT_FOUND_RELATION_ELEMENT_FOR_CONDITION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">148</span><span>
+</span><a name="line-355"></a><span>
+</span><a name="line-356"></a><a name="_NOT_FOUND_RHS_ELEMENT_FOR_CONDITION"><a href="ClickHouseDriver.Core.Error.html#_NOT_FOUND_RHS_ELEMENT_FOR_CONDITION"><span class="hs-identifier">_NOT_FOUND_RHS_ELEMENT_FOR_CONDITION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">149</span><span>
+</span><a name="line-357"></a><span>
+</span><a name="line-358"></a><a name="_NO_ATTRIBUTES_LISTED"><a href="ClickHouseDriver.Core.Error.html#_NO_ATTRIBUTES_LISTED"><span class="hs-identifier">_NO_ATTRIBUTES_LISTED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">150</span><span>
+</span><a name="line-359"></a><span>
+</span><a name="line-360"></a><a name="_INDEX_OF_COLUMN_IN_SORT_CLAUSE_IS_OUT_OF_RANGE"><a href="ClickHouseDriver.Core.Error.html#_INDEX_OF_COLUMN_IN_SORT_CLAUSE_IS_OUT_OF_RANGE"><span class="hs-identifier">_INDEX_OF_COLUMN_IN_SORT_CLAUSE_IS_OUT_OF_RANGE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">151</span><span>
+</span><a name="line-361"></a><span>
+</span><a name="line-362"></a><a name="_UNKNOWN_DIRECTION_OF_SORTING"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_DIRECTION_OF_SORTING"><span class="hs-identifier">_UNKNOWN_DIRECTION_OF_SORTING</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">152</span><span>
+</span><a name="line-363"></a><span>
+</span><a name="line-364"></a><a name="_ILLEGAL_DIVISION"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_DIVISION"><span class="hs-identifier">_ILLEGAL_DIVISION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">153</span><span>
+</span><a name="line-365"></a><span>
+</span><a name="line-366"></a><a name="_AGGREGATE_FUNCTION_NOT_APPLICABLE"><a href="ClickHouseDriver.Core.Error.html#_AGGREGATE_FUNCTION_NOT_APPLICABLE"><span class="hs-identifier">_AGGREGATE_FUNCTION_NOT_APPLICABLE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">154</span><span>
+</span><a name="line-367"></a><span>
+</span><a name="line-368"></a><a name="_UNKNOWN_RELATION"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_RELATION"><span class="hs-identifier">_UNKNOWN_RELATION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">155</span><span>
+</span><a name="line-369"></a><span>
+</span><a name="line-370"></a><a name="_DICTIONARIES_WAS_NOT_LOADED"><a href="ClickHouseDriver.Core.Error.html#_DICTIONARIES_WAS_NOT_LOADED"><span class="hs-identifier">_DICTIONARIES_WAS_NOT_LOADED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">156</span><span>
+</span><a name="line-371"></a><span>
+</span><a name="line-372"></a><a name="_ILLEGAL_OVERFLOW_MODE"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_OVERFLOW_MODE"><span class="hs-identifier">_ILLEGAL_OVERFLOW_MODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">157</span><span>
+</span><a name="line-373"></a><span>
+</span><a name="line-374"></a><a name="_TOO_MANY_ROWS"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_ROWS"><span class="hs-identifier">_TOO_MANY_ROWS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">158</span><span>
+</span><a name="line-375"></a><span>
+</span><a name="line-376"></a><a name="_TIMEOUT_EXCEEDED"><a href="ClickHouseDriver.Core.Error.html#_TIMEOUT_EXCEEDED"><span class="hs-identifier">_TIMEOUT_EXCEEDED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">159</span><span>
+</span><a name="line-377"></a><span>
+</span><a name="line-378"></a><a name="_TOO_SLOW"><a href="ClickHouseDriver.Core.Error.html#_TOO_SLOW"><span class="hs-identifier">_TOO_SLOW</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">160</span><span>
+</span><a name="line-379"></a><span>
+</span><a name="line-380"></a><a name="_TOO_MANY_COLUMNS"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_COLUMNS"><span class="hs-identifier">_TOO_MANY_COLUMNS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">161</span><span>
+</span><a name="line-381"></a><span>
+</span><a name="line-382"></a><a name="_TOO_DEEP_SUBQUERIES"><a href="ClickHouseDriver.Core.Error.html#_TOO_DEEP_SUBQUERIES"><span class="hs-identifier">_TOO_DEEP_SUBQUERIES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">162</span><span>
+</span><a name="line-383"></a><span>
+</span><a name="line-384"></a><a name="_TOO_DEEP_PIPELINE"><a href="ClickHouseDriver.Core.Error.html#_TOO_DEEP_PIPELINE"><span class="hs-identifier">_TOO_DEEP_PIPELINE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">163</span><span>
+</span><a name="line-385"></a><span>
+</span><a name="line-386"></a><a name="_READONLY"><a href="ClickHouseDriver.Core.Error.html#_READONLY"><span class="hs-identifier">_READONLY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">164</span><span>
+</span><a name="line-387"></a><span>
+</span><a name="line-388"></a><a name="_TOO_MANY_TEMPORARY_COLUMNS"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_TEMPORARY_COLUMNS"><span class="hs-identifier">_TOO_MANY_TEMPORARY_COLUMNS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">165</span><span>
+</span><a name="line-389"></a><span>
+</span><a name="line-390"></a><a name="_TOO_MANY_TEMPORARY_NON_CONST_COLUMNS"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_TEMPORARY_NON_CONST_COLUMNS"><span class="hs-identifier">_TOO_MANY_TEMPORARY_NON_CONST_COLUMNS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">166</span><span>
+</span><a name="line-391"></a><span>
+</span><a name="line-392"></a><a name="_TOO_DEEP_AST"><a href="ClickHouseDriver.Core.Error.html#_TOO_DEEP_AST"><span class="hs-identifier">_TOO_DEEP_AST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">167</span><span>
+</span><a name="line-393"></a><span>
+</span><a name="line-394"></a><a name="_TOO_BIG_AST"><a href="ClickHouseDriver.Core.Error.html#_TOO_BIG_AST"><span class="hs-identifier">_TOO_BIG_AST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">168</span><span>
+</span><a name="line-395"></a><span>
+</span><a name="line-396"></a><a name="_BAD_TYPE_OF_FIELD"><a href="ClickHouseDriver.Core.Error.html#_BAD_TYPE_OF_FIELD"><span class="hs-identifier">_BAD_TYPE_OF_FIELD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">169</span><span>
+</span><a name="line-397"></a><span>
+</span><a name="line-398"></a><a name="_BAD_GET"><a href="ClickHouseDriver.Core.Error.html#_BAD_GET"><span class="hs-identifier">_BAD_GET</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">170</span><span>
+</span><a name="line-399"></a><span>
+</span><a name="line-400"></a><a name="_BLOCKS_HAVE_DIFFERENT_STRUCTURE"><a href="ClickHouseDriver.Core.Error.html#_BLOCKS_HAVE_DIFFERENT_STRUCTURE"><span class="hs-identifier">_BLOCKS_HAVE_DIFFERENT_STRUCTURE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">171</span><span>
+</span><a name="line-401"></a><span>
+</span><a name="line-402"></a><a name="_CANNOT_CREATE_DIRECTORY"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CREATE_DIRECTORY"><span class="hs-identifier">_CANNOT_CREATE_DIRECTORY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">172</span><span>
+</span><a name="line-403"></a><span>
+</span><a name="line-404"></a><a name="_CANNOT_ALLOCATE_MEMORY"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_ALLOCATE_MEMORY"><span class="hs-identifier">_CANNOT_ALLOCATE_MEMORY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">173</span><span>
+</span><a name="line-405"></a><span>
+</span><a name="line-406"></a><a name="_CYCLIC_ALIASES"><a href="ClickHouseDriver.Core.Error.html#_CYCLIC_ALIASES"><span class="hs-identifier">_CYCLIC_ALIASES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">174</span><span>
+</span><a name="line-407"></a><span>
+</span><a name="line-408"></a><a name="_CHUNK_NOT_FOUND"><a href="ClickHouseDriver.Core.Error.html#_CHUNK_NOT_FOUND"><span class="hs-identifier">_CHUNK_NOT_FOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">176</span><span>
+</span><a name="line-409"></a><span>
+</span><a name="line-410"></a><a name="_DUPLICATE_CHUNK_NAME"><a href="ClickHouseDriver.Core.Error.html#_DUPLICATE_CHUNK_NAME"><span class="hs-identifier">_DUPLICATE_CHUNK_NAME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">177</span><span>
+</span><a name="line-411"></a><span>
+</span><a name="line-412"></a><a name="_MULTIPLE_ALIASES_FOR_EXPRESSION"><a href="ClickHouseDriver.Core.Error.html#_MULTIPLE_ALIASES_FOR_EXPRESSION"><span class="hs-identifier">_MULTIPLE_ALIASES_FOR_EXPRESSION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">178</span><span>
+</span><a name="line-413"></a><span>
+</span><a name="line-414"></a><a name="_MULTIPLE_EXPRESSIONS_FOR_ALIAS"><a href="ClickHouseDriver.Core.Error.html#_MULTIPLE_EXPRESSIONS_FOR_ALIAS"><span class="hs-identifier">_MULTIPLE_EXPRESSIONS_FOR_ALIAS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">179</span><span>
+</span><a name="line-415"></a><span>
+</span><a name="line-416"></a><a name="_THERE_IS_NO_PROFILE"><a href="ClickHouseDriver.Core.Error.html#_THERE_IS_NO_PROFILE"><span class="hs-identifier">_THERE_IS_NO_PROFILE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">180</span><span>
+</span><a name="line-417"></a><span>
+</span><a name="line-418"></a><a name="_ILLEGAL_FINAL"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_FINAL"><span class="hs-identifier">_ILLEGAL_FINAL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">181</span><span>
+</span><a name="line-419"></a><span>
+</span><a name="line-420"></a><a name="_ILLEGAL_PREWHERE"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_PREWHERE"><span class="hs-identifier">_ILLEGAL_PREWHERE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">182</span><span>
+</span><a name="line-421"></a><span>
+</span><a name="line-422"></a><a name="_UNEXPECTED_EXPRESSION"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_EXPRESSION"><span class="hs-identifier">_UNEXPECTED_EXPRESSION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">183</span><span>
+</span><a name="line-423"></a><span>
+</span><a name="line-424"></a><a name="_ILLEGAL_AGGREGATION"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_AGGREGATION"><span class="hs-identifier">_ILLEGAL_AGGREGATION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">184</span><span>
+</span><a name="line-425"></a><span>
+</span><a name="line-426"></a><a name="_UNSUPPORTED_MYISAM_BLOCK_TYPE"><a href="ClickHouseDriver.Core.Error.html#_UNSUPPORTED_MYISAM_BLOCK_TYPE"><span class="hs-identifier">_UNSUPPORTED_MYISAM_BLOCK_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">185</span><span>
+</span><a name="line-427"></a><span>
+</span><a name="line-428"></a><a name="_UNSUPPORTED_COLLATION_LOCALE"><a href="ClickHouseDriver.Core.Error.html#_UNSUPPORTED_COLLATION_LOCALE"><span class="hs-identifier">_UNSUPPORTED_COLLATION_LOCALE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">186</span><span>
+</span><a name="line-429"></a><span>
+</span><a name="line-430"></a><a name="_COLLATION_COMPARISON_FAILED"><a href="ClickHouseDriver.Core.Error.html#_COLLATION_COMPARISON_FAILED"><span class="hs-identifier">_COLLATION_COMPARISON_FAILED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">187</span><span>
+</span><a name="line-431"></a><span>
+</span><a name="line-432"></a><a name="_UNKNOWN_ACTION"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_ACTION"><span class="hs-identifier">_UNKNOWN_ACTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">188</span><span>
+</span><a name="line-433"></a><span>
+</span><a name="line-434"></a><a name="_TABLE_MUST_NOT_BE_CREATED_MANUALLY"><a href="ClickHouseDriver.Core.Error.html#_TABLE_MUST_NOT_BE_CREATED_MANUALLY"><span class="hs-identifier">_TABLE_MUST_NOT_BE_CREATED_MANUALLY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">189</span><span>
+</span><a name="line-435"></a><span>
+</span><a name="line-436"></a><a name="_SIZES_OF_ARRAYS_DOESNT_MATCH"><a href="ClickHouseDriver.Core.Error.html#_SIZES_OF_ARRAYS_DOESNT_MATCH"><span class="hs-identifier">_SIZES_OF_ARRAYS_DOESNT_MATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">190</span><span>
+</span><a name="line-437"></a><span>
+</span><a name="line-438"></a><a name="_SET_SIZE_LIMIT_EXCEEDED"><a href="ClickHouseDriver.Core.Error.html#_SET_SIZE_LIMIT_EXCEEDED"><span class="hs-identifier">_SET_SIZE_LIMIT_EXCEEDED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">191</span><span>
+</span><a name="line-439"></a><span>
+</span><a name="line-440"></a><a name="_UNKNOWN_USER"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_USER"><span class="hs-identifier">_UNKNOWN_USER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">192</span><span>
+</span><a name="line-441"></a><span>
+</span><a name="line-442"></a><a name="_WRONG_PASSWORD"><a href="ClickHouseDriver.Core.Error.html#_WRONG_PASSWORD"><span class="hs-identifier">_WRONG_PASSWORD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">193</span><span>
+</span><a name="line-443"></a><span>
+</span><a name="line-444"></a><a name="_REQUIRED_PASSWORD"><a href="ClickHouseDriver.Core.Error.html#_REQUIRED_PASSWORD"><span class="hs-identifier">_REQUIRED_PASSWORD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">194</span><span>
+</span><a name="line-445"></a><span>
+</span><a name="line-446"></a><a name="_IP_ADDRESS_NOT_ALLOWED"><a href="ClickHouseDriver.Core.Error.html#_IP_ADDRESS_NOT_ALLOWED"><span class="hs-identifier">_IP_ADDRESS_NOT_ALLOWED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">195</span><span>
+</span><a name="line-447"></a><span>
+</span><a name="line-448"></a><a name="_UNKNOWN_ADDRESS_PATTERN_TYPE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_ADDRESS_PATTERN_TYPE"><span class="hs-identifier">_UNKNOWN_ADDRESS_PATTERN_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">196</span><span>
+</span><a name="line-449"></a><span>
+</span><a name="line-450"></a><a name="_SERVER_REVISION_IS_TOO_OLD"><a href="ClickHouseDriver.Core.Error.html#_SERVER_REVISION_IS_TOO_OLD"><span class="hs-identifier">_SERVER_REVISION_IS_TOO_OLD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">197</span><span>
+</span><a name="line-451"></a><span>
+</span><a name="line-452"></a><a name="_DNS_ERROR"><a href="ClickHouseDriver.Core.Error.html#_DNS_ERROR"><span class="hs-identifier">_DNS_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">198</span><span>
+</span><a name="line-453"></a><span>
+</span><a name="line-454"></a><a name="_UNKNOWN_QUOTA"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_QUOTA"><span class="hs-identifier">_UNKNOWN_QUOTA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">199</span><span>
+</span><a name="line-455"></a><span>
+</span><a name="line-456"></a><a name="_QUOTA_DOESNT_ALLOW_KEYS"><a href="ClickHouseDriver.Core.Error.html#_QUOTA_DOESNT_ALLOW_KEYS"><span class="hs-identifier">_QUOTA_DOESNT_ALLOW_KEYS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">200</span><span>
+</span><a name="line-457"></a><span>
+</span><a name="line-458"></a><a name="_QUOTA_EXPIRED"><a href="ClickHouseDriver.Core.Error.html#_QUOTA_EXPIRED"><span class="hs-identifier">_QUOTA_EXPIRED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">201</span><span>
+</span><a name="line-459"></a><span>
+</span><a name="line-460"></a><a name="_TOO_MANY_SIMULTANEOUS_QUERIES"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_SIMULTANEOUS_QUERIES"><span class="hs-identifier">_TOO_MANY_SIMULTANEOUS_QUERIES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">202</span><span>
+</span><a name="line-461"></a><span>
+</span><a name="line-462"></a><a name="_NO_FREE_CONNECTION"><a href="ClickHouseDriver.Core.Error.html#_NO_FREE_CONNECTION"><span class="hs-identifier">_NO_FREE_CONNECTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">203</span><span>
+</span><a name="line-463"></a><span>
+</span><a name="line-464"></a><a name="_CANNOT_FSYNC"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_FSYNC"><span class="hs-identifier">_CANNOT_FSYNC</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">204</span><span>
+</span><a name="line-465"></a><span>
+</span><a name="line-466"></a><a name="_NESTED_TYPE_TOO_DEEP"><a href="ClickHouseDriver.Core.Error.html#_NESTED_TYPE_TOO_DEEP"><span class="hs-identifier">_NESTED_TYPE_TOO_DEEP</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">205</span><span>
+</span><a name="line-467"></a><span>
+</span><a name="line-468"></a><a name="_ALIAS_REQUIRED"><a href="ClickHouseDriver.Core.Error.html#_ALIAS_REQUIRED"><span class="hs-identifier">_ALIAS_REQUIRED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">206</span><span>
+</span><a name="line-469"></a><span>
+</span><a name="line-470"></a><a name="_AMBIGUOUS_IDENTIFIER"><a href="ClickHouseDriver.Core.Error.html#_AMBIGUOUS_IDENTIFIER"><span class="hs-identifier">_AMBIGUOUS_IDENTIFIER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">207</span><span>
+</span><a name="line-471"></a><span>
+</span><a name="line-472"></a><a name="_EMPTY_NESTED_TABLE"><a href="ClickHouseDriver.Core.Error.html#_EMPTY_NESTED_TABLE"><span class="hs-identifier">_EMPTY_NESTED_TABLE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">208</span><span>
+</span><a name="line-473"></a><span>
+</span><a name="line-474"></a><a name="_SOCKET_TIMEOUT"><a href="ClickHouseDriver.Core.Error.html#_SOCKET_TIMEOUT"><span class="hs-identifier">_SOCKET_TIMEOUT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">209</span><span>
+</span><a name="line-475"></a><span>
+</span><a name="line-476"></a><a name="_NETWORK_ERROR"><a href="ClickHouseDriver.Core.Error.html#_NETWORK_ERROR"><span class="hs-identifier">_NETWORK_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">210</span><span>
+</span><a name="line-477"></a><span>
+</span><a name="line-478"></a><a name="_EMPTY_QUERY"><a href="ClickHouseDriver.Core.Error.html#_EMPTY_QUERY"><span class="hs-identifier">_EMPTY_QUERY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">211</span><span>
+</span><a name="line-479"></a><span>
+</span><a name="line-480"></a><a name="_UNKNOWN_LOAD_BALANCING"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_LOAD_BALANCING"><span class="hs-identifier">_UNKNOWN_LOAD_BALANCING</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">212</span><span>
+</span><a name="line-481"></a><span>
+</span><a name="line-482"></a><a name="_UNKNOWN_TOTALS_MODE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_TOTALS_MODE"><span class="hs-identifier">_UNKNOWN_TOTALS_MODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">213</span><span>
+</span><a name="line-483"></a><span>
+</span><a name="line-484"></a><a name="_CANNOT_STATVFS"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_STATVFS"><span class="hs-identifier">_CANNOT_STATVFS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">214</span><span>
+</span><a name="line-485"></a><span>
+</span><a name="line-486"></a><a name="_NOT_AN_AGGREGATE"><a href="ClickHouseDriver.Core.Error.html#_NOT_AN_AGGREGATE"><span class="hs-identifier">_NOT_AN_AGGREGATE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">215</span><span>
+</span><a name="line-487"></a><span>
+</span><a name="line-488"></a><a name="_QUERY_WITH_SAME_ID_IS_ALREADY_RUNNING"><a href="ClickHouseDriver.Core.Error.html#_QUERY_WITH_SAME_ID_IS_ALREADY_RUNNING"><span class="hs-identifier">_QUERY_WITH_SAME_ID_IS_ALREADY_RUNNING</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">216</span><span>
+</span><a name="line-489"></a><span>
+</span><a name="line-490"></a><a name="_CLIENT_HAS_CONNECTED_TO_WRONG_PORT"><a href="ClickHouseDriver.Core.Error.html#_CLIENT_HAS_CONNECTED_TO_WRONG_PORT"><span class="hs-identifier">_CLIENT_HAS_CONNECTED_TO_WRONG_PORT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">217</span><span>
+</span><a name="line-491"></a><span>
+</span><a name="line-492"></a><a name="_TABLE_IS_DROPPED"><a href="ClickHouseDriver.Core.Error.html#_TABLE_IS_DROPPED"><span class="hs-identifier">_TABLE_IS_DROPPED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">218</span><span>
+</span><a name="line-493"></a><span>
+</span><a name="line-494"></a><a name="_DATABASE_NOT_EMPTY"><a href="ClickHouseDriver.Core.Error.html#_DATABASE_NOT_EMPTY"><span class="hs-identifier">_DATABASE_NOT_EMPTY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">219</span><span>
+</span><a name="line-495"></a><span>
+</span><a name="line-496"></a><a name="_DUPLICATE_INTERSERVER_IO_ENDPOINT"><a href="ClickHouseDriver.Core.Error.html#_DUPLICATE_INTERSERVER_IO_ENDPOINT"><span class="hs-identifier">_DUPLICATE_INTERSERVER_IO_ENDPOINT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">220</span><span>
+</span><a name="line-497"></a><span>
+</span><a name="line-498"></a><a name="_NO_SUCH_INTERSERVER_IO_ENDPOINT"><a href="ClickHouseDriver.Core.Error.html#_NO_SUCH_INTERSERVER_IO_ENDPOINT"><span class="hs-identifier">_NO_SUCH_INTERSERVER_IO_ENDPOINT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">221</span><span>
+</span><a name="line-499"></a><span>
+</span><a name="line-500"></a><a name="_ADDING_REPLICA_TO_NON_EMPTY_TABLE"><a href="ClickHouseDriver.Core.Error.html#_ADDING_REPLICA_TO_NON_EMPTY_TABLE"><span class="hs-identifier">_ADDING_REPLICA_TO_NON_EMPTY_TABLE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">222</span><span>
+</span><a name="line-501"></a><span>
+</span><a name="line-502"></a><a name="_UNEXPECTED_AST_STRUCTURE"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_AST_STRUCTURE"><span class="hs-identifier">_UNEXPECTED_AST_STRUCTURE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">223</span><span>
+</span><a name="line-503"></a><span>
+</span><a name="line-504"></a><a name="_REPLICA_IS_ALREADY_ACTIVE"><a href="ClickHouseDriver.Core.Error.html#_REPLICA_IS_ALREADY_ACTIVE"><span class="hs-identifier">_REPLICA_IS_ALREADY_ACTIVE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">224</span><span>
+</span><a name="line-505"></a><span>
+</span><a name="line-506"></a><a name="_NO_ZOOKEEPER"><a href="ClickHouseDriver.Core.Error.html#_NO_ZOOKEEPER"><span class="hs-identifier">_NO_ZOOKEEPER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">225</span><span>
+</span><a name="line-507"></a><span>
+</span><a name="line-508"></a><a name="_NO_FILE_IN_DATA_PART"><a href="ClickHouseDriver.Core.Error.html#_NO_FILE_IN_DATA_PART"><span class="hs-identifier">_NO_FILE_IN_DATA_PART</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">226</span><span>
+</span><a name="line-509"></a><span>
+</span><a name="line-510"></a><a name="_UNEXPECTED_FILE_IN_DATA_PART"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_FILE_IN_DATA_PART"><span class="hs-identifier">_UNEXPECTED_FILE_IN_DATA_PART</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">227</span><span>
+</span><a name="line-511"></a><span>
+</span><a name="line-512"></a><a name="_BAD_SIZE_OF_FILE_IN_DATA_PART"><a href="ClickHouseDriver.Core.Error.html#_BAD_SIZE_OF_FILE_IN_DATA_PART"><span class="hs-identifier">_BAD_SIZE_OF_FILE_IN_DATA_PART</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">228</span><span>
+</span><a name="line-513"></a><span>
+</span><a name="line-514"></a><a name="_QUERY_IS_TOO_LARGE"><a href="ClickHouseDriver.Core.Error.html#_QUERY_IS_TOO_LARGE"><span class="hs-identifier">_QUERY_IS_TOO_LARGE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">229</span><span>
+</span><a name="line-515"></a><span>
+</span><a name="line-516"></a><a name="_NOT_FOUND_EXPECTED_DATA_PART"><a href="ClickHouseDriver.Core.Error.html#_NOT_FOUND_EXPECTED_DATA_PART"><span class="hs-identifier">_NOT_FOUND_EXPECTED_DATA_PART</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">230</span><span>
+</span><a name="line-517"></a><span>
+</span><a name="line-518"></a><a name="_TOO_MANY_UNEXPECTED_DATA_PARTS"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_UNEXPECTED_DATA_PARTS"><span class="hs-identifier">_TOO_MANY_UNEXPECTED_DATA_PARTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">231</span><span>
+</span><a name="line-519"></a><span>
+</span><a name="line-520"></a><a name="_NO_SUCH_DATA_PART"><a href="ClickHouseDriver.Core.Error.html#_NO_SUCH_DATA_PART"><span class="hs-identifier">_NO_SUCH_DATA_PART</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">232</span><span>
+</span><a name="line-521"></a><span>
+</span><a name="line-522"></a><a name="_BAD_DATA_PART_NAME"><a href="ClickHouseDriver.Core.Error.html#_BAD_DATA_PART_NAME"><span class="hs-identifier">_BAD_DATA_PART_NAME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">233</span><span>
+</span><a name="line-523"></a><span>
+</span><a name="line-524"></a><a name="_NO_REPLICA_HAS_PART"><a href="ClickHouseDriver.Core.Error.html#_NO_REPLICA_HAS_PART"><span class="hs-identifier">_NO_REPLICA_HAS_PART</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">234</span><span>
+</span><a name="line-525"></a><span>
+</span><a name="line-526"></a><a name="_DUPLICATE_DATA_PART"><a href="ClickHouseDriver.Core.Error.html#_DUPLICATE_DATA_PART"><span class="hs-identifier">_DUPLICATE_DATA_PART</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">235</span><span>
+</span><a name="line-527"></a><span>
+</span><a name="line-528"></a><a name="_ABORTED"><a href="ClickHouseDriver.Core.Error.html#_ABORTED"><span class="hs-identifier">_ABORTED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">236</span><span>
+</span><a name="line-529"></a><span>
+</span><a name="line-530"></a><a name="_NO_REPLICA_NAME_GIVEN"><a href="ClickHouseDriver.Core.Error.html#_NO_REPLICA_NAME_GIVEN"><span class="hs-identifier">_NO_REPLICA_NAME_GIVEN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">237</span><span>
+</span><a name="line-531"></a><span>
+</span><a name="line-532"></a><a name="_FORMAT_VERSION_TOO_OLD"><a href="ClickHouseDriver.Core.Error.html#_FORMAT_VERSION_TOO_OLD"><span class="hs-identifier">_FORMAT_VERSION_TOO_OLD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">238</span><span>
+</span><a name="line-533"></a><span>
+</span><a name="line-534"></a><a name="_CANNOT_MUNMAP"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_MUNMAP"><span class="hs-identifier">_CANNOT_MUNMAP</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">239</span><span>
+</span><a name="line-535"></a><span>
+</span><a name="line-536"></a><a name="_CANNOT_MREMAP"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_MREMAP"><span class="hs-identifier">_CANNOT_MREMAP</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">240</span><span>
+</span><a name="line-537"></a><span>
+</span><a name="line-538"></a><a name="_MEMORY_LIMIT_EXCEEDED"><a href="ClickHouseDriver.Core.Error.html#_MEMORY_LIMIT_EXCEEDED"><span class="hs-identifier">_MEMORY_LIMIT_EXCEEDED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">241</span><span>
+</span><a name="line-539"></a><span>
+</span><a name="line-540"></a><a name="_TABLE_IS_READ_ONLY"><a href="ClickHouseDriver.Core.Error.html#_TABLE_IS_READ_ONLY"><span class="hs-identifier">_TABLE_IS_READ_ONLY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">242</span><span>
+</span><a name="line-541"></a><span>
+</span><a name="line-542"></a><a name="_NOT_ENOUGH_SPACE"><a href="ClickHouseDriver.Core.Error.html#_NOT_ENOUGH_SPACE"><span class="hs-identifier">_NOT_ENOUGH_SPACE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">243</span><span>
+</span><a name="line-543"></a><span>
+</span><a name="line-544"></a><a name="_UNEXPECTED_ZOOKEEPER_ERROR"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_ZOOKEEPER_ERROR"><span class="hs-identifier">_UNEXPECTED_ZOOKEEPER_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">244</span><span>
+</span><a name="line-545"></a><span>
+</span><a name="line-546"></a><a name="_CORRUPTED_DATA"><a href="ClickHouseDriver.Core.Error.html#_CORRUPTED_DATA"><span class="hs-identifier">_CORRUPTED_DATA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">246</span><span>
+</span><a name="line-547"></a><span>
+</span><a name="line-548"></a><a name="_INCORRECT_MARK"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_MARK"><span class="hs-identifier">_INCORRECT_MARK</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">247</span><span>
+</span><a name="line-549"></a><span>
+</span><a name="line-550"></a><a name="_INVALID_PARTITION_VALUE"><a href="ClickHouseDriver.Core.Error.html#_INVALID_PARTITION_VALUE"><span class="hs-identifier">_INVALID_PARTITION_VALUE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">248</span><span>
+</span><a name="line-551"></a><span>
+</span><a name="line-552"></a><a name="_NOT_ENOUGH_BLOCK_NUMBERS"><a href="ClickHouseDriver.Core.Error.html#_NOT_ENOUGH_BLOCK_NUMBERS"><span class="hs-identifier">_NOT_ENOUGH_BLOCK_NUMBERS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">250</span><span>
+</span><a name="line-553"></a><span>
+</span><a name="line-554"></a><a name="_NO_SUCH_REPLICA"><a href="ClickHouseDriver.Core.Error.html#_NO_SUCH_REPLICA"><span class="hs-identifier">_NO_SUCH_REPLICA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">251</span><span>
+</span><a name="line-555"></a><span>
+</span><a name="line-556"></a><a name="_TOO_MANY_PARTS"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_PARTS"><span class="hs-identifier">_TOO_MANY_PARTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">252</span><span>
+</span><a name="line-557"></a><span>
+</span><a name="line-558"></a><a name="_REPLICA_IS_ALREADY_EXIST"><a href="ClickHouseDriver.Core.Error.html#_REPLICA_IS_ALREADY_EXIST"><span class="hs-identifier">_REPLICA_IS_ALREADY_EXIST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">253</span><span>
+</span><a name="line-559"></a><span>
+</span><a name="line-560"></a><a name="_NO_ACTIVE_REPLICAS"><a href="ClickHouseDriver.Core.Error.html#_NO_ACTIVE_REPLICAS"><span class="hs-identifier">_NO_ACTIVE_REPLICAS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">254</span><span>
+</span><a name="line-561"></a><span>
+</span><a name="line-562"></a><a name="_TOO_MANY_RETRIES_TO_FETCH_PARTS"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_RETRIES_TO_FETCH_PARTS"><span class="hs-identifier">_TOO_MANY_RETRIES_TO_FETCH_PARTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">255</span><span>
+</span><a name="line-563"></a><span>
+</span><a name="line-564"></a><a name="_PARTITION_ALREADY_EXISTS"><a href="ClickHouseDriver.Core.Error.html#_PARTITION_ALREADY_EXISTS"><span class="hs-identifier">_PARTITION_ALREADY_EXISTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">256</span><span>
+</span><a name="line-565"></a><span>
+</span><a name="line-566"></a><a name="_PARTITION_DOESNT_EXIST"><a href="ClickHouseDriver.Core.Error.html#_PARTITION_DOESNT_EXIST"><span class="hs-identifier">_PARTITION_DOESNT_EXIST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">257</span><span>
+</span><a name="line-567"></a><span>
+</span><a name="line-568"></a><a name="_UNION_ALL_RESULT_STRUCTURES_MISMATCH"><a href="ClickHouseDriver.Core.Error.html#_UNION_ALL_RESULT_STRUCTURES_MISMATCH"><span class="hs-identifier">_UNION_ALL_RESULT_STRUCTURES_MISMATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">258</span><span>
+</span><a name="line-569"></a><span>
+</span><a name="line-570"></a><a name="_CLIENT_OUTPUT_FORMAT_SPECIFIED"><a href="ClickHouseDriver.Core.Error.html#_CLIENT_OUTPUT_FORMAT_SPECIFIED"><span class="hs-identifier">_CLIENT_OUTPUT_FORMAT_SPECIFIED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">260</span><span>
+</span><a name="line-571"></a><span>
+</span><a name="line-572"></a><a name="_UNKNOWN_BLOCK_INFO_FIELD"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_BLOCK_INFO_FIELD"><span class="hs-identifier">_UNKNOWN_BLOCK_INFO_FIELD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">261</span><span>
+</span><a name="line-573"></a><span>
+</span><a name="line-574"></a><a name="_BAD_COLLATION"><a href="ClickHouseDriver.Core.Error.html#_BAD_COLLATION"><span class="hs-identifier">_BAD_COLLATION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">262</span><span>
+</span><a name="line-575"></a><span>
+</span><a name="line-576"></a><a name="_CANNOT_COMPILE_CODE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_COMPILE_CODE"><span class="hs-identifier">_CANNOT_COMPILE_CODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">263</span><span>
+</span><a name="line-577"></a><span>
+</span><a name="line-578"></a><a name="_INCOMPATIBLE_TYPE_OF_JOIN"><a href="ClickHouseDriver.Core.Error.html#_INCOMPATIBLE_TYPE_OF_JOIN"><span class="hs-identifier">_INCOMPATIBLE_TYPE_OF_JOIN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">264</span><span>
+</span><a name="line-579"></a><span>
+</span><a name="line-580"></a><a name="_NO_AVAILABLE_REPLICA"><a href="ClickHouseDriver.Core.Error.html#_NO_AVAILABLE_REPLICA"><span class="hs-identifier">_NO_AVAILABLE_REPLICA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">265</span><span>
+</span><a name="line-581"></a><span>
+</span><a name="line-582"></a><a name="_MISMATCH_REPLICAS_DATA_SOURCES"><a href="ClickHouseDriver.Core.Error.html#_MISMATCH_REPLICAS_DATA_SOURCES"><span class="hs-identifier">_MISMATCH_REPLICAS_DATA_SOURCES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">266</span><span>
+</span><a name="line-583"></a><span>
+</span><a name="line-584"></a><a name="_STORAGE_DOESNT_SUPPORT_PARALLEL_REPLICAS"><a href="ClickHouseDriver.Core.Error.html#_STORAGE_DOESNT_SUPPORT_PARALLEL_REPLICAS"><span class="hs-identifier">_STORAGE_DOESNT_SUPPORT_PARALLEL_REPLICAS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">267</span><span>
+</span><a name="line-585"></a><span>
+</span><a name="line-586"></a><a name="_CPUID_ERROR"><a href="ClickHouseDriver.Core.Error.html#_CPUID_ERROR"><span class="hs-identifier">_CPUID_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">268</span><span>
+</span><a name="line-587"></a><span>
+</span><a name="line-588"></a><a name="_INFINITE_LOOP"><a href="ClickHouseDriver.Core.Error.html#_INFINITE_LOOP"><span class="hs-identifier">_INFINITE_LOOP</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">269</span><span>
+</span><a name="line-589"></a><span>
+</span><a name="line-590"></a><a name="_CANNOT_COMPRESS"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_COMPRESS"><span class="hs-identifier">_CANNOT_COMPRESS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">270</span><span>
+</span><a name="line-591"></a><span>
+</span><a name="line-592"></a><a name="_CANNOT_DECOMPRESS"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_DECOMPRESS"><span class="hs-identifier">_CANNOT_DECOMPRESS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">271</span><span>
+</span><a name="line-593"></a><span>
+</span><a name="line-594"></a><a name="_AIO_SUBMIT_ERROR"><a href="ClickHouseDriver.Core.Error.html#_AIO_SUBMIT_ERROR"><span class="hs-identifier">_AIO_SUBMIT_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">272</span><span>
+</span><a name="line-595"></a><span>
+</span><a name="line-596"></a><a name="_AIO_COMPLETION_ERROR"><a href="ClickHouseDriver.Core.Error.html#_AIO_COMPLETION_ERROR"><span class="hs-identifier">_AIO_COMPLETION_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">273</span><span>
+</span><a name="line-597"></a><span>
+</span><a name="line-598"></a><a name="_AIO_READ_ERROR"><a href="ClickHouseDriver.Core.Error.html#_AIO_READ_ERROR"><span class="hs-identifier">_AIO_READ_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">274</span><span>
+</span><a name="line-599"></a><span>
+</span><a name="line-600"></a><a name="_AIO_WRITE_ERROR"><a href="ClickHouseDriver.Core.Error.html#_AIO_WRITE_ERROR"><span class="hs-identifier">_AIO_WRITE_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">275</span><span>
+</span><a name="line-601"></a><span>
+</span><a name="line-602"></a><a name="_INDEX_NOT_USED"><a href="ClickHouseDriver.Core.Error.html#_INDEX_NOT_USED"><span class="hs-identifier">_INDEX_NOT_USED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">277</span><span>
+</span><a name="line-603"></a><span>
+</span><a name="line-604"></a><a name="_LEADERSHIP_LOST"><a href="ClickHouseDriver.Core.Error.html#_LEADERSHIP_LOST"><span class="hs-identifier">_LEADERSHIP_LOST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">278</span><span>
+</span><a name="line-605"></a><span>
+</span><a name="line-606"></a><a name="_ALL_CONNECTION_TRIES_FAILED"><a href="ClickHouseDriver.Core.Error.html#_ALL_CONNECTION_TRIES_FAILED"><span class="hs-identifier">_ALL_CONNECTION_TRIES_FAILED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">279</span><span>
+</span><a name="line-607"></a><span>
+</span><a name="line-608"></a><a name="_NO_AVAILABLE_DATA"><a href="ClickHouseDriver.Core.Error.html#_NO_AVAILABLE_DATA"><span class="hs-identifier">_NO_AVAILABLE_DATA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">280</span><span>
+</span><a name="line-609"></a><span>
+</span><a name="line-610"></a><a name="_DICTIONARY_IS_EMPTY"><a href="ClickHouseDriver.Core.Error.html#_DICTIONARY_IS_EMPTY"><span class="hs-identifier">_DICTIONARY_IS_EMPTY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">281</span><span>
+</span><a name="line-611"></a><span>
+</span><a name="line-612"></a><a name="_INCORRECT_INDEX"><a href="ClickHouseDriver.Core.Error.html#_INCORRECT_INDEX"><span class="hs-identifier">_INCORRECT_INDEX</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">282</span><span>
+</span><a name="line-613"></a><span>
+</span><a name="line-614"></a><a name="_UNKNOWN_DISTRIBUTED_PRODUCT_MODE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_DISTRIBUTED_PRODUCT_MODE"><span class="hs-identifier">_UNKNOWN_DISTRIBUTED_PRODUCT_MODE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">283</span><span>
+</span><a name="line-615"></a><span>
+</span><a name="line-616"></a><a name="_UNKNOWN_GLOBAL_SUBQUERIES_METHOD"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_GLOBAL_SUBQUERIES_METHOD"><span class="hs-identifier">_UNKNOWN_GLOBAL_SUBQUERIES_METHOD</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">284</span><span>
+</span><a name="line-617"></a><span>
+</span><a name="line-618"></a><a name="_TOO_LESS_LIVE_REPLICAS"><a href="ClickHouseDriver.Core.Error.html#_TOO_LESS_LIVE_REPLICAS"><span class="hs-identifier">_TOO_LESS_LIVE_REPLICAS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">285</span><span>
+</span><a name="line-619"></a><span>
+</span><a name="line-620"></a><a name="_UNSATISFIED_QUORUM_FOR_PREVIOUS_WRITE"><a href="ClickHouseDriver.Core.Error.html#_UNSATISFIED_QUORUM_FOR_PREVIOUS_WRITE"><span class="hs-identifier">_UNSATISFIED_QUORUM_FOR_PREVIOUS_WRITE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">286</span><span>
+</span><a name="line-621"></a><span>
+</span><a name="line-622"></a><a name="_UNKNOWN_FORMAT_VERSION"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_FORMAT_VERSION"><span class="hs-identifier">_UNKNOWN_FORMAT_VERSION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">287</span><span>
+</span><a name="line-623"></a><span>
+</span><a name="line-624"></a><a name="_DISTRIBUTED_IN_JOIN_SUBQUERY_DENIED"><a href="ClickHouseDriver.Core.Error.html#_DISTRIBUTED_IN_JOIN_SUBQUERY_DENIED"><span class="hs-identifier">_DISTRIBUTED_IN_JOIN_SUBQUERY_DENIED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">288</span><span>
+</span><a name="line-625"></a><span>
+</span><a name="line-626"></a><a name="_REPLICA_IS_NOT_IN_QUORUM"><a href="ClickHouseDriver.Core.Error.html#_REPLICA_IS_NOT_IN_QUORUM"><span class="hs-identifier">_REPLICA_IS_NOT_IN_QUORUM</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">289</span><span>
+</span><a name="line-627"></a><span>
+</span><a name="line-628"></a><a name="_LIMIT_EXCEEDED"><a href="ClickHouseDriver.Core.Error.html#_LIMIT_EXCEEDED"><span class="hs-identifier">_LIMIT_EXCEEDED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">290</span><span>
+</span><a name="line-629"></a><span>
+</span><a name="line-630"></a><a name="_DATABASE_ACCESS_DENIED"><a href="ClickHouseDriver.Core.Error.html#_DATABASE_ACCESS_DENIED"><span class="hs-identifier">_DATABASE_ACCESS_DENIED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">291</span><span>
+</span><a name="line-631"></a><span>
+</span><a name="line-632"></a><a name="_LEADERSHIP_CHANGED"><a href="ClickHouseDriver.Core.Error.html#_LEADERSHIP_CHANGED"><span class="hs-identifier">_LEADERSHIP_CHANGED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">292</span><span>
+</span><a name="line-633"></a><span>
+</span><a name="line-634"></a><a name="_MONGODB_CANNOT_AUTHENTICATE"><a href="ClickHouseDriver.Core.Error.html#_MONGODB_CANNOT_AUTHENTICATE"><span class="hs-identifier">_MONGODB_CANNOT_AUTHENTICATE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">293</span><span>
+</span><a name="line-635"></a><span>
+</span><a name="line-636"></a><a name="_INVALID_BLOCK_EXTRA_INFO"><a href="ClickHouseDriver.Core.Error.html#_INVALID_BLOCK_EXTRA_INFO"><span class="hs-identifier">_INVALID_BLOCK_EXTRA_INFO</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">294</span><span>
+</span><a name="line-637"></a><span>
+</span><a name="line-638"></a><a name="_RECEIVED_EMPTY_DATA"><a href="ClickHouseDriver.Core.Error.html#_RECEIVED_EMPTY_DATA"><span class="hs-identifier">_RECEIVED_EMPTY_DATA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">295</span><span>
+</span><a name="line-639"></a><span>
+</span><a name="line-640"></a><a name="_NO_REMOTE_SHARD_FOUND"><a href="ClickHouseDriver.Core.Error.html#_NO_REMOTE_SHARD_FOUND"><span class="hs-identifier">_NO_REMOTE_SHARD_FOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">296</span><span>
+</span><a name="line-641"></a><span>
+</span><a name="line-642"></a><a name="_SHARD_HAS_NO_CONNECTIONS"><a href="ClickHouseDriver.Core.Error.html#_SHARD_HAS_NO_CONNECTIONS"><span class="hs-identifier">_SHARD_HAS_NO_CONNECTIONS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">297</span><span>
+</span><a name="line-643"></a><span>
+</span><a name="line-644"></a><a name="_CANNOT_PIPE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PIPE"><span class="hs-identifier">_CANNOT_PIPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">298</span><span>
+</span><a name="line-645"></a><span>
+</span><a name="line-646"></a><a name="_CANNOT_FORK"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_FORK"><span class="hs-identifier">_CANNOT_FORK</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">299</span><span>
+</span><a name="line-647"></a><span>
+</span><a name="line-648"></a><a name="_CANNOT_DLSYM"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_DLSYM"><span class="hs-identifier">_CANNOT_DLSYM</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">300</span><span>
+</span><a name="line-649"></a><span>
+</span><a name="line-650"></a><a name="_CANNOT_CREATE_CHILD_PROCESS"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CREATE_CHILD_PROCESS"><span class="hs-identifier">_CANNOT_CREATE_CHILD_PROCESS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">301</span><span>
+</span><a name="line-651"></a><span>
+</span><a name="line-652"></a><a name="_CHILD_WAS_NOT_EXITED_NORMALLY"><a href="ClickHouseDriver.Core.Error.html#_CHILD_WAS_NOT_EXITED_NORMALLY"><span class="hs-identifier">_CHILD_WAS_NOT_EXITED_NORMALLY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">302</span><span>
+</span><a name="line-653"></a><span>
+</span><a name="line-654"></a><a name="_CANNOT_SELECT"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_SELECT"><span class="hs-identifier">_CANNOT_SELECT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">303</span><span>
+</span><a name="line-655"></a><span>
+</span><a name="line-656"></a><a name="_CANNOT_WAITPID"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_WAITPID"><span class="hs-identifier">_CANNOT_WAITPID</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">304</span><span>
+</span><a name="line-657"></a><span>
+</span><a name="line-658"></a><a name="_TABLE_WAS_NOT_DROPPED"><a href="ClickHouseDriver.Core.Error.html#_TABLE_WAS_NOT_DROPPED"><span class="hs-identifier">_TABLE_WAS_NOT_DROPPED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">305</span><span>
+</span><a name="line-659"></a><span>
+</span><a name="line-660"></a><a name="_TOO_DEEP_RECURSION"><a href="ClickHouseDriver.Core.Error.html#_TOO_DEEP_RECURSION"><span class="hs-identifier">_TOO_DEEP_RECURSION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">306</span><span>
+</span><a name="line-661"></a><span>
+</span><a name="line-662"></a><a name="_TOO_MANY_BYTES"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_BYTES"><span class="hs-identifier">_TOO_MANY_BYTES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">307</span><span>
+</span><a name="line-663"></a><span>
+</span><a name="line-664"></a><a name="_UNEXPECTED_NODE_IN_ZOOKEEPER"><a href="ClickHouseDriver.Core.Error.html#_UNEXPECTED_NODE_IN_ZOOKEEPER"><span class="hs-identifier">_UNEXPECTED_NODE_IN_ZOOKEEPER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">308</span><span>
+</span><a name="line-665"></a><span>
+</span><a name="line-666"></a><a name="_FUNCTION_CANNOT_HAVE_PARAMETERS"><a href="ClickHouseDriver.Core.Error.html#_FUNCTION_CANNOT_HAVE_PARAMETERS"><span class="hs-identifier">_FUNCTION_CANNOT_HAVE_PARAMETERS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">309</span><span>
+</span><a name="line-667"></a><span>
+</span><a name="line-668"></a><a name="_INVALID_SHARD_WEIGHT"><a href="ClickHouseDriver.Core.Error.html#_INVALID_SHARD_WEIGHT"><span class="hs-identifier">_INVALID_SHARD_WEIGHT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">317</span><span>
+</span><a name="line-669"></a><span>
+</span><a name="line-670"></a><a name="_INVALID_CONFIG_PARAMETER"><a href="ClickHouseDriver.Core.Error.html#_INVALID_CONFIG_PARAMETER"><span class="hs-identifier">_INVALID_CONFIG_PARAMETER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">318</span><span>
+</span><a name="line-671"></a><span>
+</span><a name="line-672"></a><a name="_UNKNOWN_STATUS_OF_INSERT"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_STATUS_OF_INSERT"><span class="hs-identifier">_UNKNOWN_STATUS_OF_INSERT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">319</span><span>
+</span><a name="line-673"></a><span>
+</span><a name="line-674"></a><a name="_VALUE_IS_OUT_OF_RANGE_OF_DATA_TYPE"><a href="ClickHouseDriver.Core.Error.html#_VALUE_IS_OUT_OF_RANGE_OF_DATA_TYPE"><span class="hs-identifier">_VALUE_IS_OUT_OF_RANGE_OF_DATA_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">321</span><span>
+</span><a name="line-675"></a><span>
+</span><a name="line-676"></a><a name="_BARRIER_TIMEOUT"><a href="ClickHouseDriver.Core.Error.html#_BARRIER_TIMEOUT"><span class="hs-identifier">_BARRIER_TIMEOUT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">335</span><span>
+</span><a name="line-677"></a><span>
+</span><a name="line-678"></a><a name="_UNKNOWN_DATABASE_ENGINE"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_DATABASE_ENGINE"><span class="hs-identifier">_UNKNOWN_DATABASE_ENGINE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">336</span><span>
+</span><a name="line-679"></a><span>
+</span><a name="line-680"></a><a name="_DDL_GUARD_IS_ACTIVE"><a href="ClickHouseDriver.Core.Error.html#_DDL_GUARD_IS_ACTIVE"><span class="hs-identifier">_DDL_GUARD_IS_ACTIVE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">337</span><span>
+</span><a name="line-681"></a><span>
+</span><a name="line-682"></a><a name="_UNFINISHED"><a href="ClickHouseDriver.Core.Error.html#_UNFINISHED"><span class="hs-identifier">_UNFINISHED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">341</span><span>
+</span><a name="line-683"></a><span>
+</span><a name="line-684"></a><a name="_METADATA_MISMATCH"><a href="ClickHouseDriver.Core.Error.html#_METADATA_MISMATCH"><span class="hs-identifier">_METADATA_MISMATCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">342</span><span>
+</span><a name="line-685"></a><span>
+</span><a name="line-686"></a><a name="_SUPPORT_IS_DISABLED"><a href="ClickHouseDriver.Core.Error.html#_SUPPORT_IS_DISABLED"><span class="hs-identifier">_SUPPORT_IS_DISABLED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">344</span><span>
+</span><a name="line-687"></a><span>
+</span><a name="line-688"></a><a name="_TABLE_DIFFERS_TOO_MUCH"><a href="ClickHouseDriver.Core.Error.html#_TABLE_DIFFERS_TOO_MUCH"><span class="hs-identifier">_TABLE_DIFFERS_TOO_MUCH</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">345</span><span>
+</span><a name="line-689"></a><span>
+</span><a name="line-690"></a><a name="_CANNOT_CONVERT_CHARSET"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CONVERT_CHARSET"><span class="hs-identifier">_CANNOT_CONVERT_CHARSET</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">346</span><span>
+</span><a name="line-691"></a><span>
+</span><a name="line-692"></a><a name="_CANNOT_LOAD_CONFIG"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_LOAD_CONFIG"><span class="hs-identifier">_CANNOT_LOAD_CONFIG</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">347</span><span>
+</span><a name="line-693"></a><span>
+</span><a name="line-694"></a><a name="_CANNOT_INSERT_NULL_IN_ORDINARY_COLUMN"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_INSERT_NULL_IN_ORDINARY_COLUMN"><span class="hs-identifier">_CANNOT_INSERT_NULL_IN_ORDINARY_COLUMN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">349</span><span>
+</span><a name="line-695"></a><span>
+</span><a name="line-696"></a><a name="_INCOMPATIBLE_SOURCE_TABLES"><a href="ClickHouseDriver.Core.Error.html#_INCOMPATIBLE_SOURCE_TABLES"><span class="hs-identifier">_INCOMPATIBLE_SOURCE_TABLES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">350</span><span>
+</span><a name="line-697"></a><span>
+</span><a name="line-698"></a><a name="_AMBIGUOUS_TABLE_NAME"><a href="ClickHouseDriver.Core.Error.html#_AMBIGUOUS_TABLE_NAME"><span class="hs-identifier">_AMBIGUOUS_TABLE_NAME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">351</span><span>
+</span><a name="line-699"></a><span>
+</span><a name="line-700"></a><a name="_AMBIGUOUS_COLUMN_NAME"><a href="ClickHouseDriver.Core.Error.html#_AMBIGUOUS_COLUMN_NAME"><span class="hs-identifier">_AMBIGUOUS_COLUMN_NAME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">352</span><span>
+</span><a name="line-701"></a><span>
+</span><a name="line-702"></a><a name="_INDEX_OF_POSITIONAL_ARGUMENT_IS_OUT_OF_RANGE"><a href="ClickHouseDriver.Core.Error.html#_INDEX_OF_POSITIONAL_ARGUMENT_IS_OUT_OF_RANGE"><span class="hs-identifier">_INDEX_OF_POSITIONAL_ARGUMENT_IS_OUT_OF_RANGE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">353</span><span>
+</span><a name="line-703"></a><span>
+</span><a name="line-704"></a><a name="_ZLIB_INFLATE_FAILED"><a href="ClickHouseDriver.Core.Error.html#_ZLIB_INFLATE_FAILED"><span class="hs-identifier">_ZLIB_INFLATE_FAILED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">354</span><span>
+</span><a name="line-705"></a><span>
+</span><a name="line-706"></a><a name="_ZLIB_DEFLATE_FAILED"><a href="ClickHouseDriver.Core.Error.html#_ZLIB_DEFLATE_FAILED"><span class="hs-identifier">_ZLIB_DEFLATE_FAILED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">355</span><span>
+</span><a name="line-707"></a><span>
+</span><a name="line-708"></a><a name="_BAD_LAMBDA"><a href="ClickHouseDriver.Core.Error.html#_BAD_LAMBDA"><span class="hs-identifier">_BAD_LAMBDA</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">356</span><span>
+</span><a name="line-709"></a><span>
+</span><a name="line-710"></a><a name="_RESERVED_IDENTIFIER_NAME"><a href="ClickHouseDriver.Core.Error.html#_RESERVED_IDENTIFIER_NAME"><span class="hs-identifier">_RESERVED_IDENTIFIER_NAME</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">357</span><span>
+</span><a name="line-711"></a><span>
+</span><a name="line-712"></a><a name="_INTO_OUTFILE_NOT_ALLOWED"><a href="ClickHouseDriver.Core.Error.html#_INTO_OUTFILE_NOT_ALLOWED"><span class="hs-identifier">_INTO_OUTFILE_NOT_ALLOWED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">358</span><span>
+</span><a name="line-713"></a><span>
+</span><a name="line-714"></a><a name="_TABLE_SIZE_EXCEEDS_MAX_DROP_SIZE_LIMIT"><a href="ClickHouseDriver.Core.Error.html#_TABLE_SIZE_EXCEEDS_MAX_DROP_SIZE_LIMIT"><span class="hs-identifier">_TABLE_SIZE_EXCEEDS_MAX_DROP_SIZE_LIMIT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">359</span><span>
+</span><a name="line-715"></a><span>
+</span><a name="line-716"></a><a name="_CANNOT_CREATE_CHARSET_CONVERTER"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CREATE_CHARSET_CONVERTER"><span class="hs-identifier">_CANNOT_CREATE_CHARSET_CONVERTER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">360</span><span>
+</span><a name="line-717"></a><span>
+</span><a name="line-718"></a><a name="_SEEK_POSITION_OUT_OF_BOUND"><a href="ClickHouseDriver.Core.Error.html#_SEEK_POSITION_OUT_OF_BOUND"><span class="hs-identifier">_SEEK_POSITION_OUT_OF_BOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">361</span><span>
+</span><a name="line-719"></a><span>
+</span><a name="line-720"></a><a name="_CURRENT_WRITE_BUFFER_IS_EXHAUSTED"><a href="ClickHouseDriver.Core.Error.html#_CURRENT_WRITE_BUFFER_IS_EXHAUSTED"><span class="hs-identifier">_CURRENT_WRITE_BUFFER_IS_EXHAUSTED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">362</span><span>
+</span><a name="line-721"></a><span>
+</span><a name="line-722"></a><a name="_CANNOT_CREATE_IO_BUFFER"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_CREATE_IO_BUFFER"><span class="hs-identifier">_CANNOT_CREATE_IO_BUFFER</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">363</span><span>
+</span><a name="line-723"></a><span>
+</span><a name="line-724"></a><a name="_RECEIVED_ERROR_TOO_MANY_REQUESTS"><a href="ClickHouseDriver.Core.Error.html#_RECEIVED_ERROR_TOO_MANY_REQUESTS"><span class="hs-identifier">_RECEIVED_ERROR_TOO_MANY_REQUESTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">364</span><span>
+</span><a name="line-725"></a><span>
+</span><a name="line-726"></a><a name="_OUTPUT_IS_NOT_SORTED"><a href="ClickHouseDriver.Core.Error.html#_OUTPUT_IS_NOT_SORTED"><span class="hs-identifier">_OUTPUT_IS_NOT_SORTED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">365</span><span>
+</span><a name="line-727"></a><span>
+</span><a name="line-728"></a><a name="_SIZES_OF_NESTED_COLUMNS_ARE_INCONSISTENT"><a href="ClickHouseDriver.Core.Error.html#_SIZES_OF_NESTED_COLUMNS_ARE_INCONSISTENT"><span class="hs-identifier">_SIZES_OF_NESTED_COLUMNS_ARE_INCONSISTENT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">366</span><span>
+</span><a name="line-729"></a><span>
+</span><a name="line-730"></a><a name="_TOO_MANY_FETCHES"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_FETCHES"><span class="hs-identifier">_TOO_MANY_FETCHES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">367</span><span>
+</span><a name="line-731"></a><span>
+</span><a name="line-732"></a><a name="_BAD_CAST"><a href="ClickHouseDriver.Core.Error.html#_BAD_CAST"><span class="hs-identifier">_BAD_CAST</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">368</span><span>
+</span><a name="line-733"></a><span>
+</span><a name="line-734"></a><a name="_ALL_REPLICAS_ARE_STALE"><a href="ClickHouseDriver.Core.Error.html#_ALL_REPLICAS_ARE_STALE"><span class="hs-identifier">_ALL_REPLICAS_ARE_STALE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">369</span><span>
+</span><a name="line-735"></a><span>
+</span><a name="line-736"></a><a name="_DATA_TYPE_CANNOT_BE_USED_IN_TABLES"><a href="ClickHouseDriver.Core.Error.html#_DATA_TYPE_CANNOT_BE_USED_IN_TABLES"><span class="hs-identifier">_DATA_TYPE_CANNOT_BE_USED_IN_TABLES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">370</span><span>
+</span><a name="line-737"></a><span>
+</span><a name="line-738"></a><a name="_INCONSISTENT_CLUSTER_DEFINITION"><a href="ClickHouseDriver.Core.Error.html#_INCONSISTENT_CLUSTER_DEFINITION"><span class="hs-identifier">_INCONSISTENT_CLUSTER_DEFINITION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">371</span><span>
+</span><a name="line-739"></a><span>
+</span><a name="line-740"></a><a name="_SESSION_NOT_FOUND"><a href="ClickHouseDriver.Core.Error.html#_SESSION_NOT_FOUND"><span class="hs-identifier">_SESSION_NOT_FOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">372</span><span>
+</span><a name="line-741"></a><span>
+</span><a name="line-742"></a><a name="_SESSION_IS_LOCKED"><a href="ClickHouseDriver.Core.Error.html#_SESSION_IS_LOCKED"><span class="hs-identifier">_SESSION_IS_LOCKED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">373</span><span>
+</span><a name="line-743"></a><span>
+</span><a name="line-744"></a><a name="_INVALID_SESSION_TIMEOUT"><a href="ClickHouseDriver.Core.Error.html#_INVALID_SESSION_TIMEOUT"><span class="hs-identifier">_INVALID_SESSION_TIMEOUT</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">374</span><span>
+</span><a name="line-745"></a><span>
+</span><a name="line-746"></a><a name="_CANNOT_DLOPEN"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_DLOPEN"><span class="hs-identifier">_CANNOT_DLOPEN</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">375</span><span>
+</span><a name="line-747"></a><span>
+</span><a name="line-748"></a><a name="_CANNOT_PARSE_UUID"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_UUID"><span class="hs-identifier">_CANNOT_PARSE_UUID</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">376</span><span>
+</span><a name="line-749"></a><span>
+</span><a name="line-750"></a><a name="_ILLEGAL_SYNTAX_FOR_DATA_TYPE"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_SYNTAX_FOR_DATA_TYPE"><span class="hs-identifier">_ILLEGAL_SYNTAX_FOR_DATA_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">377</span><span>
+</span><a name="line-751"></a><span>
+</span><a name="line-752"></a><a name="_DATA_TYPE_CANNOT_HAVE_ARGUMENTS"><a href="ClickHouseDriver.Core.Error.html#_DATA_TYPE_CANNOT_HAVE_ARGUMENTS"><span class="hs-identifier">_DATA_TYPE_CANNOT_HAVE_ARGUMENTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">378</span><span>
+</span><a name="line-753"></a><span>
+</span><a name="line-754"></a><a name="_UNKNOWN_STATUS_OF_DISTRIBUTED_DDL_TASK"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_STATUS_OF_DISTRIBUTED_DDL_TASK"><span class="hs-identifier">_UNKNOWN_STATUS_OF_DISTRIBUTED_DDL_TASK</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">379</span><span>
+</span><a name="line-755"></a><span>
+</span><a name="line-756"></a><a name="_CANNOT_KILL"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_KILL"><span class="hs-identifier">_CANNOT_KILL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">380</span><span>
+</span><a name="line-757"></a><span>
+</span><a name="line-758"></a><a name="_HTTP_LENGTH_REQUIRED"><a href="ClickHouseDriver.Core.Error.html#_HTTP_LENGTH_REQUIRED"><span class="hs-identifier">_HTTP_LENGTH_REQUIRED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">381</span><span>
+</span><a name="line-759"></a><span>
+</span><a name="line-760"></a><a name="_CANNOT_LOAD_CATBOOST_MODEL"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_LOAD_CATBOOST_MODEL"><span class="hs-identifier">_CANNOT_LOAD_CATBOOST_MODEL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">382</span><span>
+</span><a name="line-761"></a><span>
+</span><a name="line-762"></a><a name="_CANNOT_APPLY_CATBOOST_MODEL"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_APPLY_CATBOOST_MODEL"><span class="hs-identifier">_CANNOT_APPLY_CATBOOST_MODEL</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">383</span><span>
+</span><a name="line-763"></a><span>
+</span><a name="line-764"></a><a name="_PART_IS_TEMPORARILY_LOCKED"><a href="ClickHouseDriver.Core.Error.html#_PART_IS_TEMPORARILY_LOCKED"><span class="hs-identifier">_PART_IS_TEMPORARILY_LOCKED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">384</span><span>
+</span><a name="line-765"></a><span>
+</span><a name="line-766"></a><a name="_MULTIPLE_STREAMS_REQUIRED"><a href="ClickHouseDriver.Core.Error.html#_MULTIPLE_STREAMS_REQUIRED"><span class="hs-identifier">_MULTIPLE_STREAMS_REQUIRED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">385</span><span>
+</span><a name="line-767"></a><span>
+</span><a name="line-768"></a><a name="_NO_COMMON_TYPE"><a href="ClickHouseDriver.Core.Error.html#_NO_COMMON_TYPE"><span class="hs-identifier">_NO_COMMON_TYPE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">386</span><span>
+</span><a name="line-769"></a><span>
+</span><a name="line-770"></a><a name="_EXTERNAL_LOADABLE_ALREADY_EXISTS"><a href="ClickHouseDriver.Core.Error.html#_EXTERNAL_LOADABLE_ALREADY_EXISTS"><span class="hs-identifier">_EXTERNAL_LOADABLE_ALREADY_EXISTS</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">387</span><span>
+</span><a name="line-771"></a><span>
+</span><a name="line-772"></a><a name="_CANNOT_ASSIGN_OPTIMIZE"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_ASSIGN_OPTIMIZE"><span class="hs-identifier">_CANNOT_ASSIGN_OPTIMIZE</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">388</span><span>
+</span><a name="line-773"></a><span>
+</span><a name="line-774"></a><a name="_INSERT_WAS_DEDUPLICATED"><a href="ClickHouseDriver.Core.Error.html#_INSERT_WAS_DEDUPLICATED"><span class="hs-identifier">_INSERT_WAS_DEDUPLICATED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">389</span><span>
+</span><a name="line-775"></a><span>
+</span><a name="line-776"></a><a name="_CANNOT_GET_CREATE_TABLE_QUERY"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_GET_CREATE_TABLE_QUERY"><span class="hs-identifier">_CANNOT_GET_CREATE_TABLE_QUERY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">390</span><span>
+</span><a name="line-777"></a><span>
+</span><a name="line-778"></a><a name="_EXTERNAL_LIBRARY_ERROR"><a href="ClickHouseDriver.Core.Error.html#_EXTERNAL_LIBRARY_ERROR"><span class="hs-identifier">_EXTERNAL_LIBRARY_ERROR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">391</span><span>
+</span><a name="line-779"></a><span>
+</span><a name="line-780"></a><a name="_QUERY_IS_PROHIBITED"><a href="ClickHouseDriver.Core.Error.html#_QUERY_IS_PROHIBITED"><span class="hs-identifier">_QUERY_IS_PROHIBITED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">392</span><span>
+</span><a name="line-781"></a><span>
+</span><a name="line-782"></a><a name="_THERE_IS_NO_QUERY"><a href="ClickHouseDriver.Core.Error.html#_THERE_IS_NO_QUERY"><span class="hs-identifier">_THERE_IS_NO_QUERY</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">393</span><span>
+</span><a name="line-783"></a><span>
+</span><a name="line-784"></a><a name="_QUERY_WAS_CANCELLED"><a href="ClickHouseDriver.Core.Error.html#_QUERY_WAS_CANCELLED"><span class="hs-identifier">_QUERY_WAS_CANCELLED</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">394</span><span>
+</span><a name="line-785"></a><span>
+</span><a name="line-786"></a><a name="_FUNCTION_THROW_IF_VALUE_IS_NON_ZERO"><a href="ClickHouseDriver.Core.Error.html#_FUNCTION_THROW_IF_VALUE_IS_NON_ZERO"><span class="hs-identifier">_FUNCTION_THROW_IF_VALUE_IS_NON_ZERO</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">395</span><span>
+</span><a name="line-787"></a><span>
+</span><a name="line-788"></a><a name="_TOO_MANY_ROWS_OR_BYTES"><a href="ClickHouseDriver.Core.Error.html#_TOO_MANY_ROWS_OR_BYTES"><span class="hs-identifier">_TOO_MANY_ROWS_OR_BYTES</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">396</span><span>
+</span><a name="line-789"></a><span>
+</span><a name="line-790"></a><a name="_QUERY_IS_NOT_SUPPORTED_IN_MATERIALIZED_VIEW"><a href="ClickHouseDriver.Core.Error.html#_QUERY_IS_NOT_SUPPORTED_IN_MATERIALIZED_VIEW"><span class="hs-identifier">_QUERY_IS_NOT_SUPPORTED_IN_MATERIALIZED_VIEW</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">397</span><span>
+</span><a name="line-791"></a><span>
+</span><a name="line-792"></a><a name="_CANNOT_PARSE_DOMAIN_VALUE_FROM_STRING"><a href="ClickHouseDriver.Core.Error.html#_CANNOT_PARSE_DOMAIN_VALUE_FROM_STRING"><span class="hs-identifier">_CANNOT_PARSE_DOMAIN_VALUE_FROM_STRING</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">441</span><span>
+</span><a name="line-793"></a><span>
+</span><a name="line-794"></a><a name="_KEEPER_EXCEPTION"><a href="ClickHouseDriver.Core.Error.html#_KEEPER_EXCEPTION"><span class="hs-identifier">_KEEPER_EXCEPTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">999</span><span>
+</span><a name="line-795"></a><span>
+</span><a name="line-796"></a><a name="_POCO_EXCEPTION"><a href="ClickHouseDriver.Core.Error.html#_POCO_EXCEPTION"><span class="hs-identifier">_POCO_EXCEPTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">1000</span><span>
+</span><a name="line-797"></a><span>
+</span><a name="line-798"></a><a name="_STD_EXCEPTION"><a href="ClickHouseDriver.Core.Error.html#_STD_EXCEPTION"><span class="hs-identifier">_STD_EXCEPTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">1001</span><span>
+</span><a name="line-799"></a><span>
+</span><a name="line-800"></a><a name="_UNKNOWN_EXCEPTION"><a href="ClickHouseDriver.Core.Error.html#_UNKNOWN_EXCEPTION"><span class="hs-identifier">_UNKNOWN_EXCEPTION</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">1002</span><span>
+</span><a name="line-801"></a><span>
+</span><a name="line-802"></a><a name="_CONDITIONAL_TREE_PARENT_NOT_FOUND"><a href="ClickHouseDriver.Core.Error.html#_CONDITIONAL_TREE_PARENT_NOT_FOUND"><span class="hs-identifier">_CONDITIONAL_TREE_PARENT_NOT_FOUND</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">2001</span><span>
+</span><a name="line-803"></a><span>
+</span><a name="line-804"></a><a name="_ILLEGAL_PROJECTION_MANIPULATOR"><a href="ClickHouseDriver.Core.Error.html#_ILLEGAL_PROJECTION_MANIPULATOR"><span class="hs-identifier">_ILLEGAL_PROJECTION_MANIPULATOR</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">2002</span></pre></body></html>
