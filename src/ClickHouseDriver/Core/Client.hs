@@ -258,7 +258,7 @@ instance Resource (Pool TCPConnection) where
 fetchWithInfo :: String->GenHaxl u w (Either String CKResult)
 fetchWithInfo = dataFetch . FetchData
 
--- | fetch data only
+-- | Fetch data
 fetch :: String
         -- ^ SQL SELECT command
        ->GenHaxl u w (Either String (Vector (Vector ClickhouseType)))
@@ -288,8 +288,8 @@ query source cmd = do
     Right CKResult{query_result=r}->return $ Right r
     Left err->return $ Left err
 
--- | for general use e.g. creating table,
--- | multiple queries, multiple insertions. 
+-- | For general use e.g. creating table,
+-- multiple queries, multiple insertions. 
 execute :: Env u w -> GenHaxl u w a -> IO a
 execute = runHaxl
 
@@ -317,9 +317,9 @@ insertOneRow :: Env () w
               ->String
               -- ^ SQL command
               ->[ClickhouseType]
-              -- ^ a row of local clickhouse data type to be serialize and insert. 
+              -- ^ a row of local clickhouse data type to be serialized and inserted. 
               ->IO(BS.ByteString)
-              -- ^ The result bytestring indicate success or failure.
+              -- ^ The resulting bytestring indicates success or failure.
 insertOneRow source cmd items = insertMany source cmd [items]
 
 -- | ping pong 

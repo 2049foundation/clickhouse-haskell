@@ -1,0 +1,100 @@
+Date : 2020-11-15 22:27:58
+Directory : /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell
+Total : 72 files,  5236 codes, 43 comments, 180 blanks, all 5459 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| HTML       |         64 |      4,550 |          0 |          4 |      4,554 |
+| CSS        |          3 |        659 |         41 |        169 |        869 |
+| JavaScript |          3 |         25 |          2 |          7 |         34 |
+| JSON       |          2 |          2 |          0 |          0 |          2 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                   |         72 |      5,236 |         43 |        180 |      5,459 |
+| src                                                                                                                 |         22 |      4,561 |          0 |         23 |      4,584 |
++---------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                                            | language   | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Block.html                    | HTML       |          2 |          0 |          0 |          2 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Client.html                   | HTML       |          2 |          0 |          0 |          2 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-ClientProtocol.html           | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Column.html                   | HTML       |          2 |          0 |          0 |          2 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Connection.html               | HTML       |          4 |          0 |          0 |          4 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Defines.html                  | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Error.html                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-HTTP-Client.html              | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-HTTP-Connection.html          | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-HTTP-Helpers.html             | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-HTTP-Types.html               | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-HTTP.html                     | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Pool.html                     | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-QueryProcessingStage.html     | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-ServerProtocol.html           | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core-Types.html                    | HTML       |          2 |          0 |          0 |          2 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-Core.html                          | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-IO-BufferedReader.html             | HTML       |          4 |          0 |          0 |          4 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ClickHouseDriver-IO-BufferedWriter.html             | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-95.html                                   | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-A.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-All.html                                  | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-B.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-C.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-D.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-E.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-F.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-G.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-H.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-I.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-J.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-M.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-N.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-P.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-Q.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-R.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-S.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-T.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-U.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-V.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-W.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index-Y.html                                    | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index.html                                      | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/doc-index.json                                      | JSON       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/haddock-bundle.min.js                               | JavaScript |          1 |          1 |          1 |          3 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/index.html                                          | HTML       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/meta.json                                           | JSON       |          1 |          0 |          0 |          1 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/ocean.css                                           | CSS        |        491 |         35 |        122 |        648 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/quick-jump.css                                      | CSS        |        126 |          6 |         33 |        165 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/quick-jump.min.js                                   | JavaScript |          1 |          1 |          1 |          3 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Block.html                | HTML       |        143 |          0 |          0 |        143 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Client.html               | HTML       |        346 |          0 |          0 |        346 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.ClientProtocol.html       | HTML       |         68 |          0 |          0 |         68 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Column.html               | HTML       |        995 |          0 |          4 |        999 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Connection.html           | HTML       |        556 |          0 |          0 |        556 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Defines.html              | HTML       |        131 |          0 |          0 |        131 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Error.html                | HTML       |        804 |          0 |          0 |        804 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.HTTP.Client.html          | HTML       |        279 |          0 |          0 |        279 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.HTTP.Connection.html      | HTML       |         81 |          0 |          0 |         81 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.HTTP.Helpers.html         | HTML       |         94 |          0 |          0 |         94 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.HTTP.Types.html           | HTML       |         46 |          0 |          0 |         46 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.HTTP.html                 | HTML       |         35 |          0 |          0 |         35 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Pool.html                 | HTML       |         68 |          0 |          0 |         68 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.QueryProcessingStage.html | HTML       |         11 |          0 |          0 |         11 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.ServerProtocol.html       | HTML       |         81 |          0 |          0 |         81 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.Types.html                | HTML       |        339 |          0 |          0 |        339 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.Core.html                      | HTML       |         14 |          0 |          0 |         14 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.IO.BufferedReader.html         | HTML       |        215 |          0 |          0 |        215 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/ClickHouseDriver.IO.BufferedWriter.html         | HTML       |        139 |          0 |          0 |        139 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/Paths_clickhouse_haskell.html                   | HTML       |         51 |          0 |          0 |         51 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/highlight.js                                    | JavaScript |         23 |          0 |          5 |         28 |
+| /home/darth/EMQX/clickhouse-haskell/doc/html/clickhouse-haskell/src/style.css                                       | CSS        |         42 |          0 |         14 |         56 |
+| Total                                                                                                               |            |      5,236 |         43 |        180 |      5,459 |
++---------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
