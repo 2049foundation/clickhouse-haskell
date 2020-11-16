@@ -66,7 +66,7 @@ import           Network.Socket                     (SockAddr, Socket)
 
 -----------------------------------------------------------
 data BlockInfo = Info
-  { is_overflows :: {-# UNPACK #-} !Bool,
+  { is_overflows :: !Bool,
     bucket_num :: {-# UNPACK #-} !Int32
   } 
   deriving Show
@@ -197,7 +197,7 @@ setClientInfo client_info tcp@TCPConnection{context=ctx}
 data ClientSetting 
   = ClientSetting {
       insert_block_size ::{-# UNPACK #-} !Word,
-      strings_as_bytes ::{-# UNPACK #-} !Bool,
+      strings_as_bytes :: !Bool,
       strings_encoding ::{-# UNPACK #-} !ByteString
   }
   deriving Show

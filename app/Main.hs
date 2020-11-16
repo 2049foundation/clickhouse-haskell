@@ -164,7 +164,7 @@ data SocketReader = SocketReader {
 main' :: IO()
 main' = do
     env <- HTTP.httpClient "default" ""
-    create <- HTTP.exec "CREATE TABLE test (x Int32) ENGINE = Memory" env
+    create <- HTTP.exec "CREATE TABLE IF NOT EXISTS test (x Int32) ENGINE = Memory" env
     print create
     isSuccess <- HTTP.insertOneRow "test" [CKInt32 100] env
     print isSuccess
@@ -190,6 +190,7 @@ insertTest = do
             ,[CKString "1000000000", CKString "Clickhouse-Haskell2", CKInt16 12]
             ,[CKString "3000000000", CKString "Clickhouse-Haskell3", CKInt16 15]]
     print s
+    print "read test"
     q <- query conn "SELECT * FROM simple_table" 
     print q
     closeClient conn
@@ -205,6 +206,7 @@ readTest = do
 insertTest2 :: IO()
 insertTest2 = do
     conn <- defaultClient
+    execute conn "CREATE TABLE IF NOT EXISTS simple_table"
     s <- insertMany conn "INSERT INTO nulls_table VALUES" 
             [[CKNull, CKString "Clickhouse-Haskell", CKInt16 1]
             ,[CKString "1000000000", CKNull, CKInt16 12]
