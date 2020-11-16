@@ -20,7 +20,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 
--- | This module provides implementation of user's API
+-- | This module provides implementations of user's APIs
 --
 
 module ClickHouseDriver.Core.Client
