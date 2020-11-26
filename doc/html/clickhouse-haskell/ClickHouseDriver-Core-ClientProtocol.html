@@ -1,0 +1,125 @@
+<!DOCTYPE html PUBLIC"-//W3C//DTD XHTML 1.0 Transitional//EN""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html
+    xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type"
+            content="text/html; charset=UTF-8" /><title>ClickHouseDriver.Core.ClientProtocol</title><link
+            href="ocean.css" rel="stylesheet" type="text/css" title="Ocean" /><link
+            rel="stylesheet" type="text/css" href="quick-jump.css" /><script
+            src="haddock-bundle.min.js" async="async" type="text/javascript"></script><script
+            src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
+            type="text/javascript"></script></head><body><div
+            id="package-header"><ul class="links" id="page-menu"><li><a
+                        href="src/ClickHouseDriver.Core.ClientProtocol.html">Source</a></li><li><a
+                        href="index.html">Contents</a></li><li><a
+                        href="doc-index.html">Index</a></li></ul><p
+                class="caption">clickhouse-haskell-0.1.0.0: Clickhouse client in
+                Haskell</p></div><div id="content"><div id="module-header"><table
+                    class="info"><tr><th>Safe Haskell</th><td>None</td></tr><tr><th>Language</th><td>Haskell2010</td></tr></table><p
+                    class="caption">ClickHouseDriver.Core.ClientProtocol</p></div><div
+                id="interface"><h1>Documentation</h1><div class="top"><p
+                        class="src"><a id="v:_HELLO" class="def">_HELLO</a> ::
+                        <a href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_HELLO"
+                            class="link">Source</a> <a href="#v:_HELLO"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:_QUERY" class="def">_QUERY</a> ::
+                        <a href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_QUERY"
+                            class="link">Source</a> <a href="#v:_QUERY"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:_DATA" class="def">_DATA</a> :: <a
+                            href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_DATA"
+                            class="link">Source</a> <a href="#v:_DATA"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:_CANCEL" class="def">_CANCEL</a> ::
+                        <a href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_CANCEL"
+                            class="link">Source</a> <a href="#v:_CANCEL"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:_PING" class="def">_PING</a> :: <a
+                            href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_PING"
+                            class="link">Source</a> <a href="#v:_PING"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:_TABLES_STATUS_REQUEST"
+                            class="def">_TABLES_STATUS_REQUEST</a> :: <a
+                            href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_TABLES_STATUS_REQUEST"
+                            class="link">Source</a> <a
+                            href="#v:_TABLES_STATUS_REQUEST" class="selflink">#</a></p></div><div
+                    class="top"><p class="src"><a id="v:_COMPRESSION_ENABLE"
+                            class="def">_COMPRESSION_ENABLE</a> :: <a
+                            href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_COMPRESSION_ENABLE"
+                            class="link">Source</a> <a
+                            href="#v:_COMPRESSION_ENABLE" class="selflink">#</a></p></div><div
+                    class="top"><p class="src"><a id="v:_COMPRESSION_DISABLE"
+                            class="def">_COMPRESSION_DISABLE</a> :: <a
+                            href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_COMPRESSION_DISABLE"
+                            class="link">Source</a> <a
+                            href="#v:_COMPRESSION_DISABLE" class="selflink">#</a></p></div><div
+                    class="top"><p class="src"><a id="v:_COMPRESSION_METHOD_LZ4"
+                            class="def">_COMPRESSION_METHOD_LZ4</a> :: <a
+                            href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_COMPRESSION_METHOD_LZ4"
+                            class="link">Source</a> <a
+                            href="#v:_COMPRESSION_METHOD_LZ4" class="selflink">#</a></p></div><div
+                    class="top"><p class="src"><a
+                            id="v:_COMPRESSION_METHOD_LZ4HC" class="def">_COMPRESSION_METHOD_LZ4HC</a>
+                        :: <a href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_COMPRESSION_METHOD_LZ4HC"
+                            class="link">Source</a> <a
+                            href="#v:_COMPRESSION_METHOD_LZ4HC"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:_COMPRESSION_METHOD_ZSTD"
+                            class="def">_COMPRESSION_METHOD_ZSTD</a> :: <a
+                            href="../base-4.12.0.0/Data-Word.html#t:Word"
+                            title="Data.Word">Word</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_COMPRESSION_METHOD_ZSTD"
+                            class="link">Source</a> <a
+                            href="#v:_COMPRESSION_METHOD_ZSTD" class="selflink">#</a></p></div><div
+                    class="top"><p class="src"><a
+                            id="v:_COMPRESSION_METHOD_BYTE_LZ4" class="def">_COMPRESSION_METHOD_BYTE_LZ4</a>
+                        :: <a href="../base-4.12.0.0/Prelude.html#t:Integer"
+                            title="Prelude">Integer</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_COMPRESSION_METHOD_BYTE_LZ4"
+                            class="link">Source</a> <a
+                            href="#v:_COMPRESSION_METHOD_BYTE_LZ4"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:_COMPRESSION_METHOD_BYTE_ZSTD"
+                            class="def">_COMPRESSION_METHOD_BYTE_ZSTD</a> :: <a
+                            href="../base-4.12.0.0/Prelude.html#t:Integer"
+                            title="Prelude">Integer</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#_COMPRESSION_METHOD_BYTE_ZSTD"
+                            class="link">Source</a> <a
+                            href="#v:_COMPRESSION_METHOD_BYTE_ZSTD"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:typeStr" class="def">typeStr</a> ::
+                        <a href="../vector-0.12.0.3/Data-Vector.html#t:Vector"
+                            title="Data.Vector">Vector</a> <a
+                            href="../bytestring-0.10.8.2/Data-ByteString.html#t:ByteString"
+                            title="Data.ByteString">ByteString</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#typeStr"
+                            class="link">Source</a> <a href="#v:typeStr"
+                            class="selflink">#</a></p></div><div class="top"><p
+                        class="src"><a id="v:toString" class="def">toString</a>
+                        :: <a href="../base-4.12.0.0/Data-Int.html#t:Int"
+                            title="Data.Int">Int</a> -&gt; <a
+                            href="../bytestring-0.10.8.2/Data-ByteString.html#t:ByteString"
+                            title="Data.ByteString">ByteString</a> <a
+                            href="src/ClickHouseDriver.Core.ClientProtocol.html#toString"
+                            class="link">Source</a> <a href="#v:toString"
+                            class="selflink">#</a></p></div></div></div><div
+            id="footer"><p>Produced by <a
+                    href="http://www.haskell.org/haddock/">Haddock</a> version
+                2.22.0</p></div></body></html>

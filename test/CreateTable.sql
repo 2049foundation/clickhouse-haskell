@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 CREATE TABLE IF NOT EXISTS default.test_table (
     `id` FixedString(10),
     `item` String,
@@ -8,5 +9,14 @@ ORDER BY tuple();
 
 
 
+=======
+CREATE TABLE IF NOT EXISTS nulls_table (
+    `id` Nullable(FixedString(10)),
+    `item` Nullable(String),
+    `number` Nullable(Int16)
+) 
+ENGINE = MergeTree()
+ORDER BY tuple();
 
-INSERT INTO default.test_table (`id`, `item`,`number`,`numArray`) VALUES ('0000000001', 'JOHN',1557,[45,45,45]),('1234567890', 'CONNOR',533,[1,2,3,4]),('3543364534', 'MARRY',220,[0,1,2,3,121,2]),('2258864346', 'JAME',4452,[42,54548,66,676,0])
+>>>>>>> 380b061d9d16ed42724f5da6b8a080b8ade86777
+

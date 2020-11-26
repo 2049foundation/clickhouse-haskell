@@ -18,6 +18,13 @@ packages:
   original:
     git: https://github.com/facebook/Haxl.git
     commit: e978f29f648ffaf3ba1574e654f9c4b7e92c7f92
+- completed:
+    hackage: timestamp-0.2@sha256:103fe49ce206922d3b14d57d8aff25eaf03c70fef5fcdaeaeb8416aaee163e51,1598
+    pantry-tree:
+      size: 509
+      sha256: 51dc0ab22269973eec829ae476fb3102cfe155ffde2fd1d039dedf65c7842031
+  original:
+    hackage: timestamp-0.2@sha256:103fe49ce206922d3b14d57d8aff25eaf03c70fef5fcdaeaeb8416aaee163e51,1598
 snapshots:
 - completed:
     size: 524154

@@ -1,20 +1,15 @@
-cabal-version: 1.12
-
--- This file has been generated from package.yaml by hpack version 0.33.0.
---
--- see: https://github.com/sol/hpack
---
--- hash: 1809303c08fde6bcec5abe72b5db23882e6f3f466db3144deed14217b72f1357
-
+cabal-version:  1.12
 name:           clickhouse-haskell
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/clickhouse-haskell#readme>
-homepage:       https://github.com/githubuser/clickhouse-haskell#readme
-bug-reports:    https://github.com/githubuser/clickhouse-haskell/issues
+synopsis:       Clickhouse client in Haskell
+homepage:       https://github.com/MaboroshiChan/clickhouse-haskell/blob/master/README.md
+bug-reports:    https://github.com/2049foundation/clickhouse-haskell/issues
 author:         Shi You
 maintainer:     youshi@emqx.io
-copyright:      2020 Author name here
-license:        BSD3
+copyright:      2020 Shi You
+category:       Database
+license:        MIT
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
@@ -23,54 +18,88 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/clickhouse-haskell
+  location: https://github.com/MaboroshiChan/clickhouse-haskell
 
 library
   exposed-modules:
-      ClickHouseDriver
-      ClickHouseDriver.Helpers
-      ClickHouseDriver.Query
-      ClickHouseDriver.Types
-      ClickHouseDriver.Default
+      ClickHouseDriver.Core
+      ClickHouseDriver.Core.HTTP
+      ClickHouseDriver.Core.HTTP.Helpers
+      ClickHouseDriver.Core.HTTP.Client
+      ClickHouseDriver.Core.HTTP.Types
+      ClickHouseDriver.Core.HTTP.Connection
+      ClickHouseDriver.Core.Error
+      ClickHouseDriver.Core.QueryProcessingStage
+      ClickHouseDriver.Core.Defines
+      ClickHouseDriver.Core.ServerProtocol
+      ClickHouseDriver.Core.ClientProtocol
+      ClickHouseDriver.Core.Block
+      ClickHouseDriver.Core.Client
+      ClickHouseDriver.Core.Connection
+      ClickHouseDriver.Core.Types
+      ClickHouseDriver.Core.Column
+      ClickHouseDriver.IO.BufferedWriter
+      ClickHouseDriver.IO.BufferedReader
+      ClickHouseDriver.Core.Pool
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
       src
   build-depends:
       aeson
+    , streaming-commons
+    , resource-pool
+    , data-default-class
+    , split
+    , uuid
+    , QuickCheck
+    , io-streams
+    , uri-encode
+    , attoparsec
+    , mtl
+    , unix-time
+    , data-dword
+    , network-ip
+    , io-streams
+    , filepath
+    , uri-encode
+    , tz
+    , time
+    , bytestring-to-vector
+    , monad-loops
+    , word8
     , monad-parallel
-    , HUnit
     , async 
     , hashable
-    , mtl
     , array
-    , attoparsec
     , base >=4.7 && <5
     , binary
     , bytestring
     , call-stack
-    , cassava
     , containers
     , exceptions
-    , ghc-prim
     , hashmap
     , haxl
-    , hspec
     , http-client
-    , http-client-tls
-    , http-types
     , network
     , network-simple
-    , network-uri
     , parsec
-    , regex-tdfa
-    , scanner
     , text
     , transformers
     , unordered-containers
     , vector
     , network-simple
   default-language: Haskell2010
+  c-sources: ./src/ClickHouseDriver/CBits/varuint.c
+           , ./src/ClickHouseDriver/CBits/datetime.c
+           , ./src/ClickHouseDriver/CBits/bigint.c
+  include-dirs: ./src/ClickHouseDriver/Include 
+  includes: varuint.h
+          , datetime.h
+          , bigint.h
+  install-includes: varuint.h
+                  , datetime.h
+                  , bigint.h
 
 executable clickhouse-haskell-exe
   main-is: Main.hs
@@ -81,6 +110,11 @@ executable clickhouse-haskell-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , time
+    , data-default-class
+    , io-streams
+    , uri-encode
+    , mtl
     , array
     , attoparsec
     , base >=4.7 && <5
@@ -116,13 +150,19 @@ test-suite clickhouse-haskell-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Test.QuerySpec
+      Test.IO
+      Test.ColumnSpec
+      Test.HTTPSpec
       Paths_clickhouse_haskell
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , QuickCheck
+    , io-streams
+    , uri-encode 
+    , mtl
     , HUnit
     , array
     , attoparsec
