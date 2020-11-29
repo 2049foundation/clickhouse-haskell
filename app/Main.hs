@@ -5,27 +5,21 @@
 {-# LANGUAGE ApplicativeDo #-}
 module Main where
 
-import           ClickHouseDriver.Core
+import ClickHouseDriver.Core
+    ( tcpConnect,
+      defaultClient,
+      createClient,
+      fetch,
+      query,
+      execute,
+      insertMany,
+      ping,
+      closeClient )
 import qualified ClickHouseDriver.Core.HTTP as HTTP
 import           Control.Monad.ST
 import           Data.Text
 import qualified Data.Text.IO as TIO
 import           Network.HTTP.Client
-<<<<<<< HEAD
-import           Data.ByteString        
-import           Data.ByteString.Char8
-
-(<*>) :: Int->Int->Int
-x <*> y = x * y
-
-main :: IO()
-main = do
-    deSettings <- defaultHttpConnection
-    env <- setupEnv deSettings
-    res4 <- runQuery env (getByteString "SHOW DATABASES FORMAT JSON")
-    print "Text: "
-    Data.ByteString.Char8.putStrLn res4
-=======
 import           Data.ByteString      hiding (putStrLn)  
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as CL8
@@ -84,7 +78,6 @@ benchmark1 = do
     putStrLn "success!"
     end <- getCurrentTime
     print $ diffUTCTime end start
->>>>>>> 380b061d9d16ed42724f5da6b8a080b8ade86777
 
 
 someReader :: R.Reader Int Int
