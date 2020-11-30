@@ -12,7 +12,7 @@
 
 -- | Tools to serialize data sent server. This module is for internal use only.
 
-module ClickHouseDriver.IO.BufferedWriter
+module Database.ClickHouseDriver.IO.BufferedWriter
   ( writeBinaryStr,
     writeBinaryFixedLengthStr,
     writeVarUInt,

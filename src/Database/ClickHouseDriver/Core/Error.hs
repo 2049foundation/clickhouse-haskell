@@ -8,7 +8,7 @@
 -- For internal use only
 {-# LANGUAGE OverloadedStrings #-}
 
-module ClickHouseDriver.Core.Error
+module Database.ClickHouseDriver.Core.Error
   ( readException,
     ClickhouseException (..),
     _UNEXPECTED_PACKET_FROM_SERVER,
@@ -16,7 +16,7 @@ module ClickHouseDriver.Core.Error
   )
 where
 
-import ClickHouseDriver.IO.BufferedReader
+import Database.ClickHouseDriver.IO.BufferedReader
   ( Reader,
     readBinaryInt32,
     readBinaryStr,

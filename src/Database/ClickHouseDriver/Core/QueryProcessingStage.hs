@@ -1,4 +1,4 @@
-module ClickHouseDriver.Core.QueryProcessingStage where
+module Database.ClickHouseDriver.Core.QueryProcessingStage where
 
 
 _FETCH_COLUMNS :: Word

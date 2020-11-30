@@ -1,14 +1,14 @@
 
-module ClickHouseDriver.Core( 
-  module ClickHouseDriver.Core.Client,
-  module ClickHouseDriver.Core.Defines,
-  module ClickHouseDriver.Core.Connection,
-  module ClickHouseDriver.Core.Pool,
-  module ClickHouseDriver.Core.Column
+module Database.ClickHouseDriver.Core( 
+  module Database.ClickHouseDriver.Core.Client,
+  module Database.ClickHouseDriver.Core.Defines,
+  module Database.ClickHouseDriver.Core.Connection,
+  module Database.ClickHouseDriver.Core.Pool,
+  module Database.ClickHouseDriver.Core.Column
 ) where
 
-import ClickHouseDriver.Core.Client
-import ClickHouseDriver.Core.Defines
-import ClickHouseDriver.Core.Connection (tcpConnect)
-import ClickHouseDriver.Core.Pool ( createConnectionPool )
-import ClickHouseDriver.Core.Column (ClickhouseType(..))
+import Database.ClickHouseDriver.Core.Client
+import Database.ClickHouseDriver.Core.Defines
+import Database.ClickHouseDriver.Core.Connection (tcpConnect)
+import Database.ClickHouseDriver.Core.Pool ( createConnectionPool )
+import Database.ClickHouseDriver.Core.Column (ClickhouseType(..))

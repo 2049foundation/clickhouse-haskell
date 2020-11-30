@@ -13,7 +13,7 @@
 --   For internal use only.
 -- 
 
-module ClickHouseDriver.Core.Block
+module Database.ClickHouseDriver.Core.Block
   ( BlockInfo (..),
     writeInfo,
     readInfo,
@@ -25,23 +25,23 @@ module ClickHouseDriver.Core.Block
   )
 where
 
-import ClickHouseDriver.Core.Column
+import Database.ClickHouseDriver.Core.Column
     ( ClickhouseType, readColumn, writeColumn )
-import ClickHouseDriver.Core.Defines as Defines
+import Database.ClickHouseDriver.Core.Defines as Defines
     ( _DBMS_MIN_REVISION_WITH_BLOCK_INFO )
-import ClickHouseDriver.Core.Types
+import Database.ClickHouseDriver.Core.Types
     ( writeBlockInfo,
       Block(..),
       BlockInfo(..),
       Context(Context),
       ServerInfo(revision) )
-import ClickHouseDriver.IO.BufferedReader
+import Database.ClickHouseDriver.IO.BufferedReader
     ( readBinaryInt32,
       readBinaryStr,
       readBinaryUInt8,
       readVarInt,
       Reader )
-import ClickHouseDriver.IO.BufferedWriter
+import Database.ClickHouseDriver.IO.BufferedWriter
     ( writeBinaryInt32,
       writeBinaryStr,
       writeBinaryUInt8,

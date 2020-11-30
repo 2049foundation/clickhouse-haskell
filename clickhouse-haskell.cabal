@@ -22,29 +22,29 @@ source-repository head
 
 library
   exposed-modules:
-      ClickHouseDriver.Core
-      ClickHouseDriver.Core.HTTP
-      ClickHouseDriver.Core.HTTP.Helpers
-      ClickHouseDriver.Core.HTTP.Client
-      ClickHouseDriver.Core.HTTP.Types
-      ClickHouseDriver.Core.HTTP.Connection
-      ClickHouseDriver.Core.Error
-      ClickHouseDriver.Core.QueryProcessingStage
-      ClickHouseDriver.Core.Defines
-      ClickHouseDriver.Core.ServerProtocol
-      ClickHouseDriver.Core.ClientProtocol
-      ClickHouseDriver.Core.Block
-      ClickHouseDriver.Core.Client
-      ClickHouseDriver.Core.Connection
-      ClickHouseDriver.Core.Types
-      ClickHouseDriver.Core.Column
-      ClickHouseDriver.IO.BufferedWriter
-      ClickHouseDriver.IO.BufferedReader
-      ClickHouseDriver.Core.Pool
+      Database.ClickHouseDriver.Core
+      Database.ClickHouseDriver.Core.HTTP
+      Database.ClickHouseDriver.Core.HTTP.Helpers
+      Database.ClickHouseDriver.Core.HTTP.Client
+      Database.ClickHouseDriver.Core.HTTP.Types
+      Database.ClickHouseDriver.Core.HTTP.Connection
+      Database.ClickHouseDriver.Core.Error
+      Database.ClickHouseDriver.Core.QueryProcessingStage
+      Database.ClickHouseDriver.Core.Defines
+      Database.ClickHouseDriver.Core.ServerProtocol
+      Database.ClickHouseDriver.Core.ClientProtocol
+      Database.ClickHouseDriver.Core.Block
+      Database.ClickHouseDriver.Core.Client
+      Database.ClickHouseDriver.Core.Connection
+      Database.ClickHouseDriver.Core.Types
+      Database.ClickHouseDriver.Core.Column
+      Database.ClickHouseDriver.IO.BufferedWriter
+      Database.ClickHouseDriver.IO.BufferedReader
+      Database.ClickHouseDriver.Core.Pool
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
-      src/Database
+      src
   build-depends:
       aeson
     , streaming-commons

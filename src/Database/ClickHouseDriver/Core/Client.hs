@@ -23,7 +23,7 @@
 -- | This module provides implementations of user's APIs
 --
 
-module ClickHouseDriver.Core.Client
+module Database.ClickHouseDriver.Core.Client
   ( -- * Data Fetch and Insert
     query,
     queryWithInfo,
@@ -32,7 +32,7 @@ module ClickHouseDriver.Core.Client
     insertOneRow,
     ping,
     withQuery,
-    ClickHouseDriver.Core.Client.fetch,
+    Database.ClickHouseDriver.Core.Client.fetch,
     fetchWithInfo,
     execute,
     -- * Communication
@@ -46,24 +46,24 @@ module ClickHouseDriver.Core.Client
   )
 where
 
-import ClickHouseDriver.Core.Column ( ClickhouseType )
-import ClickHouseDriver.Core.Connection
+import Database.ClickHouseDriver.Core.Column ( ClickhouseType )
+import Database.ClickHouseDriver.Core.Connection
     ( ping',
       tcpConnect,
       sendQuery,
       sendData,
       processInsertQuery,
       receiveResult )
-import ClickHouseDriver.Core.Pool ( createConnectionPool )
-import ClickHouseDriver.Core.Defines ( _BUFFER_SIZE )
-import qualified ClickHouseDriver.Core.Defines      as Defines
-import ClickHouseDriver.Core.Types
+import Database.ClickHouseDriver.Core.Pool ( createConnectionPool )
+import Database.ClickHouseDriver.Core.Defines ( _BUFFER_SIZE )
+import qualified Database.ClickHouseDriver.Core.Defines      as Defines
+import Database.ClickHouseDriver.Core.Types
     ( ConnParams(..),
       CKResult(CKResult, query_result),
       TCPConnection(TCPConnection, tcpSocket),
       getServerInfo,
       defaultQueryInfo )
-import ClickHouseDriver.IO.BufferedReader ( createBuffer )
+import Database.ClickHouseDriver.IO.BufferedReader ( createBuffer )
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
 import Control.Monad.State ( StateT(runStateT) )

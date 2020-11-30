@@ -13,10 +13,10 @@
 
 -- | This module contains the implementations of communication with Clickhouse server.
 --   Most of functions are for internal use. 
---   User should just use ClickHouseDriver.Core.
+--   User should just use Database.ClickHouseDriver.Core.
 --
 
-module ClickHouseDriver.Core.Connection
+module Database.ClickHouseDriver.Core.Connection
   ( tcpConnect,
     sendQuery,
     receiveData,
@@ -30,10 +30,10 @@ module ClickHouseDriver.Core.Connection
   )
 where
 
-import qualified ClickHouseDriver.Core.Block as Block
-import qualified ClickHouseDriver.Core.ClientProtocol as Client
-import ClickHouseDriver.Core.Column (ClickhouseType, transpose)
-import ClickHouseDriver.Core.Defines
+import qualified Database.ClickHouseDriver.Core.Block as Block
+import qualified Database.ClickHouseDriver.Core.ClientProtocol as Client
+import Database.ClickHouseDriver.Core.Column (ClickhouseType, transpose)
+import Database.ClickHouseDriver.Core.Defines
   ( _BUFFER_SIZE,
     _CLIENT_NAME,
     _CLIENT_REVISION,
@@ -49,10 +49,10 @@ import ClickHouseDriver.Core.Defines
     _DEFAULT_INSERT_BLOCK_SIZE,
     _STRINGS_ENCODING,
   )
-import qualified ClickHouseDriver.Core.Error as Error
-import qualified ClickHouseDriver.Core.QueryProcessingStage as Stage
-import qualified ClickHouseDriver.Core.ServerProtocol as Server
-import ClickHouseDriver.Core.Types
+import qualified Database.ClickHouseDriver.Core.Error as Error
+import qualified Database.ClickHouseDriver.Core.QueryProcessingStage as Stage
+import qualified Database.ClickHouseDriver.Core.ServerProtocol as Server
+import Database.ClickHouseDriver.Core.Types
   ( Block (ColumnOrientedBlock, cdata),
     CKResult (CKResult),
     ClientInfo (ClientInfo),
@@ -84,7 +84,7 @@ import ClickHouseDriver.Core.Types
     storeProfile,
     storeProgress,
   )
-import ClickHouseDriver.IO.BufferedReader
+import Database.ClickHouseDriver.IO.BufferedReader
   ( Buffer (socket),
     Reader,
     createBuffer,
@@ -92,7 +92,7 @@ import ClickHouseDriver.IO.BufferedReader
     readVarInt,
     refill,
   )
-import ClickHouseDriver.IO.BufferedWriter
+import Database.ClickHouseDriver.IO.BufferedWriter
   ( MonoidMap,
     Writer,
     writeBinaryStr,
@@ -438,7 +438,7 @@ receiveResult info query_info = do
   let errors = (\(ErrorMessage str) -> str) <$> filter isError packets
   case errors of
     [] -> do
-      let dataVectors = ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData <$> onlyDataPacket
+      let dataVectors = Database.ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData <$> onlyDataPacket
       let newQueryInfo = Prelude.foldl updateQueryInfo query_info packets
       return $ Right $ CKResult (V.concat dataVectors) newQueryInfo
     xs -> do
@@ -552,5 +552,5 @@ writeInfo
 closeBufferSocket :: Reader ()
 closeBufferSocket = do
   buf <- get
-  let sock = ClickHouseDriver.IO.BufferedReader.socket buf
+  let sock = Database.ClickHouseDriver.IO.BufferedReader.socket buf
   forM_ sock TCP.closeSock

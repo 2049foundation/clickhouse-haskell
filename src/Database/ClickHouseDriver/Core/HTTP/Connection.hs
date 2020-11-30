@@ -7,9 +7,9 @@
 {-# LANGUAGE CPP  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Connection pool for HTTP connection. User should import ClickHouseDriver.Core.HTTP instead
+-- | Connection pool for HTTP connection. User should import Database.ClickHouseDriver.Core.HTTP instead
 
-module ClickHouseDriver.Core.HTTP.Connection (
+module Database.ClickHouseDriver.Core.HTTP.Connection (
     httpConnect,
     httpConnectDb,
     defaultHttpConnection,
@@ -19,7 +19,7 @@ module ClickHouseDriver.Core.HTTP.Connection (
                                 
 import Network.HTTP.Client
     ( defaultManagerSettings, newManager)
-import ClickHouseDriver.Core.HTTP.Types
+import Database.ClickHouseDriver.Core.HTTP.Types
     ( HttpConnection(..),
       HttpParams(HttpParams, httpUsername, httpPort, httpPassword,
                  httpHost, httpDatabase) ) 

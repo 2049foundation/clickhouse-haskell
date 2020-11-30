@@ -3,7 +3,7 @@
 
 -- | This module defines constants for internal use. 
 
-module ClickHouseDriver.Core.Defines where
+module Database.ClickHouseDriver.Core.Defines where
 
 import           Data.ByteString.Internal
 

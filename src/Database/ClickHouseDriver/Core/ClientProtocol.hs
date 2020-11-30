@@ -8,7 +8,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module ClickHouseDriver.Core.ClientProtocol where
+module Database.ClickHouseDriver.Core.ClientProtocol where
 
 import           Data.ByteString (ByteString)
 import           Data.Vector     (Vector, fromList, (!?))
