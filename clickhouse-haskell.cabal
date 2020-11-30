@@ -44,7 +44,7 @@ library
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
-      src
+      src/Database
   build-depends:
       aeson
     , streaming-commons
@@ -90,10 +90,10 @@ library
     , vector
     , network-simple
   default-language: Haskell2010
-  c-sources: ./src/ClickHouseDriver/CBits/varuint.c
-           , ./src/ClickHouseDriver/CBits/datetime.c
-           , ./src/ClickHouseDriver/CBits/bigint.c
-  include-dirs: ./src/ClickHouseDriver/Include 
+  c-sources: ./src/Database/ClickHouseDriver/CBits/varuint.c
+           , ./src/Database/ClickHouseDriver/CBits/datetime.c
+           , ./src/Database/ClickHouseDriver/CBits/bigint.c
+  include-dirs: ./src/Database/ClickHouseDriver/Include 
   includes: varuint.h
           , datetime.h
           , bigint.h
