@@ -1,17 +1,17 @@
-module Database.ClickHouseDriver.Core.HTTP (
-    module Database.ClickHouseDriver.Core.HTTP.Types,
-    module Database.ClickHouseDriver.Core.HTTP.Client,
-    module Database.ClickHouseDriver.Core.HTTP.Connection
+module Database.ClickHouseDriver.HTTP (
+    module Database.ClickHouseDriver.HTTP.Types,
+    module Database.ClickHouseDriver.HTTP.Client,
+    module Database.ClickHouseDriver.HTTP.Connection
 ) where
 
-import Database.ClickHouseDriver.Core.HTTP.Types
+import Database.ClickHouseDriver.HTTP.Types
     ( Cmd,
       Format(..),
       Haxl,
       HttpConnection(..),
       HttpParams(..),
       JSONResult )
-import Database.ClickHouseDriver.Core.HTTP.Client
+import Database.ClickHouseDriver.HTTP.Client
     ( defaultHttpClient,
       defaultHttpPool,
       exec,
@@ -27,7 +27,7 @@ import Database.ClickHouseDriver.Core.HTTP.Client
       ping,
       runQuery,
       setupEnv )
-import Database.ClickHouseDriver.Core.HTTP.Connection
+import Database.ClickHouseDriver.HTTP.Connection
     ( HttpConnection(..),
       createHttpPool,
       defaultHttpConnection,

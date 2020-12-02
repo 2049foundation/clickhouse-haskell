@@ -8,7 +8,7 @@
 -- For internal use only
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.ClickHouseDriver.Core.Error
+module Database.ClickHouseDriver.Error
   ( readException,
     ClickhouseException (..),
     _UNEXPECTED_PACKET_FROM_SERVER,

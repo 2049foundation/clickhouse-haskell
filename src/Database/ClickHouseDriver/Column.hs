@@ -7,7 +7,7 @@
 
 -- | This module contains the implementations of
 --   serialization and deserialization of Clickhouse data types.
-module Database.ClickHouseDriver.Core.Column
+module Database.ClickHouseDriver.Column
   ( -- * Serialize and deserialize
     ClickhouseType (..),
     readColumn,
@@ -15,11 +15,11 @@ module Database.ClickHouseDriver.Core.Column
 
     -- * Operations on ClickhouseType
     transpose,
-    Database.ClickHouseDriver.Core.Column.putStrLn,
+    Database.ClickHouseDriver.Column.putStrLn,
   )
 where
 
-import Database.ClickHouseDriver.Core.Types (ClickhouseType (..), Context (..), ServerInfo (..))
+import Database.ClickHouseDriver.Types (ClickhouseType (..), Context (..), ServerInfo (..))
 import Database.ClickHouseDriver.IO.BufferedReader
   ( Reader,
     readBinaryInt16,

@@ -13,10 +13,10 @@
 
 -- | This module contains the implementations of communication with Clickhouse server.
 --   Most of functions are for internal use. 
---   User should just use Database.ClickHouseDriver.Core.
+--   User should just use Database.ClickHouseDriver.
 --
 
-module Database.ClickHouseDriver.Core.Connection
+module Database.ClickHouseDriver.Connection
   ( tcpConnect,
     sendQuery,
     receiveData,
@@ -30,10 +30,10 @@ module Database.ClickHouseDriver.Core.Connection
   )
 where
 
-import qualified Database.ClickHouseDriver.Core.Block as Block
-import qualified Database.ClickHouseDriver.Core.ClientProtocol as Client
-import Database.ClickHouseDriver.Core.Column (ClickhouseType, transpose)
-import Database.ClickHouseDriver.Core.Defines
+import qualified Database.ClickHouseDriver.Block as Block
+import qualified Database.ClickHouseDriver.ClientProtocol as Client
+import Database.ClickHouseDriver.Column (ClickhouseType, transpose)
+import Database.ClickHouseDriver.Defines
   ( _BUFFER_SIZE,
     _CLIENT_NAME,
     _CLIENT_REVISION,
@@ -49,10 +49,10 @@ import Database.ClickHouseDriver.Core.Defines
     _DEFAULT_INSERT_BLOCK_SIZE,
     _STRINGS_ENCODING,
   )
-import qualified Database.ClickHouseDriver.Core.Error as Error
-import qualified Database.ClickHouseDriver.Core.QueryProcessingStage as Stage
-import qualified Database.ClickHouseDriver.Core.ServerProtocol as Server
-import Database.ClickHouseDriver.Core.Types
+import qualified Database.ClickHouseDriver.Error as Error
+import qualified Database.ClickHouseDriver.QueryProcessingStage as Stage
+import qualified Database.ClickHouseDriver.ServerProtocol as Server
+import Database.ClickHouseDriver.Types
   ( Block (ColumnOrientedBlock, cdata),
     CKResult (CKResult),
     ClientInfo (ClientInfo),
@@ -438,7 +438,7 @@ receiveResult info query_info = do
   let errors = (\(ErrorMessage str) -> str) <$> filter isError packets
   case errors of
     [] -> do
-      let dataVectors = Database.ClickHouseDriver.Core.Column.transpose . Block.cdata . queryData <$> onlyDataPacket
+      let dataVectors = Database.ClickHouseDriver.Column.transpose . Block.cdata . queryData <$> onlyDataPacket
       let newQueryInfo = Prelude.foldl updateQueryInfo query_info packets
       return $ Right $ CKResult (V.concat dataVectors) newQueryInfo
     xs -> do

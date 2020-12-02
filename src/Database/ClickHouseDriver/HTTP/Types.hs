@@ -1,6 +1,6 @@
 -- | Definition of types
 
-module Database.ClickHouseDriver.Core.HTTP.Types
+module Database.ClickHouseDriver.HTTP.Types
   ( JSONResult (..),
     Cmd,
     Haxl,

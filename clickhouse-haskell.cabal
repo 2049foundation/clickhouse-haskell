@@ -22,73 +22,69 @@ source-repository head
 
 library
   exposed-modules:
-      Database.ClickHouseDriver.Core
-      Database.ClickHouseDriver.Core.HTTP
-      Database.ClickHouseDriver.Core.HTTP.Helpers
-      Database.ClickHouseDriver.Core.HTTP.Client
-      Database.ClickHouseDriver.Core.HTTP.Types
-      Database.ClickHouseDriver.Core.HTTP.Connection
-      Database.ClickHouseDriver.Core.Error
-      Database.ClickHouseDriver.Core.QueryProcessingStage
-      Database.ClickHouseDriver.Core.Defines
-      Database.ClickHouseDriver.Core.ServerProtocol
-      Database.ClickHouseDriver.Core.ClientProtocol
-      Database.ClickHouseDriver.Core.Block
-      Database.ClickHouseDriver.Core.Client
-      Database.ClickHouseDriver.Core.Connection
-      Database.ClickHouseDriver.Core.Types
-      Database.ClickHouseDriver.Core.Column
+      Database.ClickHouseDriver
+      Database.ClickHouseDriver.HTTP
+      Database.ClickHouseDriver.HTTP.Helpers
+      Database.ClickHouseDriver.HTTP.Client
+      Database.ClickHouseDriver.HTTP.Types
+      Database.ClickHouseDriver.HTTP.Connection
+      Database.ClickHouseDriver.Error
+      Database.ClickHouseDriver.QueryProcessingStage
+      Database.ClickHouseDriver.Defines
+      Database.ClickHouseDriver.ServerProtocol
+      Database.ClickHouseDriver.ClientProtocol
+      Database.ClickHouseDriver.Block
+      Database.ClickHouseDriver.Client
+      Database.ClickHouseDriver.Connection
+      Database.ClickHouseDriver.Types
+      Database.ClickHouseDriver.Column
       Database.ClickHouseDriver.IO.BufferedWriter
       Database.ClickHouseDriver.IO.BufferedReader
-      Database.ClickHouseDriver.Core.Pool
+      Database.ClickHouseDriver.Pool
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
       src
   build-depends:
-      aeson
-    , streaming-commons
-    , resource-pool
-    , data-default-class
-    , split
-    , uuid
-    , QuickCheck
-    , io-streams
-    , uri-encode
-    , attoparsec
-    , mtl
-    , unix-time
-    , data-dword
-    , network-ip
-    , io-streams
-    , filepath
-    , uri-encode
-    , tz
-    , time
-    , bytestring-to-vector
-    , monad-loops
-    , word8
-    , monad-parallel
-    , async 
-    , hashable
-    , array
-    , base >=4.7 && <5
-    , binary
-    , bytestring
-    , call-stack
-    , containers
-    , exceptions
-    , hashmap
-    , haxl
-    , http-client
-    , network
-    , network-simple
-    , parsec
-    , text
-    , transformers
-    , unordered-containers
-    , vector
-    , network-simple
+    base                              >=4.12 && <5,
+    containers                        >= 0.5.7 && < 0.6,
+    array                             >= 0.5.1 && < 0.6,
+    time                              >= 1.11.1 && < 1.12,
+    transformers                      >= 0.5.2 && < 0.6,
+    aeson                             >= 1.4.1 && < 1.6,
+    attoparsec                        >= 0.13.2 && < 0.14,
+    bytestring                        >= 0.10.8 && < 0.11,
+    binary                            >= 0.8.3 && < 0.9,
+    hashable                          >= 1.2.7 && < 1.4,
+    text                              >= 1.2.4 && < 1.3,
+    unordered-containers              >= 0.2.13 && < 0.3,
+    vector                            >= 0.12.1 && < 0.13,
+    async                             >= 2.2.2 && < 2.3,
+    bytestring-to-vector              >= 0.3.0 && < 0.4,
+    call-stack                        >= 0.2.0 && < 0.3,
+    data-default-class                >= 0.1.2 && < 0.2,
+    data-dword                        >= 0.3.2 && < 0.4,
+    exceptions                        >= 0.10.4 && < 0.11,
+    mtl                               >= 2.2.2 && < 2.3,
+    filepath                          >= 1.4.1 && < 1.5,
+    hashmap                           >= 1.3.3 && < 1.4,
+    haxl                              >= 2.1.2 && < 2.2,
+    http-client                       >= 0.6.4 && < 0.7,
+    network                           >= 3.1.0 && < 3.2,
+    parsec                            >= 3.1.14 && < 3.2,
+    streaming-commons                 >= 0.2.2 && < 0.3,
+    io-streams                        >= 1.5.2 && < 1.6,
+    monad-loops                       >= 0.4.3 && < 0.5,
+    monad-parallel                    >= 0.7.2 && < 0.8,
+    network-ip                        >= 0.3.0 && < 0.4,
+    split                             >= 0.2.3 && < 0.3,
+    network-simple                    >= 0.4.5 && < 0.5,
+    resource-pool                     >= 0.2.3 && < 0.3,
+    tz                                >= 0.1.3 && < 0.2,
+    unix-time                         >= 0.4.7 && < 0.5,
+    uri-encode                        >= 1.5.0 && < 1.6,
+    uuid                              >= 1.3.13 && < 1.4,
+    word8                             >= 0.1.3 && < 0.2
   default-language: Haskell2010
   c-sources: ./src/Database/ClickHouseDriver/CBits/varuint.c
            , ./src/Database/ClickHouseDriver/CBits/datetime.c

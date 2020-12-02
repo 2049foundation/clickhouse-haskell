@@ -23,7 +23,7 @@
 -- | This module provides implementations of user's APIs
 --
 
-module Database.ClickHouseDriver.Core.Client
+module Database.ClickHouseDriver.Client
   ( -- * Data Fetch and Insert
     query,
     queryWithInfo,
@@ -32,7 +32,7 @@ module Database.ClickHouseDriver.Core.Client
     insertOneRow,
     ping,
     withQuery,
-    Database.ClickHouseDriver.Core.Client.fetch,
+    Database.ClickHouseDriver.Client.fetch,
     fetchWithInfo,
     execute,
     -- * Communication
@@ -46,18 +46,18 @@ module Database.ClickHouseDriver.Core.Client
   )
 where
 
-import Database.ClickHouseDriver.Core.Column ( ClickhouseType )
-import Database.ClickHouseDriver.Core.Connection
+import Database.ClickHouseDriver.Column ( ClickhouseType )
+import Database.ClickHouseDriver.Connection
     ( ping',
       tcpConnect,
       sendQuery,
       sendData,
       processInsertQuery,
       receiveResult )
-import Database.ClickHouseDriver.Core.Pool ( createConnectionPool )
-import Database.ClickHouseDriver.Core.Defines ( _BUFFER_SIZE )
-import qualified Database.ClickHouseDriver.Core.Defines      as Defines
-import Database.ClickHouseDriver.Core.Types
+import Database.ClickHouseDriver.Pool ( createConnectionPool )
+import Database.ClickHouseDriver.Defines ( _BUFFER_SIZE )
+import qualified Database.ClickHouseDriver.Defines      as Defines
+import Database.ClickHouseDriver.Types
     ( ConnParams(..),
       CKResult(CKResult, query_result),
       TCPConnection(TCPConnection, tcpSocket),

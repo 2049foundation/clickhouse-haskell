@@ -12,7 +12,7 @@
 -- import "ClickHouseDriver.Core" instead.
 --
 
-module Database.ClickHouseDriver.Core.Types
+module Database.ClickHouseDriver.Types
   ( ServerInfo (..),
     TCPConnection (..),
     getServerInfo,
@@ -48,7 +48,7 @@ module Database.ClickHouseDriver.Core.Types
   )
 where
 
-import qualified Database.ClickHouseDriver.Core.Defines      as Defines
+import qualified Database.ClickHouseDriver.Defines      as Defines
 import Database.ClickHouseDriver.IO.BufferedReader
     ( Reader, readVarInt, readBinaryUInt8 )
 import Database.ClickHouseDriver.IO.BufferedWriter

@@ -7,13 +7,13 @@
 -- This module provides implementation of Connection pool for TCP network
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
-module Database.ClickHouseDriver.Core.Pool 
+module Database.ClickHouseDriver.Pool 
 (
   createConnectionPool
 ) where
 
-import Database.ClickHouseDriver.Core.Connection ( tcpConnect )
-import Database.ClickHouseDriver.Core.Defines
+import Database.ClickHouseDriver.Connection ( tcpConnect )
+import Database.ClickHouseDriver.Defines
     ( _DEFAULT_USERNAME,
       _DEFAULT_HOST_NAME,
       _DEFAULT_PASSWORD,
@@ -24,7 +24,7 @@ import Data.Pool ( createPool, Pool )
 import Data.Time.Clock ( NominalDiffTime )
 import Network.Socket (close)
 import Data.Default.Class ( Default(..) )
-import Database.ClickHouseDriver.Core.Types
+import Database.ClickHouseDriver.Types
     ( ConnParams(..), TCPConnection(TCPConnection, tcpSocket) )
 
 -- | default connection parameters (settings)

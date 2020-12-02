@@ -17,7 +17,7 @@
 
 -- | This module provides implementation of user's API
 
-module Database.ClickHouseDriver.Core.HTTP.Client
+module Database.ClickHouseDriver.HTTP.Client
   ( 
     -- * Setting
     setupEnv,
@@ -40,15 +40,15 @@ module Database.ClickHouseDriver.Core.HTTP.Client
   )
 where
 
-import Database.ClickHouseDriver.Core.Column ( ClickhouseType )
-import Database.ClickHouseDriver.Core.Defines as Defines
+import Database.ClickHouseDriver.Column ( ClickhouseType )
+import Database.ClickHouseDriver.Defines as Defines
     ( _DEFAULT_HTTP_PORT, _DEFAULT_HOST )
-import Database.ClickHouseDriver.Core.HTTP.Connection
+import Database.ClickHouseDriver.HTTP.Connection
     ( defaultHttpConnection,
       createHttpPool, httpConnectDb)
-import Database.ClickHouseDriver.Core.HTTP.Helpers
+import Database.ClickHouseDriver.HTTP.Helpers
     ( extract, genURL, toString )
-import Database.ClickHouseDriver.Core.HTTP.Types ( Format(..), JSONResult, HttpConnection(..))
+import Database.ClickHouseDriver.HTTP.Types ( Format(..), JSONResult, HttpConnection(..))
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
 import Control.Monad.State.Lazy ( MonadIO(..) )

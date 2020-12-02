@@ -8,18 +8,18 @@
 
 -- | Miscellaneous helper functions. User should not import it. 
 
-module Database.ClickHouseDriver.Core.HTTP.Helpers
+module Database.ClickHouseDriver.HTTP.Helpers
   ( extract,
     genURL,
     toString
   )
 where
 
-import Database.ClickHouseDriver.Core.Column
+import Database.ClickHouseDriver.Column
     ( ClickhouseType(CKNull, CKTuple, CKArray, CKString, CKInt32) )
-import Database.ClickHouseDriver.Core.HTTP.Connection
+import Database.ClickHouseDriver.HTTP.Connection
     ( HttpConnection(HttpConnection, httpParams) )
-import Database.ClickHouseDriver.Core.HTTP.Types ( Cmd, JSONResult, HttpParams(..))
+import Database.ClickHouseDriver.HTTP.Types ( Cmd, JSONResult, HttpParams(..))
 import Database.ClickHouseDriver.IO.BufferedWriter ( writeIn )
 import Control.Monad.Writer ( WriterT(runWriterT) )
 import qualified Data.Aeson                            as JP

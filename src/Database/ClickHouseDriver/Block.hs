@@ -13,7 +13,7 @@
 --   For internal use only.
 -- 
 
-module Database.ClickHouseDriver.Core.Block
+module Database.ClickHouseDriver.Block
   ( BlockInfo (..),
     writeInfo,
     readInfo,
@@ -25,11 +25,11 @@ module Database.ClickHouseDriver.Core.Block
   )
 where
 
-import Database.ClickHouseDriver.Core.Column
+import Database.ClickHouseDriver.Column
     ( ClickhouseType, readColumn, writeColumn )
-import Database.ClickHouseDriver.Core.Defines as Defines
+import Database.ClickHouseDriver.Defines as Defines
     ( _DBMS_MIN_REVISION_WITH_BLOCK_INFO )
-import Database.ClickHouseDriver.Core.Types
+import Database.ClickHouseDriver.Types
     ( writeBlockInfo,
       Block(..),
       BlockInfo(..),

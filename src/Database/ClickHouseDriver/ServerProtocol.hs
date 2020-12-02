@@ -3,7 +3,7 @@
 
 -- | This module provides constants the
 
-module Database.ClickHouseDriver.Core.ServerProtocol where
+module Database.ClickHouseDriver.ServerProtocol where
 
 import           Data.ByteString (ByteString)
 import           Data.Vector     (Vector, fromList, (!?))
