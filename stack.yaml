@@ -25,7 +25,7 @@ resolver: ghc-8.8.3
 #
 # packages:
 # - some-directory
-# - https://example.com/foo/bar/baz-0.0.2.tar.gz
+# - https://github.com/2049foundation/clickhouse-haskell/archive/v0.1.0.1.tar.gz
 #   subdirs:
 #   - auto-update
 #   - wai
