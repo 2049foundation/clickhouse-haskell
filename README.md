@@ -34,7 +34,7 @@ In the HTTP client, data can be fetched from Clickhouse server in the format of 
 
 ## **Example of data fetch using http client**
 ```Haskell
-import ClickHouseDriver.Core
+import Database.ClickHouseDriver
 import qualified Data.Text.IO as TIO
 
 main :: IO()
@@ -189,7 +189,7 @@ stdout:
 ## **Ping**
 ```Haskell
     conn <- defaultClient
-    ClickHouseDriver.Core.ping conn
+    Database.ClickHouseDriver.ping conn
 ```
 stdout:
 ```
