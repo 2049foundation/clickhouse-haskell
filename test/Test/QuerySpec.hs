@@ -2,7 +2,7 @@
 
 module Test.QuerySpec (spec) where
 
-import ClickHouseDriver
+import Database.ClickHouseDriver.HTTP
 import Data.ByteString as B
 import Data.ByteString.Char8 as C8
 import qualified Data.HashMap.Strict as HM

@@ -7,5 +7,6 @@ import           Test.IO
 main :: IO()
 main = do
     runTests
-    httpSpec
     columnSpec
+    httpSpec
+    

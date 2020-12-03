@@ -2,14 +2,15 @@
 
 module Test.HTTPSpec (httpSpec) where
 
-import ClickHouseDriver.Core
-import ClickHouseDriver.Core.HTTP
+import Database.ClickHouseDriver
+import Database.ClickHouseDriver.HTTP
 import Data.ByteString as B
 import Data.ByteString.Char8 as C8
 import qualified Data.HashMap.Strict as HM
 import Haxl.Core
 import Test.HUnit
 import Test.Hspec
+import Data.Either
 
 
 httpSpec :: IO()
@@ -52,7 +53,7 @@ queryTCP = describe "select 1" $ do
   conn <- runIO $ defaultClient
   res <- runIO $ query conn "SELECT 1" 
   it "returns result in ClickhouseType" $ do
-    (show res) `shouldBe` (show [[CKUInt8 1]])
+    (show res) `shouldBe` ("Right [[CKUInt8 1]]")
 
 lowCardinalityTest :: Spec
 lowCardinalityTest = describe "lowCardinality" $ do

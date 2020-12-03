@@ -11,4 +11,4 @@ import Database.ClickHouseDriver.Client
 import Database.ClickHouseDriver.Defines
 import Database.ClickHouseDriver.Connection
 import Database.ClickHouseDriver.Pool
-import Database.ClickHouseDriver.Column 
+import Database.ClickHouseDriver.Column

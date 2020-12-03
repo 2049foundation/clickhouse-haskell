@@ -1,7 +1,7 @@
 module Test.IO where
 
-import ClickHouseDriver.IO.BufferedWriter
-import ClickHouseDriver.IO.BufferedReader
+import Database.ClickHouseDriver.IO.BufferedWriter
+import Database.ClickHouseDriver.IO.BufferedReader
 import Test.QuickCheck
 import Test.QuickCheck.Monadic
 import qualified Data.ByteString as BS
