@@ -60,7 +60,7 @@ lowCardinalityTest = describe "lowCardinality" $ do
   conn <- runIO $ defaultClient
   res <- runIO $ query conn "SELECT * FROM crd3" 
   it "returns result in ClickhouseType" $ do
-    (show res) `shouldBe` (show [[CKString "abc",CKString "myString",CKNull],[CKString"xyz",CKString "Noctis",CKString "Ross"],[CKString "123",CKString "Alice",CKNull],[CKString "456",CKString "Bob",CKString "Walter"]])
+    (show res) `shouldBe` ("Right " ++ show [[CKString "abc",CKString "myString",CKNull],[CKString"xyz",CKString "Noctis",CKString "Ross"],[CKString "123",CKString "Alice",CKNull],[CKString "456",CKString "Bob",CKString "Walter"]])
 
 comprehensiveTest :: Spec
 comprehensiveTest = describe "array string number etc." $ do
