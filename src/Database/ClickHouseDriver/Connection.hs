@@ -213,14 +213,12 @@ receiveHello buf = do
           server_display_name <-
             if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME
               then do
-                s <- readBinaryStr
-                return s
+                readBinaryStr
               else return ""
           server_version_dispatch <-
             if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
               then do
-                s <- readVarInt
-                return s
+                readVarInt
               else return server_revision
           return $
             Right

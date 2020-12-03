@@ -311,8 +311,8 @@ storeProgress (QueryInfo profile progress elapsed) new_progress
               = QueryInfo profile (increment progress new_progress) elapsed
 
 storeElasped :: QueryInfo->Word->QueryInfo
-storeElasped (QueryInfo profile progress _) new_elapsed
-              = QueryInfo profile progress new_elapsed
+storeElasped (QueryInfo profile progress _)
+              = QueryInfo profile progress 
 
 defaultQueryInfo :: QueryInfo
 defaultQueryInfo = 
