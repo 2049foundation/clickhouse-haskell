@@ -201,7 +201,7 @@ Just "PONG!"
 main :: IO ()
 main = do
     env <- defaultClient --localhost 9000
-    res <- query "SHOW TABLES" env
+    res <- query env "SHOW TABLES" 
     print res
 ```
 stdout:
