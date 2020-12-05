@@ -2,7 +2,7 @@ cabal-version:  1.12
 name:           clickhouse-haskell
 version:        0.1.2.0
 synopsis:       A Haskell library as database client for Clickhouse
-homepage:       https://github.com/MaboroshiChan/clickhouse-haskell/blob/master/README.md
+homepage:       https://github.com/2049foundation/clickhouse-haskell/
 bug-reports:    https://github.com/2049foundation/clickhouse-haskell/issues
 author:         Shi You
 maintainer:     youshi@emqx.io
@@ -25,7 +25,7 @@ description:
 
 source-repository head
   type: git
-  location: https://github.com/MaboroshiChan/clickhouse-haskell
+  location: https://github.com/2049foundation/clickhouse-haskell
 
 library
   exposed-modules:
