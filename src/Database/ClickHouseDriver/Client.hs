@@ -36,13 +36,14 @@ module Database.ClickHouseDriver.Client
     fetchWithInfo,
     execute,
     -- * Communication
-    client,
+    createClient,
     defaultClient,
     closeClient,
     -- * Connection pool
     defaultClientPool,
-    createClient,
-    createClientPool
+    createClientPool,
+    -- * retrieve settings
+    client
   )
 where
 
@@ -155,8 +156,10 @@ instance StateKey Query where
                    | CKPool (Pool TCPConnection)
 
 class Resource a where
-  client :: Either String a->IO(Env () w)
-            -- ^ Either wrong message of resource with type a
+  client :: Either String a
+             -- ^ Either wrong message of resource with type a
+           ->IO(Env () w)
+            
 
 -- | fetch data
 fetchData :: State Query->BlockedFetch Query->IO ()
@@ -202,7 +205,8 @@ deploySettings tcp =
 
 defaultClient :: IO (Env () w)
 defaultClient = createClient def 
-  
+
+-- | create client with given information such as username, host name and password etc. 
 createClient :: ConnParams->IO(Env () w)
 createClient ConnParams{
                  username'   
