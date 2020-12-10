@@ -106,6 +106,7 @@ import Network.IP.Addr
     ip6FromWords,
     ip6ToWords,
   )
+import Data.List (foldl')
 #define EQUAL 61
 #define COMMA 44
 #define SPACE 32
@@ -590,7 +591,7 @@ readArray server_info n_rows spec = do
   --  x:xs is the
   let numElem = fromIntegral $ V.sum x -- number of elements in the nested array.
   elems <- readColumn server_info numElem lastSpec
-  let result' = foldl combine elems (x : xs)
+  let result' = foldl' combine elems (x : xs)
   let CKArray arr = result' ! 0
   return arr
   where
