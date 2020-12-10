@@ -3,41 +3,41 @@
 --
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
-
 {-# LANGUAGE FlexibleInstances #-}
 
--- | Miscellaneous helper functions. User should not import it. 
-
+-- | Miscellaneous helper functions. User should not import it.
 module Database.ClickHouseDriver.HTTP.Helpers
   ( extract,
     genURL,
-    toString
+    toString,
   )
 where
 
-import Database.ClickHouseDriver.Column
-    ( ClickhouseType(CKNull, CKTuple, CKArray, CKString, CKInt32) )
+import Control.Monad.Writer (WriterT (runWriterT))
+import qualified Data.Aeson as JP
+import Data.Attoparsec.ByteString (IResult (Done, Fail), parse)
+import qualified Data.ByteString.Char8 as C8
+import qualified Data.HashMap.Strict as HM
+import Data.Maybe (fromMaybe)
+import Data.Text (pack)
+import Data.Vector (toList)
 import Database.ClickHouseDriver.HTTP.Connection
-    ( HttpConnection(HttpConnection, httpParams) )
-import Database.ClickHouseDriver.HTTP.Types ( Cmd, JSONResult, HttpParams(..))
-import Database.ClickHouseDriver.IO.BufferedWriter ( writeIn )
-import Control.Monad.Writer ( WriterT(runWriterT) )
-import qualified Data.Aeson                            as JP
-import Data.Attoparsec.ByteString ( IResult(Done, Fail), parse )
-import qualified Data.ByteString.Char8                 as C8
-import qualified Data.HashMap.Strict                   as HM
-import           Data.Text                             (pack)
-import           Data.Vector                           (toList)
-import qualified Network.URI.Encode                    as NE
-import Data.Maybe ( fromMaybe )
+  ( HttpConnection (HttpConnection, httpParams),
+  )
+import Database.ClickHouseDriver.HTTP.Types (Cmd, HttpParams (..), JSONResult)
+import Database.ClickHouseDriver.IO.BufferedWriter (writeIn)
+import Database.ClickHouseDriver.Types
+  ( ClickhouseType (CKArray, CKInt32, CKNull, CKString, CKTuple),
+  )
+import qualified Network.URI.Encode as NE
 
 -- | Trim JSON data
 extract :: C8.ByteString -> JSONResult
 extract val = getData $ parse JP.json val
   where
-    getData (Fail e _ _)           = Left e
+    getData (Fail e _ _) = Left e
     getData (Done _ (JP.Object x)) = Right $ getData' x
-    getData _                      = Right []
+    getData _ = Right []
 
     getData' = map getObject . maybeArrToList . HM.lookup (pack "data")
 
@@ -47,42 +47,44 @@ extract val = getData $ parse JP.json val
     getArray (JP.Array arr) = arr
     getObject (JP.Object x) = x
 
-genURL :: HttpConnection->Cmd->IO String
-genURL HttpConnection {
-        httpParams = HttpParams{
-            httpHost = host,
-            httpPassword = pw, 
-            httpPort = port, 
+genURL :: HttpConnection -> Cmd -> IO String
+genURL
+  HttpConnection
+    { httpParams =
+        HttpParams
+          { httpHost = host,
+            httpPassword = pw,
+            httpPort = port,
             httpUsername = usr,
             httpDatabase = db
-        }
-       }
-         cmd = do
-         (_,basicUrl) <- runWriterT $ do
-           writeIn "http://"
-           writeIn usr
-           writeIn ":"
-           writeIn pw
-           writeIn "@"
-           writeIn host
-           writeIn ":"
-           writeIn $ show port   
-           writeIn "/"
-           if cmd == "ping" then return () else writeIn "?query="
-           writeIn $ dbUrl db
-         let res = basicUrl ++ NE.encode cmd
-         return res
+          }
+    }
+  cmd = do
+    (_, basicUrl) <- runWriterT $ do
+      writeIn "http://"
+      writeIn usr
+      writeIn ":"
+      writeIn pw
+      writeIn "@"
+      writeIn host
+      writeIn ":"
+      writeIn $ show port
+      writeIn "/"
+      if cmd == "ping" then return () else writeIn "?query="
+      writeIn $ dbUrl db
+    let res = basicUrl ++ NE.encode cmd
+    return res
 
 -- | serialize column type into sql string
-toString :: [ClickhouseType]->String
+toString :: [ClickhouseType] -> String
 toString ck = "(" ++ toStr ck ++ ")"
 
-toStr :: [ClickhouseType]->String
+toStr :: [ClickhouseType] -> String
 toStr [] = ""
-toStr (x:[]) = toStr' x
-toStr (x:xs) = toStr' x ++ "," ++ toStr xs
+toStr (x : []) = toStr' x
+toStr (x : xs) = toStr' x ++ "," ++ toStr xs
 
-toStr' :: ClickhouseType->String
+toStr' :: ClickhouseType -> String
 toStr' (CKInt32 n) = show n
 toStr' (CKString str) = "'" ++ C8.unpack str ++ "'"
 toStr' (CKArray arr) = "[" ++ (toStr $ toList arr) ++ "]"
@@ -91,4 +93,4 @@ toStr' CKNull = "null"
 toStr' _ = error "unsupported writing type"
 
 dbUrl :: (Maybe String) -> String
-dbUrl = fromMaybe "" . fmap ("?database=" ++) 
+dbUrl = fromMaybe "" . fmap ("?database=" ++)

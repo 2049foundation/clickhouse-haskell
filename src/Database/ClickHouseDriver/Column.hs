@@ -7,17 +7,7 @@
 
 -- | This module contains the implementations of
 --   serialization and deserialization of Clickhouse data types.
-module Database.ClickHouseDriver.Column
-  ( -- * Serialize and deserialize
-    ClickhouseType (..),
-    readColumn,
-    writeColumn,
-
-    -- * Operations on ClickhouseType
-    transpose,
-    Database.ClickHouseDriver.Column.putStrLn,
-  )
-where
+module Database.ClickHouseDriver.Column where
 
 import Database.ClickHouseDriver.Types (ClickhouseType (..), Context (..), ServerInfo (..))
 import Database.ClickHouseDriver.IO.BufferedReader
@@ -607,9 +597,11 @@ readArray server_info n_rows spec = do
     combine :: Vector ClickhouseType -> Vector Word64 -> Vector ClickhouseType
     combine elems config =
       let intervals = intervalize (fromIntegral <$> config)
-          cut (a, b) = CKArray $ V.take b (V.drop a elems) -- cut element array
+          cut :: (Int, Int)->ClickhouseType
+          cut (a, b) = CKArray $ V.take b (V.drop a elems)
           embed = (\(l, r) -> cut (l, r - l + 1)) <$> intervals
-       in embed
+      in embed
+
     intervalize :: Vector Int -> Vector (Int, Int)
     intervalize vec = V.drop 1 $ V.scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) vec -- drop the first tuple (-1,-1)
 

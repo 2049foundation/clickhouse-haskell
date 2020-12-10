@@ -26,7 +26,7 @@ module Database.ClickHouseDriver.Block
 where
 
 import Database.ClickHouseDriver.Column
-    ( ClickhouseType, readColumn, writeColumn )
+    (readColumn, writeColumn )
 import Database.ClickHouseDriver.Defines as Defines
     ( _DBMS_MIN_REVISION_WITH_BLOCK_INFO )
 import Database.ClickHouseDriver.Types
@@ -34,7 +34,8 @@ import Database.ClickHouseDriver.Types
       Block(..),
       BlockInfo(..),
       Context(Context),
-      ServerInfo(revision) )
+      ServerInfo(revision),
+      ClickhouseType )
 import Database.ClickHouseDriver.IO.BufferedReader
     ( readBinaryInt32,
       readBinaryStr,

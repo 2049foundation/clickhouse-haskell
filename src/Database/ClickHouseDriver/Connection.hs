@@ -32,7 +32,7 @@ where
 
 import qualified Database.ClickHouseDriver.Block as Block
 import qualified Database.ClickHouseDriver.ClientProtocol as Client
-import Database.ClickHouseDriver.Column (ClickhouseType, transpose)
+import Database.ClickHouseDriver.Column (transpose)
 import Database.ClickHouseDriver.Defines
   ( _BUFFER_SIZE,
     _CLIENT_NAME,
@@ -83,6 +83,7 @@ import Database.ClickHouseDriver.Types
     readProgress,
     storeProfile,
     storeProgress,
+    ClickhouseType(..)
   )
 import Database.ClickHouseDriver.IO.BufferedReader
   ( Buffer (socket),

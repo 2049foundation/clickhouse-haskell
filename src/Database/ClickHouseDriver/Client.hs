@@ -47,7 +47,6 @@ module Database.ClickHouseDriver.Client
   )
 where
 
-import Database.ClickHouseDriver.Column ( ClickhouseType )
 import Database.ClickHouseDriver.Connection
     ( ping',
       tcpConnect,
@@ -63,7 +62,8 @@ import Database.ClickHouseDriver.Types
       CKResult(CKResult, query_result),
       TCPConnection(TCPConnection, tcpSocket),
       getServerInfo,
-      defaultQueryInfo )
+      defaultQueryInfo,
+      ClickhouseType(..) )
 import Database.ClickHouseDriver.IO.BufferedReader ( createBuffer )
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
