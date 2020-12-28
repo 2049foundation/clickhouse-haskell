@@ -7,6 +7,17 @@ ClickHouse Haskell Driver with HTTP and native (TCP) interface support.
 Support both insert and ordinary query.
 This project has been heavily referenced from the python version. Link: https://github.com/mymarilyn/clickhouse-driver
 
+**Installation**
+=================
+## Method 1:
+Add 
+```yaml
+extra-deps:
+- git: https://github.com/2049foundation/clickhouse-haskell.git
+- commit: #commit code
+```
+to the stack.yaml file in your project, where you should choose a commit code from the repo. 
+
 **Features**
 ========
 
