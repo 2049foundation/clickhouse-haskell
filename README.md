@@ -1,5 +1,6 @@
 **Clickhouse-haskell**
 ======================
+![Hackage](https://hackage.haskell.org/package/clickhouse-haskell)
 ClickHouse Haskell Driver with HTTP and native (TCP) interface support.
 Support both insert and ordinary query.
 This project has been heavily referenced from the python version. Link: https://github.com/mymarilyn/clickhouse-driver
