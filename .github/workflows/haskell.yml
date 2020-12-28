@@ -17,7 +17,6 @@ jobs:
       with:
         ghc-version: '8.10.2'
         cabal-version: '3.4'
-
     - name: Cache
       uses: actions/cache@v1
       env:
@@ -33,8 +32,8 @@ jobs:
     - name: Install dependencies
       run: |
         cabal update
-        cabal build --only-dependencies --enable-tests --enable-benchmarks
+        cabal build --only-dependencies --minimize-conflict-set
     - name: Build
       run: cabal build --enable-tests --enable-benchmarks all
     - name: Run tests
-      run: cabal test all
+      #run: cabal test all
