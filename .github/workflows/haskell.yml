@@ -13,11 +13,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-haskell@v1.1
+    - uses: actions/setup-haskell@v1
       with:
         ghc-version: '8.10.2'
         stack-version: 'latest'
-        cabal-version: '3.2.0.0' 
+        cabal-version: '3.2' 
     - name: Cache
       uses: actions/cache@v1
       env:
@@ -32,6 +32,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        cabal update
         stack update
     - name: Build
       run: stack build
