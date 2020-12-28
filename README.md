@@ -1,7 +1,7 @@
 **Clickhouse-haskell**
 ======================
-![Hackage CI](https://matrix.hackage.haskell.org/api/v2/packages/clickhouse-haskell/badge)
 ![Build Status](https://travis-ci.com/MaboroshiChan/clickhouse-haskell.svg?branch=master)
+![Haskell CI](https://github.com/2049foundation/clickhouse-haskell/workflows/Haskell%20CI/badge.svg)
 
 ClickHouse Haskell Driver with HTTP and native (TCP) interface support.
 Support both insert and ordinary query.
