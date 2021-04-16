@@ -562,7 +562,8 @@ writeNullable ctx col_name spec items = do
 
 Here, classical BFS algorithm is not implemented as it is not natural to do so with purely
 functional syntax; instead, we apply a new method that can be implemented easily in this case as described in the following:
-At each iteration, first off, we compute the array of integer in which elements represent the size of subarrays (call them spec arrays which will update at each iteration by popping out from a queue)
+At each iteration, first off, we compute the array of integer in which elements are integers 
+representing the size of subarrays (call them spec arrays which will update at each iteration by popping out from a queue)
 , where the we need the functions `readArraySpec`, `cut`, and `intervalize`.
 Next, we manipulate the array which is in its way becoming the final result.
 We cut this array into pieces according to the lastest updated spec array and group each piece 
@@ -571,7 +572,7 @@ Then, we pop out the spec array on top.
 Repeat this process until all spec arrays are gone, and finally return the result.
 
 For example:
-The input array is [3, 4, 5, 6], with spec arrays:
+The input array is [3, 4, 5, 6], with the spec arrays:
 [2] [2,2]
 The array on the right hand side of `|` is array of atomic elements.
 The algorithm can be visualized as followed:
