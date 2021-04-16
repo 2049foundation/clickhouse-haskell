@@ -560,29 +560,30 @@ writeNullable ctx col_name spec items = do
   "
       Quoted from https://github.com/mymarilyn/clickhouse-driver/blob/master/clickhouse_driver/columns/arraycolumn.py
 
-Here we don't implement a classical BFS algorithm as it is not natural in purely functional
-programming context; instead, we apply a more pretty method as described in the following:
-First off, we compute the array of integer in which elements represent the size of subarrays (we call them spec arrays)
-, where the function `readArraySpec`, `cut`, and `intervalize` do their jobs.
-Second, we place the array of atomic elements (or flatten data) at the last position.
-Then we cut the array of atomic elements according to the last spec array and form nested a nested array.
-Finally we pop out the last spec array.
-Repeat this process until all spec arrays are gone.
+Here, classical BFS algorithm is not implemented as it is not natural to do so with purely
+functional syntax; instead, we apply a new method that can be implemented easily in this case as described in the following:
+At each iteration, first off, we compute the array of integer in which elements represent the size of subarrays (call them spec arrays which will update at each iteration by popping out from a queue)
+, where the we need the functions `readArraySpec`, `cut`, and `intervalize`.
+Next, we manipulate the array which is in its way becoming the final result.
+We cut this array into pieces according to the lastest updated spec array and group each piece 
+together to form a new array in place.
+Then, we pop out the spec array on top.
+Repeat this process until all spec arrays are gone, and finally return the result.
 
 For example:
-The target array is [[3, 4], [5, 6]]
+The input array is [3, 4, 5, 6], with spec arrays:
+[2] [2,2]
 The array on the right hand side of `|` is array of atomic elements.
-The algorithm would be like this:
-[2] [2,2] | [3,4,5,6]
--> [2] | [[3,4],[5,6]]
--> [[3,4],[5,6]]
+The algorithm can be visualized as followed:
+-> [2] [2,2] | [3,4,5,6]
+->       [2] | [[3,4],[5,6]]
+->           | [[3,4],[5,6]]
 
 For another example:
-   target [[["Alex","Bob"], ["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
-   [3] [2,2,1] [2,1,1,3,2] | ["Alex","Bob","John","Jane","Steven","Mike","Sarah","Hello","world"]
--> [3] [2,2,1] | [["Alex","Bob"],["John"],["Jane"],["Steven","Mike","Sarah"],["Hello","world"]]
--> [3] | [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
--> [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
+-> [3] [2,2,1] [2,1,1,3,2] | ["Alex","Bob","John","Jane","Steven","Mike","Sarah","Hello","world"]
+->             [3] [2,2,1] | [["Alex","Bob"],["John"],["Jane"],["Steven","Mike","Sarah"],["Hello","world"]]
+->                     [3] | [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
+->                         | [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
 
 -}
 readArray :: ServerInfo -> Int -> ByteString -> Reader (Vector ClickhouseType)
