@@ -566,7 +566,7 @@ At each iteration, first off, we compute the array of integer in which elements 
 representing the size of subarrays (call them spec arrays which will update at each iteration by popping out from a queue)
 , where the we need the functions `readArraySpec`, `cut`, and `intervalize`.
 Next, we manipulate the array which is in its way becoming the final result.
-We cut this array into pieces according to the lastest updated spec array and group each piece 
+We cut this array into pieces according to the lastest updated spec array and in each piece, we group elements 
 together to form a new array in place.
 Then, we pop out the spec array on top.
 Repeat this process until all spec arrays are gone, and finally return the result.
