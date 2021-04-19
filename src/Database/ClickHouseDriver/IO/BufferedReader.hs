@@ -45,8 +45,7 @@ import Foreign.C ( CString )
 import qualified Network.Simple.TCP       as TCP
 import Network.Socket ( Socket )
 import Foreign.Ptr (Ptr, plusPtr)
-import Foreign.Storable (peek)
-import Foreign.Marshal.Array
+import Foreign.Storable (peek, peekElemOff)
 
 -- | Buffer is for receiving data from TCP stream. Whenever all bytes are read, it automatically
 -- refill from the stream.
@@ -110,18 +109,22 @@ readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
   if skip == 0
     then do
       varuint_ptr <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
-      [_, varuint'] <- peekArray 2 varuint_ptr
+
+      varuint' <- peekElemOff varuint_ptr 1
       new_buf <- refill buf
       let new_str = bytesData new_buf
 
       ptr2 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint varuint' x l)
-      [skip2, varuint] <- peekArray 2 ptr2 
+      skip2 <- peek ptr2
+      varuint <- peekElemOff 1 ptr2
 
       let tail = BS.drop (fromIntegral skip2) new_str
       return (varuint, Buffer size tail sock)
     else do
       ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
-      [skip2, varuint] <- peekArray 2 ptr
+      skip2 <- peek ptr
+      varuint <- peekElemOff 1 ptr
+
       let tail = BS.drop (fromIntegral skip) str
       return (varuint, Buffer size tail sock)
 -- | read binary string from buffer.
