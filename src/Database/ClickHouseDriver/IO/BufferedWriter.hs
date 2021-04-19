@@ -39,9 +39,8 @@ import qualified Data.Binary                  as Binary
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as BS
 import Data.ByteString.Builder
-    ( Builder, toLazyByteString, byteString )
+    ( Builder, toLazyByteString, byteString, lazyByteString)
 import qualified Data.ByteString.Lazy         as L
-import           Data.ByteString.Builder (lazyByteString)
 import Data.ByteString.Unsafe
     ( unsafePackCString, unsafePackCStringLen )
 import           Data.DoubleWord              (Word128 (..))
