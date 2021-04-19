@@ -116,14 +116,14 @@ readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
 
       ptr2 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint varuint' x l)
       skip2 <- peek ptr2
-      varuint <- peekElemOff 1 ptr2
+      varuint <- peekElemOff ptr2 1
 
       let tail = BS.drop (fromIntegral skip2) new_str
       return (varuint, Buffer size tail sock)
     else do
       ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
       skip2 <- peek ptr
-      varuint <- peekElemOff 1 ptr
+      varuint <- peekElemOff ptr 1
 
       let tail = BS.drop (fromIntegral skip) str
       return (varuint, Buffer size tail sock)
