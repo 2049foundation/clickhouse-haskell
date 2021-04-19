@@ -41,7 +41,7 @@ import qualified Data.ByteString              as BS
 import Data.ByteString.Builder
     ( Builder, toLazyByteString, byteString )
 import qualified Data.ByteString.Lazy         as L
-import           Data.ByteString.Lazy.Builder (lazyByteString)
+import           Data.ByteString.Builder (lazyByteString)
 import Data.ByteString.Unsafe
     ( unsafePackCString, unsafePackCStringLen )
 import           Data.DoubleWord              (Word128 (..))
