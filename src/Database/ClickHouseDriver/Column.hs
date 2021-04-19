@@ -562,7 +562,7 @@ writeNullable ctx col_name spec items = do
 
 Here, classical BFS algorithm is not implemented as it is not natural to do so with purely
 functional syntax; instead, we apply a new method that can be implemented easily in this case as described in the following:
-At each iteration, first off, we compute the array of integer in which elements are integers 
+In each iteration, first off, we compute the array of integer in which elements are integers 
 representing the size of subarrays (call them spec arrays which will update at each iteration by popping out from a queue)
 , where the we need the functions `readArraySpec`, `cut`, and `intervalize`.
 Next, we manipulate the array which is in its way becoming the final result.

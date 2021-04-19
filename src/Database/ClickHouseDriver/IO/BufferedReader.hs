@@ -44,6 +44,9 @@ import Data.Maybe ( fromJust, isNothing )
 import Foreign.C ( CString )
 import qualified Network.Simple.TCP       as TCP
 import Network.Socket ( Socket )
+import Foreign.Ptr (Ptr, plusPtr)
+import Foreign.Storable (peek)
+import Foreign.Marshal.Array
 
 -- | Buffer is for receiving data from TCP stream. Whenever all bytes are read, it automatically
 -- refill from the stream.
@@ -102,20 +105,25 @@ readVarInt' :: Buffer
               -- ^ (the word read from buffer, the buffer after reading)
 readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
   let l = fromIntegral $ BS.length str
-  skip <- UBS.unsafeUseAsCString str (\x -> c_count x l)
+  ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+  skip <- peek ptr
   if skip == 0
     then do
-      varint' <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
+      varuint_ptr <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
+      [_, varuint'] <- peekArray 2 varuint_ptr
       new_buf <- refill buf
       let new_str = bytesData new_buf
-      varint <- UBS.unsafeUseAsCString new_str (\x->c_read_varint varint' x l)
-      skip2 <- UBS.unsafeUseAsCString new_str (\x->c_count x l)
-      let tail = BS.drop (fromIntegral skip) new_str
-      return (varint, Buffer size tail sock)
+
+      ptr2 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint varuint' x l)
+      [skip2, varuint] <- peekArray 2 ptr2 
+
+      let tail = BS.drop (fromIntegral skip2) new_str
+      return (varuint, Buffer size tail sock)
     else do
-      varint <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+      ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+      [skip2, varuint] <- peekArray 2 ptr
       let tail = BS.drop (fromIntegral skip) str
-      return (varint, Buffer size tail sock)
+      return (varuint, Buffer size tail sock)
 -- | read binary string from buffer.
 -- It first read the integer(n) in front of the desired string,
 -- then it read n bytes to capture the whole string.
@@ -209,7 +217,7 @@ readBinaryUInt128 = do
   return $ Word128 hi lo
 
 -- | read bytes in the little endian format and transform into integer, see CBits/varuint.c
-foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO Word
+foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO (Ptr Word)
 
 -- | Helper of c_read_varint. it counts how many bits it needs to read.   
-foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word
+-- foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word

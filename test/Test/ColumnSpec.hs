@@ -26,15 +26,18 @@ columnSpec = hspec $ parallel $ do
 stringAndIntSpec :: Spec
 stringAndIntSpec = describe "test string and int columns" $ do
     conn <- runIO $ defaultClient
+    runIO $ putStrLn "created client"
     runIO $ query conn ("CREATE TABLE IF NOT EXISTS str_and_int_suite " ++ 
-            "(`str` String, `int` Int16, `fix` FixedString(3))" ++ "ENGINE = Memory") 
+            "(`str` String, `int` Int16, `fix` FixedString(3))" ++ "ENGINE = Memory")
     runIO $ Database.ClickHouseDriver.insertMany conn "INSERT INTO str_and_int_suite VALUES"
                 [
                     [CKString "teststr1", CKInt16 323, CKString "abc"],
                     [CKString "teststr2", CKInt16 456 ,CKString "axy"],
                     [CKString "teststr2", CKInt16 220, CKString "ffa"]
                 ]
-    q <- runIO $ query conn "SELECT * FROM str_and_int_suite" 
+    runIO $ putStrLn "inserted"
+    q <- runIO $ query conn "SELECT * FROM str_and_int_suite"
+    runIO $ putStrLn "read"
     it "returns query result in standard format" $ do
         show q `shouldBe` "[[CKString \"teststr1\", CKInt16 323, CKString \"abc\"]," ++
                 "[CKString \"teststr2\", CKInt16 456 ,CKString \"axy\"],[CKString \"teststr2\"," ++

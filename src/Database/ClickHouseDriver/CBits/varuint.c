@@ -19,7 +19,6 @@ const char *write_varint(u_int16_t number)
 			byte |= 0x80;
 		*ptr = byte;
 		++ptr;
-
 		number >>= 7;
 		if (!number)
 			return ostr;
@@ -27,39 +26,26 @@ const char *write_varint(u_int16_t number)
 	return ostr;
 }
 
-u_int16_t read_varint(u_int16_t cont,char *istr, size_t size)
+size_t* read_varint(u_int16_t cont,char *istr, size_t size)
 {
 	const char *end = istr + size;
 	int byte;
+	size_t n = 0;
+	size_t* res = malloc(sizeof(size_t) * 2);
 	for (size_t i = 0; i < 9; ++i)
 	{
 		if(istr == end){
+			*res = 0;
 			break;
-		}
-		byte = *istr;
-		++istr;
-		cont |= (byte & 0x7F) << (7 *i);
-		if (!(byte & 0x80))
-			break;
-	}
-	return cont;
-}
-
-size_t count_read(char *istr, size_t size)
-{
-	const char *end = istr + size;
-	size_t n = 0;
-	int byte;
-	for (size_t i = 0; i < 9; ++i)
-	{
-		if (istr == end){
-			return 0;
 		}
 		byte = *istr;
 		++istr;
 		++n;
+		cont |= (byte & 0x7F) << (7 *i);
 		if (!(byte & 0x80))
 			break;
 	}
-	return n;
+	*res = n;
+	*(res + 1) = cont;
+	return res;
 }
