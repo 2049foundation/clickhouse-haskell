@@ -107,10 +107,10 @@ import Network.IP.Addr
     ip6ToWords,
   )
 import Data.List (foldl')
-#define EQUAL 61
-#define COMMA 44
-#define SPACE 32
-#define QUOTE 39
+
+
+
+
 --Debug
 --import Debug.Trace
 
@@ -201,7 +201,7 @@ writeFixedLengthString col_name spec items = do
   V.mapM_
     ( \case
         CKString s -> writeBinaryFixedLengthStr (fromIntegral len) s
-        CKNull -> const () <$> V.replicateM (fromIntegral len) (writeVarUInt 0)
+        CKNull -> () <$ V.replicateM (fromIntegral len) (writeVarUInt 0)
         x -> error (typeMismatchError col_name ++ " got: " ++ show x)
     )
     items
@@ -307,7 +307,7 @@ readDateTime server_info n_rows spec = do
   case spc of
     Nothing -> readDateTimeWithSpec server_info n_rows scale ""
     Just tz_name -> readDateTimeWithSpec server_info n_rows scale tz_name
-    
+
 readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
 readTimeSpec spec'
   | "DateTime64" `isPrefixOf` spec' = do
@@ -322,7 +322,7 @@ readTimeSpec spec'
     let l = BS.length spec'
     let inner_specs = BS.take (l - 12) (BS.drop 10 spec')
     (Nothing, Just inner_specs)
-    
+
 readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> ByteString -> Reader (Vector ClickhouseType)
 readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows Nothing tz_name = do
   data32 <- readIntColumn n_rows "Int32"
@@ -698,7 +698,7 @@ readEnum n_rows spec = do
       pres_pecs = getSpecs innerSpec
       specs =
         (\(name, Just (n, _)) -> (n, name))
-          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== EQUAL) <$> pres_pecs) --61 means '='
+          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== 61) <$> pres_pecs) --61 means '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec
     then do
@@ -718,7 +718,7 @@ writeEnum col_name spec items = do
       pres_pecs = getSpecs innerSpec
       specs =
         (\(name, Just (n, _)) -> (name, n))
-          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== EQUAL) . BS.filter (/= QUOTE) <$> pres_pecs) --61 is '='
+          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== 61) . BS.filter (/= 39) <$> pres_pecs) --61 is '='
       specsMap = Map.fromList specs
   V.mapM_
     ( \case
@@ -788,7 +788,7 @@ readDecimal n_rows spec = do
   where
     readDecimal32 :: Int -> Reader (Vector ClickhouseType)
     readDecimal32 n_rows = readIntColumn n_rows "Int32"
-    
+
     readDecimal64 :: Int -> Reader (Vector ClickhouseType)
     readDecimal64 n_rows = readIntColumn n_rows "Int64"
 
@@ -943,15 +943,15 @@ writeUUID col_name =
 
 ----------------------------------------------------------------------------------------------
 ---Helpers
-#define COMMA 44
-#define SPACE 32
+
+
 
 -- | Get rid of commas and spaces
 getSpecs :: ByteString -> [ByteString]
-getSpecs str = BS.splitWith (== COMMA) (BS.filter (/= SPACE) str)
+getSpecs str = BS.splitWith (== 44) (BS.filter (/= 32) str)
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
-transpose = rotate 
+transpose = rotate
   where
     rotate matrix =
       let transposedList = List.transpose (V.toList <$> V.toList matrix)

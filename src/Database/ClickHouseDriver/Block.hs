@@ -50,9 +50,9 @@ import Database.ClickHouseDriver.IO.BufferedWriter
       Writer )
 import Data.ByteString ( ByteString )
 import Data.ByteString.Builder ( Builder )
-import           Data.Vector                        (Vector)
-import           Data.Vector                        ((!))
+import Data.Vector ( Vector, (!) )
 import qualified Data.Vector                        as V
+import Control.Monad ( when )
 --Debug
 --import           Debug.Trace
 
@@ -130,9 +130,7 @@ writeBlockOutputStream ctx@(Context _ server_info _)
         (case server_info of
         Nothing   -> error ""
         Just info -> info)
-  if revis >= Defines._DBMS_MIN_REVISION_WITH_BLOCK_INFO
-    then writeBlockInfo info
-    else return ()
+  when (revis >= Defines._DBMS_MIN_REVISION_WITH_BLOCK_INFO) $ writeBlockInfo info
   let n_rows = fromIntegral $ V.length cdata
       n_columns = fromIntegral $ V.length (cdata ! 0)
   writeVarUInt n_rows
