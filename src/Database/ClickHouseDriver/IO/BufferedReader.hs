@@ -45,7 +45,7 @@ import qualified Network.Simple.TCP       as TCP
 import Network.Socket ( Socket )
 import Foreign.Ptr (Ptr, plusPtr)
 import Foreign.Storable (peek, peekElemOff)
-import Data.Bits
+import Data.Bits ( Bits(shiftR, (.&.)) )
 
 
 -- | Buffer is for receiving data from TCP stream. Whenever all bytes are read, it automatically
