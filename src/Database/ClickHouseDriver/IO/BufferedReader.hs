@@ -225,6 +225,3 @@ readBinaryUInt128 = do
 
 -- | read bytes in the little endian format and transform into integer, see CBits/varuint.c
 foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO Word32
-
--- | Helper of c_read_varint. it counts how many bits it needs to read.   
--- foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word
