@@ -1,4 +1,4 @@
--- Copyright (c) 2014-present, EMQX, Inc.
+ -- Copyright (c) 2014-present, EMQX, Inc.
 -- All rights reserved.
 --
 -- This source code is distributed under the terms of a MIT license,
@@ -6,7 +6,6 @@
 
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings        #-}
-{-# LANGUAGE ScopedTypeVariables      #-}
 -- | Tools to analyze protocol and deserialize data sent from server. This module is for internal use only.
 
 module Database.ClickHouseDriver.IO.BufferedReader
@@ -56,6 +55,11 @@ data Buffer = Buffer {
   bytesData :: ByteString,
   socket :: Maybe Socket
 }
+
+
+bitMask :: Word32
+{-# INLINE bitMask #-}
+bitMask = 0xffff
 
 -- | create buffer with size and socket.
 createBuffer :: Int->Socket->IO Buffer
@@ -107,7 +111,7 @@ readVarInt' :: Buffer
 readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
   let l = fromIntegral $ BS.length str
   n_cont <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
-  let skip = n_cont .&. (0xffff :: Word32)
+  let skip = n_cont .&. bitMask
   
   if skip == 0
     then do
@@ -118,13 +122,13 @@ readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
       let new_str = bytesData new_buf
 
       n_cont_3 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint (fromIntegral varuint') x l)
-      let skip2 = n_cont_3 .&. (0xffff :: Word32)
+      let skip2 = n_cont_3 .&. bitMask
           varuint = n_cont_3 `shiftR` 16
       let tail = BS.drop (fromIntegral skip2) new_str
       return (fromIntegral varuint, Buffer size tail sock)
     else do
       n_cont <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
-      let skip2 = n_cont .&. (0xffff :: Word32)
+      let skip2 = n_cont .&. bitMask
           varuint = n_cont `shiftR` 16
 
       let tail = BS.drop (fromIntegral skip) str
