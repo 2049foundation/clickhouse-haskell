@@ -6,7 +6,7 @@
 
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings        #-}
-
+{-# LANGUAGE ScopedTypeVariables      #-}
 -- | Tools to analyze protocol and deserialize data sent from server. This module is for internal use only.
 
 module Database.ClickHouseDriver.IO.BufferedReader
@@ -40,12 +40,14 @@ import qualified Data.ByteString.Lazy     as L
 import qualified Data.ByteString.Unsafe   as UBS
 import           Data.DoubleWord          (Word128 (..))
 import Data.Int ( Int8, Int16, Int32, Int64 )
-import Data.Maybe ( fromJust, isNothing )
+import Data.Maybe ( fromJust, isNothing, fromMaybe )
 import Foreign.C ( CString )
 import qualified Network.Simple.TCP       as TCP
 import Network.Socket ( Socket )
 import Foreign.Ptr (Ptr, plusPtr)
 import Foreign.Storable (peek, peekElemOff)
+import Data.Bits
+
 
 -- | Buffer is for receiving data from TCP stream. Whenever all bytes are read, it automatically
 -- refill from the stream.
@@ -61,12 +63,12 @@ createBuffer size sock = do
   receive <- TCP.recv sock size -- receive data
   return Buffer{
     bufSize = size, -- set the size 
-    bytesData = if isNothing receive then "" else fromJust receive, 
+    bytesData = fromMaybe "" receive,
     socket = Just sock
   }
 
 -- | refill buffer from stream
-refill :: Buffer->IO Buffer 
+refill :: Buffer->IO Buffer
 refill Buffer{socket = Just sock, bufSize = size} = do
   newData' <- TCP.recv sock size
   let newBuffer = case newData' of
@@ -104,40 +106,70 @@ readVarInt' :: Buffer
               -- ^ (the word read from buffer, the buffer after reading)
 readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
   let l = fromIntegral $ BS.length str
-  ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
-  skip <- peek ptr
+  n_cont <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+  let skip = n_cont .&. (0xffff :: Word32)
+  
   if skip == 0
     then do
-      varuint_ptr <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
+      n_cont_2 <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
 
-      varuint' <- peekElemOff varuint_ptr 1
+      let varuint' = n_cont_2 `shiftR` 16
       new_buf <- refill buf
       let new_str = bytesData new_buf
 
-      ptr2 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint varuint' x l)
-      skip2 <- peek ptr2
-      varuint <- peekElemOff ptr2 1
-
+      n_cont_3 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint (fromIntegral varuint') x l)
+      let skip2 = n_cont_3 .&. (0xffff :: Word32)
+          varuint = n_cont_3 `shiftR` 16
       let tail = BS.drop (fromIntegral skip2) new_str
-      return (varuint, Buffer size tail sock)
+      return (fromIntegral varuint, Buffer size tail sock)
     else do
-      ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
-      skip2 <- peek ptr
-      varuint <- peekElemOff ptr 1
+      n_cont <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+      let skip2 = n_cont .&. (0xffff :: Word32)
+          varuint = n_cont `shiftR` 16
 
       let tail = BS.drop (fromIntegral skip) str
-      return (varuint, Buffer size tail sock)
+      return (fromIntegral varuint, Buffer size tail sock)
+
+--readVarInt' :: Buffer
+--              -- ^ buffer to be read
+--            -> IO (Word, Buffer)
+--              -- ^ (the word read from buffer, the buffer after reading)
+--readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
+--  let l = fromIntegral $ BS.length str
+--  ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+--  skip <- peek ptr
+--  if skip == 0
+--    then do
+--      varuint_ptr <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
+--
+--      varuint' <- peekElemOff varuint_ptr 1
+--      new_buf <- refill buf
+--      let new_str = bytesData new_buf
+--
+--      ptr2 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint varuint' x l)
+--      skip2 <- peek ptr2
+--      varuint <- peekElemOff ptr2 1
+--
+--      let tail = BS.drop (fromIntegral skip2) new_str
+--      return (varuint, Buffer size tail sock)
+--    else do
+--      ptr <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
+--      skip2 <- peek ptr
+--      varuint <- peekElemOff ptr 1
+--
+--      let tail = BS.drop (fromIntegral skip) str
+--      return (varuint, Buffer size tail sock)
 -- | read binary string from buffer.
 -- It first read the integer(n) in front of the desired string,
 -- then it read n bytes to capture the whole string.
-readBinaryStr' :: Buffer 
+readBinaryStr' :: Buffer
                -- ^ Buffer to be read
                -> IO (ByteString, Buffer)
                -- ^ (the string read from Buffer, the buffer after reading)
 readBinaryStr' str = do
   (len, tail) <- readVarInt' str -- 
   (head, tail') <- readBinaryStrWithLength' (fromIntegral len) tail
-  
+
   return (head, tail')
 
 -- | read n bytes and then transform into a binary type such as bytestring, Int8, UInt16 etc.
@@ -220,7 +252,7 @@ readBinaryUInt128 = do
   return $ Word128 hi lo
 
 -- | read bytes in the little endian format and transform into integer, see CBits/varuint.c
-foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO (Ptr Word)
+foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO Word32
 
 -- | Helper of c_read_varint. it counts how many bits it needs to read.   
 -- foreign import ccall unsafe "varuint.h count_read" c_count :: CString -> Word -> IO Word

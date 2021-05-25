@@ -314,6 +314,7 @@ sendQuery
   query
   query_id = do
     (_, r) <- runWriterT $ do
+
       writeVarUInt Client._QUERY
       writeBinaryStr $ fromMaybe "" query_id
       let revision' = revision info
