@@ -602,7 +602,7 @@ readArray server_info n_rows spec = do
     combine elems config =
       let intervals = intervalize (fromIntegral <$> config)
           cut :: (Int, Int)->ClickhouseType
-          cut (a, b) = CKArray $ V.take b (V.drop a elems)
+          cut (!a, !b) = CKArray $ V.take b (V.drop a elems)
           embed = (\(l, r) -> cut (l, r - l + 1)) <$> intervals
       in embed
 
