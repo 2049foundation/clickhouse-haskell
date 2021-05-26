@@ -103,6 +103,8 @@ library
   install-includes: varuint.h
                   , datetime.h
                   , bigint.h
+  ghc-options:
+    -funbox-strict-fields -threaded -rtsopts
 
 executable clickhouse-haskell-exe
   main-is: Main.hs

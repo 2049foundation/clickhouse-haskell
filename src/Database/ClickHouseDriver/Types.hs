@@ -87,26 +87,26 @@ data Block = ColumnOrientedBlock
   deriving Show
 ------------------------------------------------------------
 data ClickhouseType
-  = CKInt8 Int8
-  | CKInt16 Int16
-  | CKInt32 Int32
-  | CKInt64 Int64
-  | CKInt128 Int64 Int64
-  | CKUInt8 Word8
-  | CKUInt16 Word16
-  | CKUInt32 Word32
-  | CKUInt64 Word64
-  | CKUInt128 Word64 Word64
-  | CKString ByteString
+  = CKInt8 !Int8
+  | CKInt16 !Int16
+  | CKInt32 !Int32
+  | CKInt64 !Int64
+  | CKInt128 !Int64 !Int64
+  | CKUInt8 !Word8
+  | CKUInt16 !Word16
+  | CKUInt32 !Word32
+  | CKUInt64 !Word64
+  | CKUInt128 !Word64 !Word64
+  | CKString !ByteString
   | CKTuple (Vector ClickhouseType)
   | CKArray (Vector ClickhouseType)
-  | CKDecimal Float
-  | CKDecimal32 Float
-  | CKDecimal64 Double
-  | CKDecimal128 Double
-  | CKIPv4 (Word8, Word8, Word8, Word8)
-  | CKIPv6 (Word16, Word16, Word16, Word16,
-         Word16, Word16, Word16, Word16)
+  | CKDecimal !Float
+  | CKDecimal32 !Float
+  | CKDecimal64 !Double
+  | CKDecimal128 !Double
+  | CKIPv4 (!Word8, !Word8, !Word8, !Word8)
+  | CKIPv6 (!Word16,!Word16, !Word16, !Word16,
+         !Word16, !Word16, !Word16, !Word16)
   | CKDate {
     year :: !Integer,
     month :: !Int,
