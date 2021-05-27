@@ -104,9 +104,9 @@ data ClickhouseType
   | CKDecimal32 !Float
   | CKDecimal64 !Double
   | CKDecimal128 !Double
-  | CKIPv4 (!Word8, !Word8, !Word8, !Word8)
-  | CKIPv6 (!Word16,!Word16, !Word16, !Word16,
-         !Word16, !Word16, !Word16, !Word16)
+  | CKIPv4 !(Word8, Word8, Word8, Word8)
+  | CKIPv6 !(Word16,Word16,Word16,Word16,
+         Word16, Word16, Word16, Word16)
   | CKDate {
     year :: !Integer,
     month :: !Int,
