@@ -958,10 +958,10 @@ transpose = id
 
 getIthRow :: Int -> Vector (Vector ClickhouseType) -> Maybe (Vector ClickhouseType)
 getIthRow i items
-     | i < 0 = Nothing
-     | V.length items == 0 = Nothing
-     | i >= V.length (items ! 0) = Nothing
-     | otherwise = Just $ V.map (! i) items
+  | i < 0 = Nothing
+  | V.length items == 0 = Nothing
+  | i >= V.length (items ! 0) = Nothing
+  | otherwise = Just $ V.map (! i) items
 
 typeMismatchError :: ByteString -> String
 typeMismatchError col_name = "Type mismatch in the column " ++ show col_name

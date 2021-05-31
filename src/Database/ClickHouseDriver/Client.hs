@@ -348,3 +348,4 @@ closeClient source = do
      -> TCP.closeSock sock
     Just (CKPool pool)
      -> destroyAllResources pool
+
