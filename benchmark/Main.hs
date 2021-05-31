@@ -3,8 +3,8 @@
 module Main where
 
 import Database.ClickHouseDriver
-    ( ConnParams(password'), createClient, query, closeClient, printTranspose)
-import Database.ClickHouseDriver.Column (putInformat)
+    ( ConnParams(password'), createClient, query, closeClient)
+import Database.ClickHouseDriver.Column (printInformat)
 import Data.Default.Class (def)
 import Data.ByteString hiding (putStrLn, readFile)
 import Data.Time ( diffUTCTime, getCurrentTime )
@@ -20,7 +20,7 @@ main = do
     case res of
         Left _ -> putStrLn "Failed"
         Right !r -> do 
-            --printTranspose r
+            printInformat r
             putStrLn "success!"
             end <- getCurrentTime
             print $ diffUTCTime end start

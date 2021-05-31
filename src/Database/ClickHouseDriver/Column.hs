@@ -647,8 +647,7 @@ writeArray ctx col_name spec items = do
   V.mapM_ (writeBinaryInt64 . fromIntegral) (V.drop 1 lens)
   let innerSpec = BS.take (BS.length spec - 7) (BS.drop 6 spec)
   let innerVector = V.map (\case CKArray xs -> xs) items
-  let flattenVector =
-        innerVector >>= \v -> v
+  let flattenVector = innerVector >>= id
   writeColumn ctx col_name innerSpec flattenVector
 
 --------------------------------------------------------------------------------------
@@ -951,18 +950,34 @@ getSpecs str = BS.splitWith (== 44) (BS.filter (/= 32) str)
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
 transpose = id
---  where
---    rotate matrix =
---      let transposedList = List.transpose (V.toList <$> V.toList matrix)
---          toVector = V.fromList <$> V.fromList transposedList
---       in toVector
+  where
+    rotate matrix =
+      let transposedList = List.transpose (V.toList <$> V.toList matrix)
+          toVector = V.fromList <$> V.fromList transposedList
+       in toVector
+
+getIthRow :: Int -> Vector (Vector ClickhouseType) -> Maybe (Vector ClickhouseType)
+getIthRow i items
+     | i < 0 = Nothing
+     | V.length items == 0 = Nothing
+     | i >= V.length (items ! 0) = Nothing
+     | otherwise = Just $ V.map (! i) items
 
 typeMismatchError :: ByteString -> String
 typeMismatchError col_name = "Type mismatch in the column " ++ show col_name
 
 -- | print in format
-putInformat :: Vector (Vector ClickhouseType) -> IO ()
-putInformat v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map toStr v
+printInformat :: Vector (Vector ClickhouseType) -> IO ()
+printInformat vec
+  | V.length vec == 0 = return ()
+  | otherwise = do
+    let inner_length = V.length (vec ! 0)
+    void $ V.generateM inner_length \i->do
+      V.mapM_ (\each->do
+           (C8.putStr . help) $ each ! i
+           C8.putStr ", "
+        ) vec
+      C8.putStr "\n"
 
 toStr :: Vector ClickhouseType -> ByteString
 toStr row = BS.intercalate "," $ V.toList $ V.map help row
@@ -992,14 +1007,3 @@ help (CKDate y m d) =
     <> "-"
     <> C8.pack (show d)
 
-printTranspose :: Vector (Vector ClickhouseType) -> IO ()
-printTranspose vec
-  | V.length vec == 0 = return ()
-  | otherwise = do
-    let inner_length = V.length (vec ! 0)
-    void $ V.generateM inner_length \i->do
-      V.mapM_ (\each->do
-           (C8.putStr . help) $ each ! i
-           C8.putStr ", "
-        ) vec
-      C8.putStr "\n"
