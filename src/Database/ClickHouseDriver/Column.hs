@@ -40,7 +40,7 @@ import Database.ClickHouseDriver.IO.BufferedWriter
     writeBinaryUInt8,
     writeVarUInt,
   )
-import Control.Monad.State.Lazy (MonadIO (..))
+import Control.Monad.State.Lazy (MonadIO (..), void)
 import Data.Binary (Word64, Word8)
 import Data.Bits (shift, (.&.), (.|.))
 import Data.ByteString (ByteString, isPrefixOf)
@@ -96,7 +96,7 @@ import qualified Data.Vector as V
     take,
     toList,
     zipWith,
-    zipWithM_,
+    zipWithM_, generateM
   )
 import Foreign.C (CString)
 import Network.IP.Addr
@@ -341,7 +341,7 @@ readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows Nothing tz_name =
               unsafePackCString c_str
           )
           data32
-  toDateTimeString <- liftIO $ toDateTimeStringM
+  toDateTimeString <- liftIO toDateTimeStringM
   return $ V.map CKString toDateTimeString
 
 readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows (Just scl) tz_name = do
@@ -361,7 +361,7 @@ readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows (Just scl) tz_nam
               unsafePackCString c_str
           )
           data64
-  toDateTimeString <- liftIO $ toDateTimeStringM
+  toDateTimeString <- liftIO toDateTimeStringM
   return $ V.map CKString toDateTimeString
 
 writeDateTime :: ByteString -> ByteString -> Vector ClickhouseType -> Writer Builder
@@ -371,34 +371,33 @@ writeDateTime col_name spec items = do
     Nothing -> do
       case spc of
         Nothing -> do
-          TimeZone {timeZoneName = tz'} <- liftIO $ getCurrentTimeZone
+          TimeZone {timeZoneName = tz'} <- liftIO getCurrentTimeZone
           writeDateTimeWithSpec $ C8.pack tz'
         Just spec -> writeDateTimeWithSpec spec
-    Just _ -> do
-      --TODO: Can someone implement this? I am so pissed off!
+    Just _ ->
       undefined
   where
     writeDateTimeWithSpec :: ByteString -> Writer Builder
-    writeDateTimeWithSpec tz_name = do
+    writeDateTimeWithSpec tz_name =
       V.mapM_
-        ( \case
-            (CKInt32 i32) -> do
-              converted <- liftIO $ convert_time_from_int32 i32
-              writeBinaryInt32 converted
-            (CKString time_str) -> do
-              converted <-
-                liftIO $
-                  unsafeUseAsCStringLen
-                    tz_name
-                    ( \(tz, l) ->
-                        unsafeUseAsCStringLen
-                          time_str
-                          (\(time_str, l2) -> c_write_time time_str tz l l2)
-                    )
-              writeBinaryInt32 converted
-            _ -> error (typeMismatchError col_name)
-        )
-        items
+      ( \case
+          (CKInt32 i32) -> do
+            converted <- liftIO $ convert_time_from_int32 i32
+            writeBinaryInt32 converted
+          (CKString time_str) -> do
+            converted <-
+              liftIO $
+                unsafeUseAsCStringLen
+                  tz_name
+                  ( \(tz, l) ->
+                      unsafeUseAsCStringLen
+                        time_str
+                        (\(time_str, l2) -> c_write_time time_str tz l l2)
+                  )
+            writeBinaryInt32 converted
+          _ -> error (typeMismatchError col_name)
+      )
+      items
 
 foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64 -> CString -> Int -> IO CString
 
@@ -450,13 +449,13 @@ writeLowCardinality ctx col_name spec items = do
         let key_by_index_element = V.foldl' insertKeys Map.empty hashedItem
         let keys = V.map (\k -> key_by_index_element Map.! k + 1) hashedItem
         -- First element is NULL if column is nullable
-        let index = V.fromList $ 0 : (Map.keys $ key_by_index_element)
+        let index = V.fromList $ 0 : (Map.keys key_by_index_element)
         return (keys, index)
       else do
         let hashedItem = hashItems False items
         let key_by_index_element = V.foldl' insertKeys Map.empty hashedItem
         let keys = V.map (key_by_index_element Map.!) hashedItem
-        let index = V.fromList $ Map.keys $ key_by_index_element
+        let index = V.fromList $ Map.keys key_by_index_element
         return (keys, index)
   if V.length index == 0
     then return ()
@@ -649,7 +648,7 @@ writeArray ctx col_name spec items = do
   let innerSpec = BS.take (BS.length spec - 7) (BS.drop 6 spec)
   let innerVector = V.map (\case CKArray xs -> xs) items
   let flattenVector =
-        innerVector >>= \v -> do v
+        innerVector >>= \v -> v
   writeColumn ctx col_name innerSpec flattenVector
 
 --------------------------------------------------------------------------------------
@@ -685,7 +684,7 @@ writeTuple ctx col_name spec items = do
       error $
         "length of the given array does not match, column name = "
           ++ show col_name
-    else do
+    else
       V.zipWithM_ (writeColumn ctx col_name) spec_arr transposed
 
 --------------------------------------------------------------------------------------
@@ -797,8 +796,7 @@ readDecimal n_rows spec = do
     readDecimal128 n_rows =
       V.replicateM n_rows $ do
         lo <- readBinaryUInt64
-        hi <- readBinaryUInt64
-        return $ CKUInt128 lo hi
+        CKUInt128 lo <$> readBinaryUInt64
 
     trans :: Int -> ClickhouseType -> ClickhouseType
     trans scale (CKInt32 x) = CKDecimal32 (fromIntegral x / fromIntegral (10 ^ scale))
@@ -833,7 +831,7 @@ writeDecimal col_name spec items = do
     writeDecimal32 scale vec =
       V.mapM_
         ( \case
-            CKDecimal32 f32 -> writeBinaryInt32 $ fromIntegral $ floor $ (f32 * fromIntegral scale)
+            CKDecimal32 f32 -> writeBinaryInt32 $ fromIntegral $ floor (f32 * fromIntegral scale)
             _ -> error $ typeMismatchError col_name
         )
         vec
@@ -841,24 +839,24 @@ writeDecimal col_name spec items = do
     writeDecimal64 scale vec =
       V.mapM_
         ( \case
-            CKDecimal64 f64 -> writeBinaryInt32 $ fromIntegral $ floor $ (f64 * fromIntegral scale)
+            CKDecimal64 f64 -> writeBinaryInt32 $ fromIntegral $ floor (f64 * fromIntegral scale)
             _ -> error $ typeMismatchError col_name
         )
         vec
     writeDecimal128 :: Int -> Vector ClickhouseType -> Writer Builder
-    writeDecimal128 scale items = do
+    writeDecimal128 scale items =
       V.mapM_
-        ( \case
-            CKDecimal128 x -> do
-              if x >= 0
-                then do
-                  writeBinaryUInt64 $ low_bits_128 x scale
-                  writeBinaryUInt64 $ hi_bits_128 x scale
-                else do
-                  writeBinaryUInt64 $ low_bits_negative_128 (- x) scale
-                  writeBinaryUInt64 $ hi_bits_negative_128 (- x) scale
-        )
-        items
+      ( \case
+          CKDecimal128 x -> do
+            if x >= 0
+              then do
+                writeBinaryUInt64 $ low_bits_128 x scale
+                writeBinaryUInt64 $ hi_bits_128 x scale
+              else do
+                writeBinaryUInt64 $ low_bits_negative_128 (- x) scale
+                writeBinaryUInt64 $ hi_bits_negative_128 (- x) scale
+      )
+      items
 
 foreign import ccall unsafe "bigint.h word128_division" word128_division :: Word64 -> Word64 -> Int -> Double
 
@@ -908,16 +906,16 @@ readSimpleAggregateFunction server_info n_rows spec = do
   readColumn server_info n_rows cktype
 ----------------------------------------------------------------------------------------------
 readUUID :: Int -> Reader (Vector ClickhouseType)
-readUUID n_rows = do
+readUUID n_rows =
   V.replicateM n_rows $ do
-    w2 <- readBinaryUInt32
-    w1 <- readBinaryUInt32
-    w3 <- readBinaryUInt32
-    w4 <- readBinaryUInt32
-    return $
-      CKString $
-        C8.pack $
-          UUID.toString $ UUID.fromWords w1 w2 w3 w4
+  w2 <- readBinaryUInt32
+  w1 <- readBinaryUInt32
+  w3 <- readBinaryUInt32
+  w4 <- readBinaryUInt32
+  return $
+    CKString $
+      C8.pack $
+        UUID.toString $ UUID.fromWords w1 w2 w3 w4
 
 writeUUID :: ByteString -> Vector ClickhouseType -> Writer Builder
 writeUUID col_name =
@@ -952,44 +950,56 @@ getSpecs :: ByteString -> [ByteString]
 getSpecs str = BS.splitWith (== 44) (BS.filter (/= 32) str)
 
 transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
-transpose = rotate
-  where
-    rotate matrix =
-      let transposedList = List.transpose (V.toList <$> V.toList matrix)
-          toVector = V.fromList <$> V.fromList transposedList
-       in toVector
+transpose = id
+--  where
+--    rotate matrix =
+--      let transposedList = List.transpose (V.toList <$> V.toList matrix)
+--          toVector = V.fromList <$> V.fromList transposedList
+--       in toVector
 
 typeMismatchError :: ByteString -> String
 typeMismatchError col_name = "Type mismatch in the column " ++ show col_name
 
 -- | print in format
-putStrLn :: Vector (Vector ClickhouseType) -> IO ()
-putStrLn v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map to_str v
-  where
-    to_str :: Vector ClickhouseType -> ByteString
-    to_str row = BS.intercalate "," $ V.toList $ V.map help row
+putInformat :: Vector (Vector ClickhouseType) -> IO ()
+putInformat v = C8.putStrLn $ BS.intercalate "\n" $ V.toList $ V.map toStr v
 
-    help :: ClickhouseType -> ByteString
-    help (CKString s) = s
-    help (CKDecimal64 n) = C8.pack $ show n
-    help (CKDecimal32 n) = C8.pack $ show n
-    help (CKDecimal n) = C8.pack $ show n
-    help (CKInt8 n) = C8.pack $ show n
-    help (CKInt16 n) = C8.pack $ show n
-    help (CKInt32 n) = C8.pack $ show n
-    help (CKInt64 n) = C8.pack $ show n
-    help (CKUInt8 n) = C8.pack $ show n
-    help (CKUInt16 n) = C8.pack $ show n
-    help (CKUInt32 n) = C8.pack $ show n
-    help (CKUInt64 n) = C8.pack $ show n
-    help (CKTuple xs) = "(" <> to_str xs <> ")"
-    help (CKArray xs) = "[" <> to_str xs <> "]"
-    help  CKNull = "null"
-    help (CKIPv4 ip4) = C8.pack $ show ip4
-    help (CKIPv6 ip6) = C8.pack $ show ip6
-    help (CKDate y m d) =
-      C8.pack (show y)
-        <> "-"
-        <> C8.pack (show m)
-        <> "-"
-        <> C8.pack (show d)
+toStr :: Vector ClickhouseType -> ByteString
+toStr row = BS.intercalate "," $ V.toList $ V.map help row
+
+help :: ClickhouseType -> ByteString
+help (CKString s) = s
+help (CKDecimal64 n) = C8.pack $ show n
+help (CKDecimal32 n) = C8.pack $ show n
+help (CKDecimal n) = C8.pack $ show n
+help (CKInt8 n) = C8.pack $ show n
+help (CKInt16 n) = C8.pack $ show n
+help (CKInt32 n) = C8.pack $ show n
+help (CKInt64 n) = C8.pack $ show n
+help (CKUInt8 n) = C8.pack $ show n
+help (CKUInt16 n) = C8.pack $ show n
+help (CKUInt32 n) = C8.pack $ show n
+help (CKUInt64 n) = C8.pack $ show n
+help (CKTuple xs) = "(" <> toStr xs <> ")"
+help (CKArray xs) = "[" <> toStr xs <> "]"
+help  CKNull = "null"
+help (CKIPv4 ip4) = C8.pack $ show ip4
+help (CKIPv6 ip6) = C8.pack $ show ip6
+help (CKDate y m d) =
+  C8.pack (show y)
+    <> "-"
+    <> C8.pack (show m)
+    <> "-"
+    <> C8.pack (show d)
+
+printTranspose :: Vector (Vector ClickhouseType) -> IO ()
+printTranspose vec
+  | V.length vec == 0 = return ()
+  | otherwise = do
+    let inner_length = V.length (vec ! 0)
+    void $ V.generateM inner_length \i->do
+      V.mapM_ (\each->do
+           (C8.putStr . help) $ each ! i
+           C8.putStr ", "
+        ) vec
+      C8.putStr "\n"

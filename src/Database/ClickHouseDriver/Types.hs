@@ -98,8 +98,8 @@ data ClickhouseType
   | CKUInt64 !Word64
   | CKUInt128 !Word64 !Word64
   | CKString !ByteString
-  | CKTuple (Vector ClickhouseType)
-  | CKArray (Vector ClickhouseType)
+  | CKTuple !(Vector ClickhouseType)
+  | CKArray !(Vector ClickhouseType)
   | CKDecimal !Float
   | CKDecimal32 !Float
   | CKDecimal64 !Double
