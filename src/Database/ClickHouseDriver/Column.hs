@@ -92,6 +92,7 @@ import Network.IP.Addr
   )
 import Data.List (foldl', scanl')
 import Control.Monad ( replicateM, forM, replicateM_, zipWithM_)
+import Debug.Trace
 
 -- Auxiliary
 (.$) :: a -> (a -> c) -> c
@@ -113,7 +114,7 @@ readColumn ::
   ByteString ->
   Reader [ClickhouseType]
 readColumn server_info n_rows spec
-  | "String" `isPrefixOf` spec = replicateM n_rows (CKString <$> readBinaryStr)
+  | "String" `isPrefixOf` spec = replicateM n_rows $! (CKString <$> readBinaryStr)
   | "Array" `isPrefixOf` spec = readArray server_info n_rows spec
   | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
   | "DateTime" `isPrefixOf` spec = readDateTime server_info n_rows spec
@@ -188,7 +189,7 @@ writeFixedLengthString col_name spec items = do
   mapM_
     ( \case
         CKString s -> writeBinaryFixedLengthStr (fromIntegral len) s
-        CKNull -> () <$ V.replicateM (fromIntegral len) (writeVarUInt 0)
+        CKNull -> () <$ replicateM (fromIntegral len) (writeVarUInt 0)
         x -> error (typeMismatchError col_name ++ " got: " ++ show x)
     )
     items
