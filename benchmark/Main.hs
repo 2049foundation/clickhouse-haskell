@@ -31,7 +31,7 @@ main = do
     case res of
         Left _ -> putStrLn "Failed"
         Right !r -> do 
-            printInformat r
+           -- printInformat r
             putStrLn "success!"
             end <- getCurrentTime
             print $ diffUTCTime end start

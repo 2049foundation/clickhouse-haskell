@@ -80,8 +80,8 @@ writeBlockInfo Info{is_overflows, bucket_num} = do
   writeVarUInt 0
 
 data Block = ColumnOrientedBlock
-  { columns_with_type :: Vector (ByteString, ByteString),
-    cdata :: Vector (Vector ClickhouseType),
+  { columns_with_type :: [(ByteString, ByteString)],
+    cdata :: [[ClickhouseType]],
     info :: BlockInfo
   }
   deriving Show
@@ -98,8 +98,8 @@ data ClickhouseType
   | CKUInt64 !Word64
   | CKUInt128 !Word64 !Word64
   | CKString !ByteString
-  | CKTuple !(Vector ClickhouseType)
-  | CKArray !(Vector ClickhouseType)
+  | CKTuple ![ClickhouseType]
+  | CKArray ![ClickhouseType]
   | CKDecimal !Float
   | CKDecimal32 !Float
   | CKDecimal64 !Double
@@ -323,7 +323,7 @@ defaultQueryInfo =
   }
 -------------------------------------------------------------------------
 data CKResult = CKResult
- { query_result :: Vector (Vector ClickhouseType),
+ { query_result :: [[ClickhouseType]],
    query_info :: !QueryInfo
  }
  deriving Show

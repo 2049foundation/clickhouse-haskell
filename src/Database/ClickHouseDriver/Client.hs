@@ -265,7 +265,7 @@ fetchWithInfo = dataFetch . FetchData
 -- | Fetch data
 fetch :: String
         -- ^ SQL SELECT command
-       ->GenHaxl u w (Either String (Vector (Vector ClickhouseType)))
+       ->GenHaxl u w (Either String [[ClickhouseType]])
         -- ^ result wrapped in Haxl monad for other tasks run with concurrency.
 fetch str = do
   result_with_info <- fetchWithInfo str
@@ -285,7 +285,7 @@ query :: Env () w
         -- ^ Haxl environment for connection
        ->String
         -- ^ Query command for "SELECT" and "SHOW" only
-       ->IO (Either String (Vector (Vector ClickhouseType)))
+       ->IO (Either String [[ClickhouseType]])
 query source cmd = do
   query_with_info <- queryWithInfo cmd source
   case query_with_info of
@@ -301,7 +301,7 @@ withQuery :: Env () w
             -- ^ enviroment i.e. the database resource
            ->String
            -- ^ sql statement
-           ->(Either String (Vector (Vector ClickhouseType))->IO a)
+           ->(Either String [[ClickhouseType]]->IO a)
            -- ^ callback function that returns type a
            ->IO a
            -- ^ type a wrapped in IO monad.

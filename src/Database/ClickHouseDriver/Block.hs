@@ -52,7 +52,7 @@ import Data.ByteString ( ByteString )
 import Data.ByteString.Builder ( Builder )
 import Data.Vector ( Vector, (!) )
 import qualified Data.Vector                        as V
-import Control.Monad ( when )
+import Control.Monad ( when, zipWithM_, forM)
 --Debug
 --import           Debug.Trace
 
@@ -66,8 +66,8 @@ defaultBlockInfo =
 defaultBlock :: Block
 defaultBlock =
    ColumnOrientedBlock {
-     columns_with_type=V.empty,
-     cdata = V.empty,
+     columns_with_type= [],
+     cdata = [],
      info = defaultBlockInfo
    }
 
@@ -104,13 +104,14 @@ readBlockInputStream server_info = do
   info <- readInfo defaultInfo
   n_columns <- readVarInt
   n_rows <- readVarInt
-  let loop :: Int -> Reader (Vector ClickhouseType, ByteString, ByteString)
+  let loop :: Int -> Reader ([ClickhouseType], ByteString, ByteString)
       loop n = do
         column_name <- readBinaryStr
         column_type <- readBinaryStr
         column <- readColumn server_info (fromIntegral n_rows) column_type
         return (column, column_name, column_type)
-  v <- V.generateM (fromIntegral n_columns) loop
+  let n_size = fromIntegral n_columns
+  v <- forM [0..n_size] loop
   let datas = (\(x, _, _) -> x) <$> v
       names = (\(_, x, _) -> x) <$> v
       types = (\(_, _, x) -> x) <$> v
@@ -118,7 +119,7 @@ readBlockInputStream server_info = do
     ColumnOrientedBlock
       { cdata = datas,
         info = info,
-        columns_with_type = V.zip names types
+        columns_with_type = zip names types
       }
 
 -- | write data from column type into string builder.
@@ -131,12 +132,13 @@ writeBlockOutputStream ctx@(Context _ server_info _)
         Nothing   -> error ""
         Just info -> info)
   when (revis >= Defines._DBMS_MIN_REVISION_WITH_BLOCK_INFO) $ writeBlockInfo info
-  let n_rows = fromIntegral $ V.length cdata
-      n_columns = fromIntegral $ V.length (cdata ! 0)
+  let n_rows = fromIntegral $ length cdata
+      n_columns = fromIntegral $ length $ head cdata
   writeVarUInt n_rows
   writeVarUInt n_columns
-  V.imapM_ (\i (col, t)->do
-       writeBinaryStr col
-       writeBinaryStr t
-       writeColumn ctx col t (cdata ! i)
-       ) columns_with_type
+  zipWithM_ (
+        \(col_name, type_name) xs->do
+          writeBinaryStr col_name
+          writeBinaryStr type_name
+          writeColumn ctx col_name type_name xs
+      ) columns_with_type cdata

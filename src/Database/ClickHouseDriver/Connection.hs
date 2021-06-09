@@ -397,7 +397,7 @@ processInsertQuery
         let chunks = chunksOf (fromIntegral siz) items
         mapM_
           ( \chunk -> do
-              let vectorized = V.map V.fromList (V.fromList $ List.transpose chunk)
+              let vectorized = List.transpose chunk
               let dataBlock = case sample_block of
                     Block
                       typeinfo@ColumnOrientedBlock
@@ -440,7 +440,7 @@ receiveResult info query_info = do
     [] -> do
       let dataVectors = Block.cdata . queryData <$> onlyDataPacket
       let newQueryInfo = Prelude.foldl updateQueryInfo query_info packets
-      return $ Right $ CKResult (V.concat dataVectors) newQueryInfo
+      return $ Right $ CKResult (concat dataVectors) newQueryInfo
     xs -> do
       return $ Left $ Prelude.concat xs
   where
@@ -457,7 +457,9 @@ receiveResult info query_info = do
 
     isBlock :: Packet -> Bool
     isBlock Block {queryData = Block.ColumnOrientedBlock {cdata = d}} =
-      V.length d > 0 && V.length (d ! 0) > 0
+      case d of
+        (y: ys) : xs -> True
+        _ -> False
     isBlock _ = False
 
     packetGen :: Reader [Packet]

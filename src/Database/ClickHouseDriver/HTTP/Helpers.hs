@@ -81,16 +81,16 @@ toString ck = "(" ++ toStr ck ++ ")"
 
 toStr :: [ClickhouseType] -> String
 toStr [] = ""
-toStr (x : []) = toStr' x
+toStr [x] = toStr' x
 toStr (x : xs) = toStr' x ++ "," ++ toStr xs
 
 toStr' :: ClickhouseType -> String
 toStr' (CKInt32 n) = show n
 toStr' (CKString str) = "'" ++ C8.unpack str ++ "'"
-toStr' (CKArray arr) = "[" ++ (toStr $ toList arr) ++ "]"
-toStr' (CKTuple arr) = "(" ++ (toStr $ toList arr) ++ ")"
+toStr' (CKArray arr) = "[" ++ toStr arr ++ "]"
+toStr' (CKTuple arr) = "(" ++ toStr arr ++ ")"
 toStr' CKNull = "null"
 toStr' _ = error "unsupported writing type"
 
-dbUrl :: (Maybe String) -> String
-dbUrl = fromMaybe "" . fmap ("?database=" ++)
+dbUrl :: Maybe String -> String
+dbUrl = maybe "" ("?database=" ++)
