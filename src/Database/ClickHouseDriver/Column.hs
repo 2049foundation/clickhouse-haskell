@@ -933,14 +933,6 @@ writeUUID col_name =
 getSpecs :: ByteString -> [ByteString]
 getSpecs str = BS.splitWith (== 44) (BS.filter (/= 32) str)
 
-transpose :: Vector (Vector ClickhouseType) -> Vector (Vector ClickhouseType)
-transpose = id
-  where
-    rotate matrix =
-      let transposedList = List.transpose (V.toList <$> V.toList matrix)
-          toVector = V.fromList <$> V.fromList transposedList
-       in toVector
-
 getIthRow :: Int -> Vector (Vector ClickhouseType) -> Maybe (Vector ClickhouseType)
 getIthRow i items
   | i < 0 = Nothing

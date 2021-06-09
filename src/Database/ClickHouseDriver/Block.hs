@@ -85,7 +85,6 @@ writeInfo (Info is_overflows bucket_num) = do
 readInfo :: BlockInfo -> Reader BlockInfo
 readInfo info@Info {is_overflows = io, bucket_num = bn} = do
   field_num <- readVarInt
-  trace ("my num = " ++ show field_num) return ()
   case field_num of
     1 -> do
       io' <- readBinaryUInt8
@@ -113,7 +112,7 @@ readBlockInputStream server_info = do
         column <- readColumn server_info (fromIntegral n_rows) column_type
         return (column, column_name, column_type)
   let n_size = fromIntegral n_columns
-  v <- forM [0..n_size] (const loop)
+  v <- replicateM n_size loop
   let datas = (\(x, _, _) -> x) <$> v
       names = (\(_, x, _) -> x) <$> v
       types = (\(_, _, x) -> x) <$> v

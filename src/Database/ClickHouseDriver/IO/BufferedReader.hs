@@ -96,10 +96,6 @@ readBinaryStrWithLength' :: Int
 readBinaryStrWithLength' n buf@Buffer{bufSize=size, bytesData=str, socket=sock} = do
   let l = BS.length str
   let (part, tail) = BS.splitAt n str
-  print "part"
-  print part
-  print "tail"
-  print tail
   if n > l
     then do
       newbuff <- refill buf

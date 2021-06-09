@@ -32,7 +32,6 @@ where
 
 import qualified Database.ClickHouseDriver.Block as Block
 import qualified Database.ClickHouseDriver.ClientProtocol as Client
-import Database.ClickHouseDriver.Column (transpose)
 import Database.ClickHouseDriver.Defines
   ( _BUFFER_SIZE,
     _CLIENT_NAME,
@@ -113,13 +112,6 @@ import Data.ByteString.Builder
 import Data.ByteString.Char8 (unpack)
 import qualified Data.List as List (transpose)
 import Data.List.Split (chunksOf)
-import Data.Vector ((!))
-import qualified Data.Vector as V
-  ( concat,
-    fromList,
-    length,
-    map,
-  )
 import qualified Network.Simple.TCP as TCP
   ( closeSock,
     connectSock,
