@@ -109,7 +109,9 @@ import Network.IP.Addr
   )
 import Data.List (foldl')
 
-
+-- Auxiliary
+(.$) :: a -> (a -> c) -> c
+(.$) = flip ($)
 
 
 --Debug
@@ -351,16 +353,14 @@ readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows (Just scl) tz_nam
         if tz_name /= ""
           then "TZ=" <> tz_name
           else fromMaybe "" maybe_zone
-  let toDateTimeStringM =
-        V.mapM
-          ( \(CKInt64 x) -> do
+  let toDateTimeStringM = data64 .$ V.mapM ( \(CKInt64 x) -> do
               c_str <-
                 unsafeUseAsCStringLen
                   tz_to_send
                   (uncurry (c_convert_time64 (fromIntegral x / scale)))
               unsafePackCString c_str
           )
-          data64
+          
   toDateTimeString <- liftIO toDateTimeStringM
   return $ V.map CKString toDateTimeString
 
@@ -378,8 +378,7 @@ writeDateTime col_name spec items = do
       undefined
   where
     writeDateTimeWithSpec :: ByteString -> Writer Builder
-    writeDateTimeWithSpec tz_name =
-      V.mapM_
+    writeDateTimeWithSpec tz_name = items .$ V.mapM_
       ( \case
           (CKInt32 i32) -> do
             converted <- liftIO $ convert_time_from_int32 i32
@@ -397,7 +396,6 @@ writeDateTime col_name spec items = do
             writeBinaryInt32 converted
           _ -> error (typeMismatchError col_name)
       )
-      items
 
 foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64 -> CString -> Int -> IO CString
 
@@ -428,7 +426,7 @@ readLowCardinality server_info n spec = do
     3 -> V.map fromIntegral <$> V.replicateM n readBinaryUInt64
   if "Nullable" `isPrefixOf` inner
     then do
-      let nullable = fmap (\k -> if k == 0 then CKNull else index ! k) keys
+      let nullable = keys .$ fmap \k -> if k == 0 then CKNull else index ! k
       return nullable
     else return $ fmap (index !) keys
   where
@@ -447,9 +445,9 @@ writeLowCardinality ctx col_name spec items = do
         --let null_inner_spec = BS.take (BS.length inner - 10) (BS.drop 9 spec)
         let hashedItem = hashItems True items
         let key_by_index_element = V.foldl' insertKeys Map.empty hashedItem
-        let keys = V.map (\k -> key_by_index_element Map.! k + 1) hashedItem
+        let keys = hashedItem .$ V.map \k -> key_by_index_element Map.! k + 1
         -- First element is NULL if column is nullable
-        let index = V.fromList $ 0 : (Map.keys key_by_index_element)
+        let index = V.fromList $ 0 : Map.keys key_by_index_element
         return (keys, index)
       else do
         let hashedItem = hashItems False items
@@ -603,11 +601,11 @@ readArray server_info n_rows spec = do
       let intervals = intervalize (fromIntegral <$> config)
           cut :: (Int, Int)->ClickhouseType
           cut (!a, !b) = CKArray $ V.take b (V.drop a elems)
-          embed = (\(l, r) -> cut (l, r - l + 1)) <$> intervals
+          embed = intervals .$ fmap \(l, r) -> cut (l, r - l + 1)
       in embed
 
     intervalize :: Vector Int -> Vector (Int, Int)
-    intervalize vec = V.drop 1 $ V.scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) vec -- drop the first tuple (-1,-1)
+    intervalize vec = V.drop 1 vec .$ V.scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) -- drop the first tuple (-1,-1)
 
 readArraySpec :: Vector Word64 -> Reader (Vector Word64)
 readArraySpec sizeArr = do
