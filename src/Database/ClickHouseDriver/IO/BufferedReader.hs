@@ -6,13 +6,12 @@
 
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE TypeSynonymInstances     #-}
+{-# LANGUAGE FlexibleInstances        #-}
 -- | Tools to analyze protocol and deserialize data sent from server. This module is for internal use only.
 
 module Database.ClickHouseDriver.IO.BufferedReader
-  ( readBinaryStrWithLength,
-    readVarInt',
-    readBinaryStr',
-    readBinaryStr,
+  ( readBinaryStr,
     readVarInt,
     readBinaryInt8,
     readBinaryInt16,
@@ -23,10 +22,8 @@ module Database.ClickHouseDriver.IO.BufferedReader
     readBinaryUInt64,
     readBinaryUInt32,
     readBinaryUInt16,
-    Reader,
-    Buffer(..),
-    createBuffer,
-    refill
+    P.Parser,
+    Buffer(..)
   )
 where
 
@@ -45,183 +42,83 @@ import qualified Network.Simple.TCP       as TCP
 import Network.Socket ( Socket )
 import Foreign.Ptr (Ptr, plusPtr)
 import Foreign.Storable (peek, peekElemOff)
-import Data.Bits ( Bits(shiftR, (.&.)) )
+import Data.Bits ( Bits(shiftR, (.&.), (.|.), shiftL, unsafeShiftL) )
+import Z.Data.Vector.Base (Bytes)
+import qualified Z.Data.Vector.Base as Z
+import qualified Z.Data.Vector as Z
+import qualified Z.Data.Parser as P
+import qualified Z.Foreign as Z
+import Control.Monad ( forM )
+import Control.Monad.Loops (iterateM_)
+import Data.List (scanl', foldl')
 
+
+(.$) :: a -> (a -> c) -> c
+(.$) = flip ($)
 
 -- | Buffer is for receiving data from TCP stream. Whenever all bytes are read, it automatically
 -- refill from the stream.
 data Buffer = Buffer {
   bufSize :: !Int,
-  bytesData :: ByteString,
+  bytesData :: Bytes,
   socket :: Maybe Socket
 }
 
 
-bitMask :: Word32
-{-# INLINE bitMask #-}
-bitMask = 0xffff
+loopDecodeNum :: (Num a, Bits a)=> Int -> P.Parser a
+loopDecodeNum n = loopDecodeNum' n 0 0
+  where
+    loopDecodeNum' :: (Num a, Bits a)=> Int -> Int -> a -> P.Parser a
+    loopDecodeNum' bit n ans
+      | n == bit = return ans
+      | otherwise = do
+        byte <- P.satisfy $ const True
+        let ans' = ans .|. (fromIntegral byte .&. 0xFF) `unsafeShiftL` (8 * n)
+        loopDecodeNum' bit (n + 2) ans'
 
--- | create buffer with size and socket.
-createBuffer :: Int->Socket->IO Buffer
-createBuffer size sock = do
-  receive <- TCP.recv sock size -- receive data
-  return Buffer{
-    bufSize = size, -- set the size 
-    bytesData = fromMaybe "" receive,
-    socket = Just sock
-  }
+myList :: [(Int, Word)]
+myList = (0 :: Int, 0 :: Word) : ((\(x, y)->(x + 1,y + 2)) <$> myList)
 
--- | refill buffer from stream
-refill :: Buffer->IO Buffer
-refill Buffer{socket = Just sock, bufSize = size} = do
-  newData' <- TCP.recv sock size
-  let newBuffer = case newData' of
-        Just newData -> Buffer {
-          bufSize = size,
-          bytesData = newData,
-          socket = Just sock
-        }
-        Nothing -> error "Network error"
-  return newBuffer
-refill Buffer{socket=Nothing} = error "empty socket"
+readVarInt :: P.Parser Word
+readVarInt = do
+  let inif = map (\x -> P.satisfy $ const True) [0..]
+  nums <- sequence inif
+  let res = takeWhile (\byte -> byte .&. 0x80 > 0) nums
+  let res' = zip [1..9 :: Int] res
+  let final = foldl' (\ans (i, byte) -> ans .|. (fromIntegral byte .&. 0x7F) `unsafeShiftL` (7 * i) ) 0 res'
+  return final
 
-type Reader a = StateT Buffer IO a
+readBinaryStr :: P.Parser Bytes
+readBinaryStr = do
+  size <- readVarInt
+  P.take $ fromIntegral size
 
-readBinaryStrWithLength' :: Int
-                         -- ^ length of string
-                         -> Buffer
-                         -- ^ buffer to read
-                         -> IO (ByteString, Buffer)
-                         -- ^ (the string read from buffer, buffer after reading)
-readBinaryStrWithLength' n buf@Buffer{bufSize=size, bytesData=str, socket=sock} = do
-  let l = BS.length str
-  let (part, tail) = BS.splitAt n str
-  if n > l
-    then do
-      newbuff <- refill buf
-      (unread, altbuff) <- readBinaryStrWithLength' (n - l) newbuff
-      return (part <> unread, altbuff)
-    else do
-      return (part, Buffer size tail sock)
+readBinaryInt8 :: P.Parser Int8
+readBinaryInt8 = loopDecodeNum 1
 
-readVarInt' :: Buffer
-              -- ^ buffer to be read
-            -> IO (Word, Buffer)
-              -- ^ (the word read from buffer, the buffer after reading)
-readVarInt' buf@Buffer{bufSize=size,bytesData=str, socket=sock} = do
-  let l = fromIntegral $ BS.length str
-  n_cont <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
-  let skip = n_cont .&. bitMask
-  
-  if skip == 0
-    then do
-      n_cont_2 <- UBS.unsafeUseAsCString str (\x->c_read_varint 0 x l)
+readBinaryInt16 :: P.Parser Int16
+readBinaryInt16 = loopDecodeNum 2
 
-      let varuint' = n_cont_2 `shiftR` 16
-      new_buf <- refill buf
-      let new_str = bytesData new_buf
+readBinaryInt32 :: P.Parser Int32
+readBinaryInt32 = loopDecodeNum 4
 
-      n_cont_3 <- UBS.unsafeUseAsCString new_str (\x->c_read_varint (fromIntegral varuint') x l)
-      let skip2 = n_cont_3 .&. bitMask
-          varuint = n_cont_3 `shiftR` 16
-      let tail = BS.drop (fromIntegral skip2) new_str
-      return (fromIntegral varuint, Buffer size tail sock)
-    else do
-      n_cont <- UBS.unsafeUseAsCString str (\x -> c_read_varint 0 x l)
-      let skip2 = n_cont .&. bitMask
-          varuint = n_cont `shiftR` 16
+readBinaryInt64 :: P.Parser Int64
+readBinaryInt64 = loopDecodeNum 8
 
-      let tail = BS.drop (fromIntegral skip) str
-      return (fromIntegral varuint, Buffer size tail sock)
+readBinaryUInt32 :: P.Parser Word32
+readBinaryUInt32 = loopDecodeNum 4
 
-readBinaryStr' :: Buffer
-               -- ^ Buffer to be read
-               -> IO (ByteString, Buffer)
-               -- ^ (the string read from Buffer, the buffer after reading)
-readBinaryStr' str = do
-  (len, tail) <- readVarInt' str -- 
-  (head, tail') <- readBinaryStrWithLength' (fromIntegral len) tail
+readBinaryUInt8 :: P.Parser Word8
+readBinaryUInt8 = loopDecodeNum 1
 
-  return (head, tail')
+readBinaryUInt16 :: P.Parser Word16
+readBinaryUInt16 = loopDecodeNum 2
 
--- | read n bytes and then transform into a binary type such as bytestring, Int8, UInt16 etc.
-readBinaryHelper :: Binary a => Int -> Buffer -> IO (a, Buffer)
-readBinaryHelper fmt str = do
-  (cut, tail) <- readBinaryStrWithLength' fmt str
-  let v = decode ((L.fromStrict. BS.reverse) cut)
-  return (v, tail)
+readBinaryUInt64 :: P.Parser Word64
+readBinaryUInt64 = loopDecodeNum 8
 
-class Readable a where
-  readIn :: Reader a
-
-instance Readable Word where
-  readIn = StateT readVarInt'
-
-instance Readable ByteString where
-  readIn = StateT readBinaryStr'
-
-instance Readable Int8 where
-  readIn = StateT $ readBinaryHelper 1
-
-instance Readable Int16 where
-  readIn = StateT $ readBinaryHelper 2
-
-instance Readable Int32 where
-  readIn = StateT $ readBinaryHelper 4
-
-instance Readable Int64 where
-  readIn = StateT $ readBinaryHelper 8
-
-instance Readable Word8 where
-  readIn = StateT $ readBinaryHelper 1
-
-instance Readable Word16 where
-  readIn = StateT $ readBinaryHelper 2
-
-instance Readable Word32 where
-  readIn = StateT $ readBinaryHelper 4
-
-instance Readable Word64 where
-  readIn = StateT $ readBinaryHelper 8
-
-readVarInt :: Reader Word
-readVarInt = readIn
-
-readBinaryStrWithLength :: Int->Reader ByteString
-readBinaryStrWithLength n = StateT (readBinaryStrWithLength' $ fromIntegral n)
-
-readBinaryStr :: Reader ByteString
-readBinaryStr = readIn
-
-readBinaryInt8 :: Reader Int8
-readBinaryInt8 = readIn
-
-readBinaryInt16 :: Reader Int16
-readBinaryInt16 = readIn
-
-readBinaryInt32 :: Reader Int32
-readBinaryInt32 = readIn
-
-readBinaryInt64 :: Reader Int64
-readBinaryInt64 = readIn
-
-readBinaryUInt32 :: Reader Word32
-readBinaryUInt32 = readIn
-
-readBinaryUInt8 :: Reader Word8
-readBinaryUInt8 = readIn
-
-readBinaryUInt16 :: Reader Word16
-readBinaryUInt16 = readIn
-
-readBinaryUInt64 :: Reader Word64
-readBinaryUInt64 = readIn
-
-readBinaryUInt128 :: Reader Word128
+readBinaryUInt128 :: P.Parser Word128
 readBinaryUInt128 = do
   hi <- readBinaryUInt64
   lo <- readBinaryUInt64
   return $ Word128 hi lo
-
--- | read bytes in the little endian format and transform into integer, see CBits/varuint.c
-foreign import ccall unsafe "varuint.h read_varint" c_read_varint :: Word->CString -> Word -> IO Word32

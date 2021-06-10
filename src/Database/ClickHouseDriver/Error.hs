@@ -17,12 +17,13 @@ module Database.ClickHouseDriver.Error
 where
 
 import Database.ClickHouseDriver.IO.BufferedReader
-  ( Reader,
+  ( 
     readBinaryInt32,
     readBinaryStr,
     readBinaryUInt8,
   )
 import Data.ByteString.Char8 (unpack)
+import qualified Z.Data.Parser as P
 
 --import           Debug.Trace
 
@@ -42,7 +43,7 @@ instance Show ClickhouseException where
       ++ " "
       ++ message
 
-readException :: Maybe String -> Reader ClickhouseException
+readException :: Maybe String -> P.Parser ClickhouseException
 readException additional = do
   code <- readBinaryInt32
   name <- readBinaryStr

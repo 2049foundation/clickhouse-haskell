@@ -50,16 +50,18 @@ where
 
 import qualified Database.ClickHouseDriver.Defines      as Defines
 import Database.ClickHouseDriver.IO.BufferedReader
-    ( Reader, readVarInt, readBinaryUInt8 )
+    (readVarInt, readBinaryUInt8 )
 import Database.ClickHouseDriver.IO.BufferedWriter
-    ( Writer, writeVarUInt, writeBinaryUInt8, writeBinaryInt32)
-import           Data.ByteString                    (ByteString)
-import Data.ByteString.Builder ( Builder )
+    ( writeVarUInt, writeBinaryUInt8, writeBinaryInt32)
 import Data.Default.Class ( Default(..) )
 import Data.Int ( Int8, Int16, Int32, Int64 )
 import Data.Word ( Word8, Word16, Word32, Word64 )
 import GHC.Generics ( Generic )
 import           Network.Socket                     (SockAddr, Socket)
+import qualified Z.Data.Parser as P
+import Z.Data.Vector (Bytes)
+import qualified Z.Data.Builder as B
+
 
 -----------------------------------------------------------
 
@@ -70,7 +72,7 @@ data BlockInfo = Info
   } 
   deriving Show
 
-writeBlockInfo :: BlockInfo->Writer Builder
+writeBlockInfo :: BlockInfo->B.Builder ()
 writeBlockInfo Info{is_overflows, bucket_num} = do
   writeVarUInt 1
   writeBinaryUInt8 (if is_overflows then 1 else 0)
@@ -79,7 +81,7 @@ writeBlockInfo Info{is_overflows, bucket_num} = do
   writeVarUInt 0
 
 data Block = ColumnOrientedBlock
-  { columns_with_type :: [(ByteString, ByteString)],
+  { columns_with_type :: [(Bytes, Bytes)],
     cdata :: [[ClickhouseType]],
     info :: BlockInfo
   }
@@ -96,7 +98,7 @@ data ClickhouseType
   | CKUInt32 !Word32
   | CKUInt64 !Word64
   | CKUInt128 !Word64 !Word64
-  | CKString !ByteString
+  | CKString !Bytes
   | CKTuple ![ClickhouseType]
   | CKArray ![ClickhouseType]
   | CKDecimal !Float
@@ -116,13 +118,13 @@ data ClickhouseType
 
 ----------------------------------------------------------
 data ServerInfo = ServerInfo
-  { name :: {-# UNPACK #-} !ByteString,
+  { name :: {-# UNPACK #-} !Bytes,
     version_major :: {-# UNPACK #-} !Word,
     version_minor :: {-# UNPACK #-} !Word,
     version_patch :: {-# UNPACK #-} !Word,
     revision :: !Word,
-    timezone :: Maybe ByteString,
-    display_name :: {-# UNPACK #-} !ByteString
+    timezone :: Maybe Bytes,
+    display_name :: {-# UNPACK #-} !Bytes
   }
   deriving (Show)
 
@@ -131,13 +133,13 @@ setServerInfo server_info tcp@TCPConnection{context=ctx}
   = tcp{context=ctx{server_info=server_info}}
 ---------------------------------------------------------
 data TCPConnection = TCPConnection
-  { tcpHost :: {-# UNPACK #-} !ByteString,
+  { tcpHost :: {-# UNPACK #-} !Bytes,
     -- ^ host name, default = "localhost" 
-    tcpPort :: {-# UNPACK #-} !ByteString,
+    tcpPort :: {-# UNPACK #-} !Bytes,
     -- ^ port number, default = "8123"
-    tcpUsername :: {-# UNPACK #-} !ByteString,
+    tcpUsername :: {-# UNPACK #-} !Bytes,
     -- ^ username, default = "default"
-    tcpPassword :: {-# UNPACK #-} !ByteString,
+    tcpPassword :: {-# UNPACK #-} !Bytes,
     -- ^ password, dafault = ""
     tcpSocket :: !Socket,
     -- ^ socket for communication
@@ -159,21 +161,21 @@ getClientSetting :: TCPConnection->Maybe ClientSetting
 getClientSetting TCPConnection{context=Context{client_setting=client_setting}} = client_setting
 ------------------------------------------------------------------
 data ClientInfo = ClientInfo
-  { client_name :: {-# UNPACK #-} !ByteString,
+  { client_name :: {-# UNPACK #-} !Bytes,
     interface :: Interface,
     client_version_major :: {-# UNPACK #-} !Word,
     client_version_minor :: {-# UNPACK #-} !Word,
     client_version_patch :: {-# UNPACK #-} !Word,
     client_revision :: {-# UNPACK #-} !Word,
-    initial_user :: {-# UNPACK #-} !ByteString,
-    initial_query_id :: {-# UNPACK #-} !ByteString,
-    initial_address :: {-# UNPACK #-} !ByteString,
-    quota_key :: {-# UNPACK #-} !ByteString,
+    initial_user :: {-# UNPACK #-} !Bytes,
+    initial_query_id :: {-# UNPACK #-} !Bytes,
+    initial_address :: {-# UNPACK #-} !Bytes,
+    quota_key :: {-# UNPACK #-} !Bytes,
     query_kind :: QueryKind
   }
   deriving (Show)
 
-getDefaultClientInfo :: ByteString -> ClientInfo
+getDefaultClientInfo :: Bytes -> ClientInfo
 getDefaultClientInfo name =
   ClientInfo
     { client_name = name,
@@ -197,7 +199,7 @@ data ClientSetting
   = ClientSetting {
       insert_block_size ::{-# UNPACK #-} !Word,
       strings_as_bytes :: !Bool,
-      strings_encoding ::{-# UNPACK #-} !ByteString
+      strings_encoding ::{-# UNPACK #-} !Bytes
   }
   deriving Show
 
@@ -223,7 +225,7 @@ data Packet
   = Block {queryData :: !Block}
   | Progress {prog :: !Progress}
   | StreamProfileInfo {profile :: !BlockStreamProfileInfo}
-  | MultiString !(ByteString, ByteString)
+  | MultiString !(Bytes, Bytes)
   | ErrorMessage !String
   | Hello
   | EndOfStream
@@ -245,7 +247,7 @@ increment :: Progress -> Progress -> Progress
 increment (Prog a b c d e) (Prog a' b' c' d' e') =
   Prog (a + a') (b + b') (c + c') (d + d') (e + e')
 
-readProgress :: Word -> Reader Progress
+readProgress :: Word -> P.Parser Progress
 readProgress server_revision = do
   rows <- readVarInt
   bytes <- readVarInt
@@ -282,7 +284,7 @@ instance Default BlockStreamProfileInfo where
 defaultProfile :: BlockStreamProfileInfo
 defaultProfile = ProfileInfo 0 0 0 False 0 False
 
-readBlockStreamProfileInfo :: Reader BlockStreamProfileInfo
+readBlockStreamProfileInfo :: P.Parser BlockStreamProfileInfo
 readBlockStreamProfileInfo = do
   rows <- readVarInt
   blocks <- readVarInt
@@ -328,11 +330,11 @@ data CKResult = CKResult
  deriving Show
 -------------------------------------------------------------------------
 data ConnParams = ConnParams{
-      username'    :: !ByteString,
-      host'        :: !ByteString,
-      port'        :: !ByteString,
-      password'    :: !ByteString,
+      username'    :: !Bytes,
+      host'        :: !Bytes,
+      port'        :: !Bytes,
+      password'    :: !Bytes,
       compression' :: !Bool,
-      database'    :: !ByteString
+      database'    :: !Bytes
     }
   deriving (Show, Generic)

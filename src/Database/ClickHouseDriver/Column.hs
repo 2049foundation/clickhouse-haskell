@@ -12,13 +12,12 @@ module Database.ClickHouseDriver.Column where
 
 import Database.ClickHouseDriver.Types (ClickhouseType (..), Context (..), ServerInfo (..))
 import Database.ClickHouseDriver.IO.BufferedReader
-  ( Reader,
+  ( 
     readBinaryInt16,
     readBinaryInt32,
     readBinaryInt64,
     readBinaryInt8,
     readBinaryStr,
-    readBinaryStrWithLength,
     readBinaryUInt128,
     readBinaryUInt16,
     readBinaryUInt32,
@@ -26,7 +25,7 @@ import Database.ClickHouseDriver.IO.BufferedReader
     readBinaryUInt8,
   )
 import Database.ClickHouseDriver.IO.BufferedWriter
-  ( Writer,
+  ( 
     writeBinaryFixedLengthStr,
     writeBinaryInt16,
     writeBinaryInt32,
@@ -43,23 +42,8 @@ import Database.ClickHouseDriver.IO.BufferedWriter
 import Control.Monad.State.Lazy (MonadIO (..), void)
 import Data.Binary (Word64, Word8)
 import Data.Bits (shift, (.&.), (.|.))
-import Data.ByteString (ByteString, isPrefixOf)
-import qualified Data.ByteString as BS
-  ( drop,
-    filter,
-    intercalate,
-    length,
-    splitWith,
-    take,
-    unpack,
-  )
-import Data.ByteString.Builder (Builder)
-import Data.ByteString.Char8 (readInt)
-import qualified Data.ByteString.Char8 as C8
-import Data.ByteString.Unsafe
-  ( unsafePackCString,
-    unsafeUseAsCStringLen,
-  )
+import qualified Z.Data.Builder as B
+import Z.Data.Vector (Bytes)
 import qualified Data.HashMap.Strict as Map
 import Data.Hashable (Hashable (hash))
 import Data.Int (Int32, Int64)
@@ -92,6 +76,9 @@ import Network.IP.Addr
   )
 import Data.List (foldl', scanl')
 import Control.Monad ( replicateM, forM, replicateM_, zipWithM_)
+import qualified Z.Data.Parser as P
+import qualified Z.Data.Vector as Z
+import qualified Z.Foreign as Z
 import Debug.Trace
 
 -- Auxiliary
@@ -111,8 +98,8 @@ readColumn ::
   -- | number of rows
   Int ->
   -- | data type
-  ByteString ->
-  Reader [ClickhouseType]
+  Bytes ->
+  P.Parser [ClickhouseType]
 readColumn server_info n_rows spec
   | "String" `isPrefixOf` spec = replicateM n_rows $! (CKString <$> readBinaryStr)
   | "Array" `isPrefixOf` spec = readArray server_info n_rows spec
@@ -136,13 +123,13 @@ writeColumn ::
   -- | context contains client information and server information
   Context ->
   -- | column name
-  ByteString ->
+  Bytes ->
   -- | column type (String, Int, etc)
-  ByteString ->
+  Bytes ->
   -- | items to be serialized.
   [ClickhouseType] ->
   -- | result wrapped in a customized Writer Monad used for concatenating string builders.
-  Writer Builder
+  B.Builder ()
 writeColumn ctx col_name cktype items
   | "String" `isPrefixOf` cktype = writeStringColumn col_name items
   | "FixedString(" `isPrefixOf` cktype = writeFixedLengthString col_name cktype items
@@ -161,19 +148,19 @@ writeColumn ctx col_name cktype items
   | "Decimal" `isPrefixOf` cktype = writeDecimal col_name cktype items
   | otherwise = error ("Unknown Type in the column: " Prelude.++ C8.unpack col_name)
 ---------------------------------------------------------------------------------------------
-readFixed :: Int -> ByteString -> Reader [ClickhouseType]
+readFixed :: Int -> Bytes -> P.Parser [ClickhouseType]
 readFixed n_rows spec = do
-  let l = BS.length spec
-  let str_number = BS.take (l - 13) (BS.drop 12 spec)
+  let l = Z.length spec
+  let str_number = Z.take (l - 13) (Z.drop 12 spec)
   let number = case readInt str_number of
         Nothing -> 0 -- This can't happen
         Just (x, _) -> x
   replicateM n_rows (readFixedLengthString number)
 
-readFixedLengthString :: Int -> Reader ClickhouseType
-readFixedLengthString str_len = CKString <$> readBinaryStrWithLength str_len
+readFixedLengthString :: Int -> P.Parser ClickhouseType
+readFixedLengthString str_len = CKString <$> P.take str_len
 
-writeStringColumn :: ByteString -> [ClickhouseType] -> Writer Builder
+writeStringColumn :: Bytes -> [ClickhouseType] -> B.Builder ()
 writeStringColumn col_name =
   mapM_
     ( \case
@@ -182,10 +169,10 @@ writeStringColumn col_name =
         _ -> error (typeMismatchError col_name)
     )
 
-writeFixedLengthString :: ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeFixedLengthString :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeFixedLengthString col_name spec items = do
-  let l = BS.length spec
-  let Just (len, _) = readInt $ BS.take (l - 13) (BS.drop 12 spec)
+  let l = Z.length spec
+  let Just (len, _) = readInt $ Z.take (l - 13) (Z.drop 12 spec)
   mapM_
     ( \case
         CKString s -> writeBinaryFixedLengthStr (fromIntegral len) s
@@ -196,8 +183,8 @@ writeFixedLengthString col_name spec items = do
 
 ---------------------------------------------------------------------------------------------
 
--- | read data in format of bytestring into format of haskell type.
-readIntColumn :: Int -> ByteString -> Reader [ClickhouseType]
+-- | read data in format of Bytes into format of haskell type.
+readIntColumn :: Int -> Bytes -> P.Parser [ClickhouseType]
 readIntColumn n_rows "Int8" = replicateM n_rows (CKInt8 <$> readBinaryInt8)
 readIntColumn n_rows "Int16" = replicateM n_rows (CKInt16 <$> readBinaryInt16)
 readIntColumn n_rows "Int32" = replicateM n_rows (CKInt32 <$> readBinaryInt32)
@@ -208,12 +195,12 @@ readIntColumn n_rows "UInt32" = replicateM n_rows (CKUInt32 <$> readBinaryUInt32
 readIntColumn n_rows "UInt64" = replicateM n_rows (CKUInt64 <$> readBinaryUInt64)
 readIntColumn _ x = error ("expect an integer but got: " ++ show x)
 
-writeIntColumn :: ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeIntColumn :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeIntColumn col_name spec items = do
-  let Just (indicator, _) = readInt $ BS.drop 3 spec -- indicator indicates which integer type, is it Int8 or Int64 etc.
+  let Just (indicator, _) = readInt $ Z.drop 3 spec -- indicator indicates which integer type, is it Int8 or Int64 etc.
   writeIntColumn' indicator col_name items
   where
-    writeIntColumn' :: Int -> ByteString -> [ClickhouseType] -> Writer Builder
+    writeIntColumn' :: Int -> Bytes -> [ClickhouseType] -> B.Builder ()
     writeIntColumn' indicator col_name =
       case indicator of
         8 ->
@@ -245,12 +232,12 @@ writeIntColumn col_name spec items = do
                 _ -> error (typeMismatchError col_name)
             )
 
-writeUIntColumn :: ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeUIntColumn :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeUIntColumn col_name spec items = do
-  let Just (indicator, _) = readInt $ BS.drop 4 spec
+  let Just (indicator, _) = readInt $ Z.drop 4 spec
   writeUIntColumn' indicator col_name items
   where
-    writeUIntColumn' :: Int -> ByteString -> [ClickhouseType] -> Writer Builder
+    writeUIntColumn' :: Int -> Bytes -> [ClickhouseType] -> B.Builder ()
     writeUIntColumn' indicator col_name =
       case indicator of
         8 ->
@@ -289,29 +276,29 @@ writeUIntColumn col_name spec items = do
   DateTime(TZ) or DateTime64(precision,TZ)
   server information is required if TZ parameter is missing.
 -}
-readDateTime :: ServerInfo -> Int -> ByteString -> Reader [ClickhouseType]
+readDateTime :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
 readDateTime server_info n_rows spec = do
   let (scale, spc) = readTimeSpec spec
   case spc of
     Nothing -> readDateTimeWithSpec server_info n_rows scale ""
     Just tz_name -> readDateTimeWithSpec server_info n_rows scale tz_name
 
-readTimeSpec :: ByteString -> (Maybe Int, Maybe ByteString)
+readTimeSpec :: Bytes -> (Maybe Int, Maybe Bytes)
 readTimeSpec spec'
   | "DateTime64" `isPrefixOf` spec' = do
-    let l = BS.length spec'
-    let inner_specs = BS.take (l - 12) (BS.drop 11 spec')
+    let l = Z.length spec'
+    let inner_specs = Z.take (l - 12) (Z.drop 11 spec')
     let split = getSpecs inner_specs
     case split of
       [] -> (Nothing, Nothing)
       [x] -> (Just $ fst $ fromJust $ readInt x, Nothing)
       [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
   | otherwise = do
-    let l = BS.length spec'
-    let inner_specs = BS.take (l - 12) (BS.drop 10 spec')
+    let l = Z.length spec'
+    let inner_specs = Z.take (l - 12) (Z.drop 10 spec')
     (Nothing, Just inner_specs)
 
-readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> ByteString -> Reader [ClickhouseType]
+readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> Bytes -> P.Parser [ClickhouseType]
 readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows Nothing tz_name = do
   data32 <- readIntColumn n_rows "Int32"
   let tz_to_send =
@@ -349,7 +336,7 @@ readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows (Just scl) tz_nam
   toDateTimeString <- liftIO toDateTimeStringM
   return $ map CKString toDateTimeString
 
-writeDateTime :: ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeDateTime :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeDateTime col_name spec items = do
   let (scale', spc) = readTimeSpec spec
   case scale' of
@@ -362,7 +349,7 @@ writeDateTime col_name spec items = do
     Just _ ->
       undefined
   where
-    writeDateTimeWithSpec :: ByteString -> Writer Builder
+    writeDateTimeWithSpec :: Bytes -> B.Builder ()
     writeDateTimeWithSpec tz_name = items .$ mapM_
       ( \case
           (CKInt32 i32) -> do
@@ -391,12 +378,12 @@ foreign import ccall unsafe "datetime.h parse_time" c_write_time :: CString -> C
 foreign import ccall unsafe "datetime.h convert_time_from_int32" convert_time_from_int32 :: Int32 -> IO Int32
 
 ------------------------------------------------------------------------------------------------
-readLowCardinality :: ServerInfo -> Int -> ByteString -> Reader [ClickhouseType]
+readLowCardinality :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
 readLowCardinality _ 0 _ = return []
 readLowCardinality server_info n spec = do
   readBinaryUInt64 --state prefix
-  let l = BS.length spec
-  let inner = BS.take (l - 16) (BS.drop 15 spec)
+  let l = Z.length spec
+  let inner = Z.take (l - 16) (Z.drop 15 spec)
   serialization_type <- readBinaryUInt64
   -- Lowest bytes contains info about key type.
   let key_type = serialization_type .&. 0xf
@@ -416,19 +403,19 @@ readLowCardinality server_info n spec = do
       return nullable
     else return $ fmap (index !) keys
   where
-    stripNullable :: ByteString -> ByteString
+    stripNullable :: Bytes -> Bytes
     stripNullable spec
-      | "Nullable" `isPrefixOf` spec = BS.take (l - 10) (BS.drop 9 spec)
+      | "Nullable" `isPrefixOf` spec = Z.take (l - 10) (Z.drop 9 spec)
       | otherwise = spec
-    l = BS.length spec
+    l = Z.length spec
 
-writeLowCardinality :: Context -> ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeLowCardinality :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeLowCardinality ctx col_name spec items = do
-  let inner = BS.take (BS.length spec - 16) (BS.drop 15 spec)
+  let inner = Z.take (Z.length spec - 16) (Z.drop 15 spec)
   (keys, index) <-
     if "Nullable" `isPrefixOf` inner
       then do
-        --let null_inner_spec = BS.take (BS.length inner - 10) (BS.drop 9 spec)
+        --let null_inner_spec = Z.take (Z.length inner - 10) (Z.drop 9 spec)
         let hashedItem = hashItems True items
         let key_by_index_element = foldl' insertKeys Map.empty hashedItem
         let keys = hashedItem .$ map \k -> key_by_index_element Map.! k + 1
@@ -453,7 +440,7 @@ writeLowCardinality ctx col_name spec items = do
               .|. int_type
       let nullsInner =
             if "Nullable" `isPrefixOf` inner
-              then BS.take (BS.length inner - 10) (BS.drop 9 spec)
+              then Z.take (Z.length inner - 10) (Z.drop 9 spec)
               else inner
       writeBinaryUInt64 1 --state prefix
       writeBinaryInt64 serialization_type
@@ -496,29 +483,29 @@ writeLowCardinality ctx col_name spec items = do
           (\Null | \SOH)^{n_rows}
           \Null means null and \SOH which equals 1 means not null. The `|` in the middle means or.
 -}
-readNullable :: ServerInfo -> Int -> ByteString -> Reader [ClickhouseType]
+readNullable :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
 readNullable server_info n_rows spec = do
-  let l = BS.length spec
-  let cktype = BS.take (l - 10) (BS.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
+  let l = Z.length spec
+  let cktype = Z.take (l - 10) (Z.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
   config <- readNullableConfig n_rows
   items' <- readColumn server_info n_rows cktype
   let items = V.fromList items'
   let result = [if config ! i == 1 then CKNull else items ! i | i <- [1..n_rows]]
   return result
   where
-    readNullableConfig :: Int -> Reader (Vector Word8)
+    readNullableConfig :: Int -> P.Parser (Vector Word8)
     readNullableConfig n_rows = do
-      config <- readBinaryStrWithLength n_rows
-      (return . V.fromList . BS.unpack) config
+      config <- P.take n_rows
+      (return . V.fromList . Z.unpack) config
 
-writeNullable :: Context -> ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeNullable :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeNullable ctx col_name spec items = do
-  let l = BS.length spec
-  let inner = BS.take (l - 10) (BS.drop 9 spec)
+  let l = Z.length spec
+  let inner = Z.take (l - 10) (Z.drop 9 spec)
   writeNullsMap items
   writeColumn ctx col_name inner items
   where
-    writeNullsMap :: [ClickhouseType] -> Writer Builder
+    writeNullsMap :: [ClickhouseType] -> B.Builder ()
     writeNullsMap =
       mapM_
         ( \case
@@ -572,7 +559,7 @@ For another example:
 ->                         | [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
 
 -}
-readArray :: ServerInfo -> Int -> ByteString -> Reader [ClickhouseType]
+readArray :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
 readArray server_info n_rows spec = do
   (lastSpec, x : xs) <- genSpecs spec [[fromIntegral n_rows]]
   --  lastSpec which is not `Array`
@@ -594,7 +581,7 @@ readArray server_info n_rows spec = do
     intervalize :: [Int] -> [(Int, Int)]
     intervalize vec = tail vec .$ scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) -- drop the first tuple (-1,-1)
 
-readArraySpec :: [Word64] -> Reader [Word64]
+readArraySpec :: [Word64] -> P.Parser [Word64]
 readArraySpec sizeArr = do
   let arrSum = (fromIntegral . sum) sizeArr
   offsets <- replicateM arrSum readBinaryUInt64
@@ -602,17 +589,17 @@ readArraySpec sizeArr = do
   let sizes = zipWith (-) offsets offsets'
   return sizes
 
-genSpecs :: ByteString -> [[Word64]] -> Reader (ByteString, [[Word64]])
+genSpecs :: Bytes -> [[Word64]] -> P.Parser (Bytes, [[Word64]])
 genSpecs spec rest@(x : _) = do
-  let l = BS.length spec
-  let cktype = BS.take (l - 7) (BS.drop 6 spec)
+  let l = Z.length spec
+  let cktype = Z.take (l - 7) (Z.drop 6 spec)
   if "Array" `isPrefixOf` spec
     then do
       next <- readArraySpec x
       genSpecs cktype (next : rest)
     else return (spec, rest)
 
-writeArray :: Context -> ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeArray :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeArray ctx col_name spec items = do
   let lens =
         scanl'
@@ -630,24 +617,24 @@ writeArray ctx col_name spec items = do
           0
           items
   mapM_ (writeBinaryInt64 . fromIntegral) (tail lens)
-  let innerSpec = BS.take (BS.length spec - 7) (BS.drop 6 spec)
+  let innerSpec = Z.take (Z.length spec - 7) (Z.drop 6 spec)
   let innerVector = map (\case CKArray xs -> xs) items
   let flattenVector = innerVector >>= id
   writeColumn ctx col_name innerSpec flattenVector
 
 --------------------------------------------------------------------------------------
-readTuple :: ServerInfo -> Int -> ByteString -> Reader [ClickhouseType]
+readTuple :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
 readTuple server_info n_rows spec = do
-  let l = BS.length spec
-  let innerSpecString = BS.take (l - 7) (BS.drop 6 spec) -- Tuple(...) the dots represent innerSpecString
+  let l = Z.length spec
+  let innerSpecString = Z.take (l - 7) (Z.drop 6 spec) -- Tuple(...) the dots represent innerSpecString
   let arr = getSpecs innerSpecString
   datas <- mapM (readColumn server_info n_rows) arr
   let transposed = List.transpose datas
   return $ CKTuple <$> transposed
 
-writeTuple :: Context -> ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeTuple :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeTuple ctx col_name spec items = do
-  let inner = BS.take (BS.length spec - 7) (BS.drop 6 spec)
+  let inner = Z.take (Z.length spec - 7) (Z.drop 6 spec)
   let spec_arr = getSpecs inner
   let transposed =
         List.transpose
@@ -672,17 +659,17 @@ writeTuple ctx col_name spec items = do
       zipWithM_ (writeColumn ctx col_name) spec_arr transposed
 
 --------------------------------------------------------------------------------------
-readEnum :: Int -> ByteString -> Reader [ClickhouseType]
+readEnum :: Int -> Bytes -> P.Parser [ClickhouseType]
 readEnum n_rows spec = do
-  let l = BS.length spec
+  let l = Z.length spec
       innerSpec =
         if "Enum8" `isPrefixOf` spec
-          then BS.take (l - 7) (BS.drop 6 spec)
-          else BS.take (l - 8) (BS.drop 7 spec) -- otherwise it is `Enum16`
+          then Z.take (l - 7) (Z.drop 6 spec)
+          else Z.take (l - 8) (Z.drop 7 spec) -- otherwise it is `Enum16`
       pres_pecs = getSpecs innerSpec
       specs =
         (\(name, Just (n, _)) -> (n, name))
-          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== 61) <$> pres_pecs) --61 means '='
+          <$> ((\[x, y] -> (x, readInt y)) . Z.splitWith (== 61) <$> pres_pecs) --61 means '='
       specsMap = Map.fromList specs
   if "Enum8" `isPrefixOf` spec
     then do
@@ -692,17 +679,17 @@ readEnum n_rows spec = do
       values <- replicateM n_rows readBinaryInt16
       return $ CKString . (specsMap Map.!) . fromIntegral <$> values
 
-writeEnum :: ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeEnum :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeEnum col_name spec items = do
-  let l = BS.length spec
+  let l = Z.length spec
       innerSpec =
         if "Enum8" `isPrefixOf` spec
-          then BS.take (l - 7) (BS.drop 6 spec)
-          else BS.take (l - 8) (BS.drop 7 spec)
+          then Z.take (l - 7) (Z.drop 6 spec)
+          else Z.take (l - 8) (Z.drop 7 spec)
       pres_pecs = getSpecs innerSpec
       specs =
         (\(name, Just (n, _)) -> (name, n))
-          <$> ((\[x, y] -> (x, readInt y)) . BS.splitWith (== 61) . BS.filter (/= 39) <$> pres_pecs) --61 is '='
+          <$> ((\[x, y] -> (x, readInt y)) . Z.splitWith (== 61) . Z.filter (/= 39) <$> pres_pecs) --61 is '='
       specsMap = Map.fromList specs
   mapM_
     ( \case
@@ -720,7 +707,7 @@ writeEnum col_name spec items = do
     items
 
 ----------------------------------------------------------------------
-readDate :: Int -> Reader [ClickhouseType]
+readDate :: Int -> P.Parser [ClickhouseType]
 readDate n_rows = do
   let epoch_start = fromGregorian 1970 1 1
   days <- replicateM n_rows readBinaryUInt16
@@ -729,7 +716,7 @@ readDate n_rows = do
       toCK = map (\(y, m, d) -> CKDate y m d) toTriple
   return toCK
 
-writeDate :: ByteString -> [ClickhouseType] -> Writer Builder
+writeDate :: Bytes -> [ClickhouseType] -> B.Builder ()
 writeDate col_name items = do
   let epoch_start = fromGregorian 1970 1 1
   let serialize =
@@ -745,10 +732,10 @@ writeDate col_name items = do
   mapM_ (writeBinaryInt16 . fromIntegral) serialize
 
 --------------------------------------------------------------------------------------
-readDecimal :: Int -> ByteString -> Reader [ClickhouseType]
+readDecimal :: Int -> Bytes -> P.Parser [ClickhouseType]
 readDecimal n_rows spec = do
-  let l = BS.length spec
-  let inner_spec = getSpecs $ BS.take (l - 9) (BS.drop 8 spec)
+  let l = Z.length spec
+  let inner_spec = getSpecs $ Z.take (l - 9) (Z.drop 8 spec)
   let (specific, Just (scale, _)) = case inner_spec of
         [] -> error "No spec"
         [scale'] ->
@@ -770,13 +757,13 @@ readDecimal n_rows spec = do
   let final = fmap (trans scale) raw
   return final
   where
-    readDecimal32 :: Int -> Reader [ClickhouseType]
+    readDecimal32 :: Int -> P.Parser [ClickhouseType]
     readDecimal32 n_rows = readIntColumn n_rows "Int32"
 
-    readDecimal64 :: Int -> Reader [ClickhouseType]
+    readDecimal64 :: Int -> P.Parser [ClickhouseType]
     readDecimal64 n_rows = readIntColumn n_rows "Int64"
 
-    readDecimal128 :: Int -> Reader [ClickhouseType]
+    readDecimal128 :: Int -> P.Parser [ClickhouseType]
     readDecimal128 n_rows =
       replicateM n_rows $ do
         lo <- readBinaryUInt64
@@ -787,10 +774,10 @@ readDecimal n_rows spec = do
     trans scale (CKInt64 x) = CKDecimal64 (fromIntegral x / fromIntegral (10 ^ scale))
     trans scale (CKUInt128 lo hi) = CKDecimal128 (word128_division hi lo scale)
 
-writeDecimal :: ByteString -> ByteString -> [ClickhouseType] -> Writer Builder
+writeDecimal :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeDecimal col_name spec items = do
-  let l = BS.length spec
-  let inner_specs = getSpecs $ BS.take (l - 9) (BS.drop 8 spec)
+  let l = Z.length spec
+  let inner_specs = getSpecs $ Z.take (l - 9) (Z.drop 8 spec)
   let (specific, Just (pre_scale, _)) = case inner_specs of
         [] -> error "No spec"
         [scale'] ->
@@ -811,7 +798,7 @@ writeDecimal col_name spec items = do
   let scale = 10 ^ pre_scale
   specific scale items
   where
-    writeDecimal32 :: Int -> [ClickhouseType] -> Writer Builder
+    writeDecimal32 :: Int -> [ClickhouseType] -> B.Builder ()
     writeDecimal32 scale vec =
       mapM_
         ( \case
@@ -819,7 +806,7 @@ writeDecimal col_name spec items = do
             _ -> error $ typeMismatchError col_name
         )
         vec
-    writeDecimal64 :: Int -> [ClickhouseType] -> Writer Builder
+    writeDecimal64 :: Int -> [ClickhouseType] -> B.Builder ()
     writeDecimal64 scale vec =
       mapM_
         ( \case
@@ -827,7 +814,7 @@ writeDecimal col_name spec items = do
             _ -> error $ typeMismatchError col_name
         )
         vec
-    writeDecimal128 :: Int -> [ClickhouseType] -> Writer Builder
+    writeDecimal128 :: Int -> [ClickhouseType] -> B.Builder ()
     writeDecimal128 scale items =
       mapM_
       ( \case
@@ -852,13 +839,13 @@ foreign import ccall unsafe "bigint.h low_bits_negative_128" low_bits_negative_1
 
 foreign import ccall unsafe "bigint.h hi_bits_negative_128" hi_bits_negative_128 :: Double -> Int -> Word64
 ----------------------------------------------------------------------------------------------
-readIPv4 :: Int -> Reader [ClickhouseType]
+readIPv4 :: Int -> P.Parser [ClickhouseType]
 readIPv4 n_rows = replicateM n_rows (CKIPv4 . ip4ToOctets . IP4 <$> readBinaryUInt32)
 
-readIPv6 :: Int -> Reader [ClickhouseType]
+readIPv6 :: Int -> P.Parser [ClickhouseType]
 readIPv6 n_rows = replicateM n_rows (CKIPv6 . ip6ToWords . IP6 <$> readBinaryUInt128)
 
-writeIPv4 :: ByteString -> [ClickhouseType] -> Writer Builder
+writeIPv4 :: Bytes -> [ClickhouseType] -> B.Builder ()
 writeIPv4 col_name =
   mapM_
     ( \case
@@ -870,7 +857,7 @@ writeIPv4 col_name =
         _ -> error $ typeMismatchError col_name
     )
 
-writeIPv6 :: ByteString -> [ClickhouseType] -> Writer Builder
+writeIPv6 :: Bytes -> [ClickhouseType] -> B.Builder ()
 writeIPv6 col_name =
   mapM_
     ( \case
@@ -883,13 +870,13 @@ writeIPv6 col_name =
     )
 
 ----------------------------------------------------------------------------------------------
-readSimpleAggregateFunction :: ServerInfo -> Int -> ByteString -> Reader [ClickhouseType]
+readSimpleAggregateFunction :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
 readSimpleAggregateFunction server_info n_rows spec = do
-  let l = BS.length spec
-  let [func, cktype] = getSpecs $ BS.take (l - 25) (BS.drop 24 spec)
+  let l = Z.length spec
+  let [func, cktype] = getSpecs $ Z.take (l - 25) (Z.drop 24 spec)
   readColumn server_info n_rows cktype
 ----------------------------------------------------------------------------------------------
-readUUID :: Int -> Reader [ClickhouseType]
+readUUID :: Int -> P.Parser [ClickhouseType]
 readUUID n_rows =
   replicateM n_rows $ do
   w2 <- readBinaryUInt32
@@ -901,7 +888,7 @@ readUUID n_rows =
       C8.pack $
         UUID.toString $ UUID.fromWords w1 w2 w3 w4
 
-writeUUID :: ByteString -> [ClickhouseType] -> Writer Builder
+writeUUID :: Bytes -> [ClickhouseType] -> B.Builder ()
 writeUUID col_name =
   mapM_
     ( \case
@@ -930,8 +917,8 @@ writeUUID col_name =
 
 
 -- | Get rid of commas and spaces
-getSpecs :: ByteString -> [ByteString]
-getSpecs str = BS.splitWith (== 44) (BS.filter (/= 32) str)
+getSpecs :: Bytes -> [Bytes]
+getSpecs str = Z.splitWith (== 44) (Z.filter (/= 32) str)
 
 getIthRow :: Int -> Vector (Vector ClickhouseType) -> Maybe (Vector ClickhouseType)
 getIthRow i items
@@ -940,47 +927,5 @@ getIthRow i items
   | i >= V.length (items ! 0) = Nothing
   | otherwise = Just $ V.map (! i) items
 
-typeMismatchError :: ByteString -> String
+typeMismatchError :: Bytes -> String
 typeMismatchError col_name = "Type mismatch in the column " ++ show col_name
-
--- | print in format
-printInformat :: Vector (Vector ClickhouseType) -> IO ()
-printInformat vec
-  | V.length vec == 0 = return ()
-  | otherwise = do
-    let inner_length = V.length (vec ! 0)
-    void $ V.generateM inner_length \i->do
-      V.mapM_ (\each->do
-           (C8.putStr . help) $ each ! i
-           C8.putStr ", "
-        ) vec
-      C8.putStr "\n"
-
-toStr :: Vector ClickhouseType -> ByteString
-toStr row = BS.intercalate "," $ V.toList $ V.map help row
-
-help :: ClickhouseType -> ByteString
-help (CKString s) = s
-help (CKDecimal64 n) = C8.pack $ show n
-help (CKDecimal32 n) = C8.pack $ show n
-help (CKDecimal n) = C8.pack $ show n
-help (CKInt8 n) = C8.pack $ show n
-help (CKInt16 n) = C8.pack $ show n
-help (CKInt32 n) = C8.pack $ show n
-help (CKInt64 n) = C8.pack $ show n
-help (CKUInt8 n) = C8.pack $ show n
-help (CKUInt16 n) = C8.pack $ show n
-help (CKUInt32 n) = C8.pack $ show n
-help (CKUInt64 n) = C8.pack $ show n
-help (CKTuple xs) = "(" <> C8.pack (show xs) <> ")"
-help (CKArray xs) = "[" <> C8.pack (show xs) <> "]"
-help  CKNull = "null"
-help (CKIPv4 ip4) = C8.pack $ show ip4
-help (CKIPv6 ip6) = C8.pack $ show ip6
-help (CKDate y m d) =
-  C8.pack (show y)
-    <> "-"
-    <> C8.pack (show m)
-    <> "-"
-    <> C8.pack (show d)
-
