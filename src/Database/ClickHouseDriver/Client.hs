@@ -49,7 +49,7 @@ where
 
 import Database.ClickHouseDriver.Connection
     ( ping',
-      tcpConnect,
+      connect,
       sendQuery,
       sendData,
       processInsertQuery,
@@ -64,7 +64,7 @@ import Database.ClickHouseDriver.Types
       getServerInfo,
       defaultQueryInfo,
       ClickhouseType(..) )
-import Database.ClickHouseDriver.IO.BufferedReader ( createBuffer )
+
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
 import Control.Monad.State ( StateT(runStateT) )
@@ -216,7 +216,7 @@ createClient ConnParams{
                 ,compression'
                 ,database'   
              } = do
-          tcp <- tcpConnect  
+          tcp <- connect  
                   host'       
                   port'
                   username'       

@@ -15,9 +15,6 @@
 module Database.ClickHouseDriver.Types
   ( ServerInfo (..),
     TCPConnection (..),
-    getServerInfo,
-    getClientInfo,
-    getClientSetting,
     ClientInfo (..),
     ClientSetting(..),
     Context (..),
@@ -41,10 +38,7 @@ module Database.ClickHouseDriver.Types
     Block(..),
     CKResult(..),
     writeBlockInfo,
-    ConnParams(..),
-    setClientInfo,
-    setClientSetting,
-    setServerInfo
+    ConnParams(..)
   )
 where
 
@@ -61,6 +55,8 @@ import           Network.Socket                     (SockAddr, Socket)
 import qualified Z.Data.Parser as P
 import Z.Data.Vector (Bytes)
 import qualified Z.Data.Builder as B
+import Z.IO.Network ( HostName, PortNumber, AddrInfo, UVStream)
+import Z.IO.UV.UVStream (UVStream)
 
 
 -----------------------------------------------------------
@@ -128,37 +124,24 @@ data ServerInfo = ServerInfo
   }
   deriving (Show)
 
-setServerInfo :: Maybe ServerInfo->TCPConnection->TCPConnection
-setServerInfo server_info tcp@TCPConnection{context=ctx} 
-  = tcp{context=ctx{server_info=server_info}}
 ---------------------------------------------------------
 data TCPConnection = TCPConnection
-  { tcpHost :: {-# UNPACK #-} !Bytes,
+  { tcpHost :: {-# UNPACK #-} !HostName,
     -- ^ host name, default = "localhost" 
-    tcpPort :: {-# UNPACK #-} !Bytes,
+    tcpPort :: {-# UNPACK #-} !PortNumber,
     -- ^ port number, default = "8123"
     tcpUsername :: {-# UNPACK #-} !Bytes,
     -- ^ username, default = "default"
     tcpPassword :: {-# UNPACK #-} !Bytes,
+
+    database :: !Bytes,
     -- ^ password, dafault = ""
-    tcpSocket :: !Socket,
-    -- ^ socket for communication
-    tcpSockAdrr :: !SockAddr,
-    context :: !Context,
     -- ^ server and client informations
     tcpCompression :: {-# UNPACK #-} !Word
     -- ^ should the data be compressed or not. Not applied yet. 
   }
   deriving (Show)
 
-getServerInfo :: TCPConnection->Maybe ServerInfo
-getServerInfo TCPConnection{context=Context{server_info=server_info}} = server_info
-
-getClientInfo :: TCPConnection->Maybe ClientInfo
-getClientInfo TCPConnection{context=Context{client_info=client_info}} = client_info
-
-getClientSetting :: TCPConnection->Maybe ClientSetting
-getClientSetting TCPConnection{context=Context{client_setting=client_setting}} = client_setting
 ------------------------------------------------------------------
 data ClientInfo = ClientInfo
   { client_name :: {-# UNPACK #-} !Bytes,
@@ -191,9 +174,6 @@ getDefaultClientInfo name =
       query_kind = INITIAL_QUERY
     }
 
-setClientInfo :: Maybe ClientInfo -> TCPConnection -> TCPConnection
-setClientInfo client_info tcp@TCPConnection{context=ctx}
-  = tcp{context=ctx{client_info=client_info}}
 -------------------------------------------------------------------
 data ClientSetting 
   = ClientSetting {
@@ -202,10 +182,6 @@ data ClientSetting
       strings_encoding ::{-# UNPACK #-} !Bytes
   }
   deriving Show
-
-setClientSetting :: Maybe ClientSetting->TCPConnection->TCPConnection
-setClientSetting client_setting tcp@TCPConnection{context=ctx} 
-  = tcp{context=ctx{client_setting=client_setting}}
 
 -------------------------------------------------------------------
 data Interface = TCP | HTTP

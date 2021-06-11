@@ -12,6 +12,8 @@ module Database.ClickHouseDriver.ClientProtocol where
 
 import           Data.ByteString (ByteString)
 import           Data.Vector     (Vector, fromList, (!?))
+import qualified Z.Data.Vector   as Z
+import Data.Maybe ( fromMaybe )
 
 
 -- Name, version, revision, default DB
@@ -58,11 +60,9 @@ _COMPRESSION_METHOD_BYTE_LZ4 = 0x82
 _COMPRESSION_METHOD_BYTE_ZSTD :: Integer
 _COMPRESSION_METHOD_BYTE_ZSTD = 0x90
 
-typeStr :: Vector ByteString
+typeStr :: Vector Z.Bytes
 typeStr = fromList ["Hello", "Query", "Data", "Cancel", "Ping", "TablesStatusRequest"]
 
-toString :: Int -> ByteString
-toString n = 
-  case typeStr !? n of
-    Nothing -> "Unknown Packet"
-    Just t -> t
+toString :: Int -> Z.Bytes
+toString n =
+  Data.Maybe.fromMaybe "Unknown Packet" (typeStr !? n)

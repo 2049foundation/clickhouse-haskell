@@ -41,21 +41,23 @@ import Database.ClickHouseDriver.IO.BufferedReader
       readBinaryStr,
       readBinaryUInt8,
       readVarInt,
-      Reader )
+    )
 import Database.ClickHouseDriver.IO.BufferedWriter
     ( writeBinaryInt32,
       writeBinaryStr,
       writeBinaryUInt8,
       writeVarUInt,
-      Writer )
-import Data.ByteString ( ByteString )
-import Data.ByteString.Builder ( Builder )
+    )
+
 import Data.Vector ( Vector, (!) )
 import qualified Data.Vector                        as V
 import Control.Monad ( when, zipWithM_, forM)
 --Debug
 import           Debug.Trace
 import Control.Monad.State.Lazy
+import qualified Z.Data.Builder as B
+import qualified Z.Data.Parser as P 
+import Z.Data.Vector (Bytes)
 
 defaultBlockInfo :: BlockInfo
 defaultBlockInfo =
@@ -73,7 +75,7 @@ defaultBlock =
    }
 
 -- | write block informamtion to string builder
-writeInfo :: BlockInfo->Writer Builder
+writeInfo :: BlockInfo->B.Builder ()
 writeInfo (Info is_overflows bucket_num) = do
     writeVarUInt 1
     writeBinaryUInt8 (if is_overflows then 1 else 0)
@@ -82,7 +84,7 @@ writeInfo (Info is_overflows bucket_num) = do
     writeVarUInt 0
 
 -- | read information from block information
-readInfo :: BlockInfo -> Reader BlockInfo
+readInfo :: BlockInfo -> P.Parser BlockInfo
 readInfo info@Info {is_overflows = io, bucket_num = bn} = do
   field_num <- readVarInt
   case field_num of
@@ -95,7 +97,7 @@ readInfo info@Info {is_overflows = io, bucket_num = bn} = do
     _ -> return info
 
 -- | Read a stream of data into a block. Data are read into column type
-readBlockInputStream :: ServerInfo->Reader Block
+readBlockInputStream :: ServerInfo->P.Parser Block
 readBlockInputStream server_info = do
   let defaultInfo =
         Info
@@ -105,7 +107,7 @@ readBlockInputStream server_info = do
   info <- readInfo defaultInfo
   n_columns <- readVarInt
   n_rows <- readVarInt
-  let loop :: Reader ([ClickhouseType], ByteString, ByteString)
+  let loop :: P.Parser ([ClickhouseType], Bytes, Bytes)
       loop = do
         column_name <- readBinaryStr
         column_type <- readBinaryStr
@@ -124,7 +126,7 @@ readBlockInputStream server_info = do
       }
 
 -- | write data from column type into string builder.
-writeBlockOutputStream :: Context->Block->Writer Builder
+writeBlockOutputStream :: Context->Block->B.Builder ()
 writeBlockOutputStream ctx@(Context _ server_info _)
   (ColumnOrientedBlock columns_with_type cdata info) = do
   let revis = fromIntegral $

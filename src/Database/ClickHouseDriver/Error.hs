@@ -22,8 +22,9 @@ import Database.ClickHouseDriver.IO.BufferedReader
     readBinaryStr,
     readBinaryUInt8,
   )
-import Data.ByteString.Char8 (unpack)
+import Z.Data.Vector ( unpack ) 
 import qualified Z.Data.Parser as P
+import Z.Data.ASCII ( w2c )
 
 --import           Debug.Trace
 
@@ -56,7 +57,7 @@ readException additional = do
             Just msg -> msg ++ "."
         )
           ++ if name /= "DB::Exception"
-            then unpack name
+            then w2c <$> unpack name
             else "" ++ "."
   let new_message = hasAdditional <> show messange <> ". Stack trace:\n\n" <> show stack_trace
   if has_nested

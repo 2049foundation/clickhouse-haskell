@@ -79,6 +79,7 @@ import Control.Monad ( replicateM, forM, replicateM_, zipWithM_)
 import qualified Z.Data.Parser as P
 import qualified Z.Data.Vector as Z
 import qualified Z.Foreign as Z
+import Z.Data.ASCII
 import Debug.Trace
 
 -- Auxiliary
@@ -101,23 +102,23 @@ readColumn ::
   Bytes ->
   P.Parser [ClickhouseType]
 readColumn server_info n_rows spec
-  | "String" `isPrefixOf` spec = replicateM n_rows $! (CKString <$> readBinaryStr)
-  | "Array" `isPrefixOf` spec = readArray server_info n_rows spec
-  | "FixedString" `isPrefixOf` spec = readFixed n_rows spec
-  | "DateTime" `isPrefixOf` spec = readDateTime server_info n_rows spec
-  | "Date" `isPrefixOf` spec = readDate n_rows
-  | "Tuple" `isPrefixOf` spec = readTuple server_info n_rows spec
-  | "Nullable" `isPrefixOf` spec = readNullable server_info n_rows spec
-  | "LowCardinality" `isPrefixOf` spec = readLowCardinality server_info n_rows spec
-  | "Decimal" `isPrefixOf` spec = readDecimal n_rows spec
-  | "Enum" `isPrefixOf` spec = readEnum n_rows spec
-  | "Int" `isPrefixOf` spec = readIntColumn n_rows spec
-  | "UInt" `isPrefixOf` spec = readIntColumn n_rows spec
-  | "IPv4" `isPrefixOf` spec = readIPv4 n_rows
-  | "IPv6" `isPrefixOf` spec = readIPv6 n_rows
-  | "SimpleAggregateFunction" `isPrefixOf` spec = readSimpleAggregateFunction server_info n_rows spec
-  | "UUID" `isPrefixOf` spec = readUUID n_rows
-  | otherwise = error ("Unknown Type: " Prelude.++ C8.unpack spec)
+  | "String" `Z.isPrefixOf` spec = replicateM n_rows $! (CKString <$> readBinaryStr)
+  | "Array" `Z.isPrefixOf` spec = readArray server_info n_rows spec
+  | "FixedString" `Z.isPrefixOf` spec = readFixed n_rows spec
+  | "DateTime" `Z.isPrefixOf` spec = readDateTime server_info n_rows spec
+  | "Date" `Z.isPrefixOf` spec = readDate n_rows
+  | "Tuple" `Z.isPrefixOf` spec = readTuple server_info n_rows spec
+  | "Nullable" `Z.isPrefixOf` spec = readNullable server_info n_rows spec
+  | "LowCardinality" `Z.isPrefixOf` spec = readLowCardinality server_info n_rows spec
+  | "Decimal" `Z.isPrefixOf` spec = readDecimal n_rows spec
+  | "Enum" `Z.isPrefixOf` spec = readEnum n_rows spec
+  | "Int" `Z.isPrefixOf` spec = readIntColumn n_rows spec
+  | "UInt" `Z.isPrefixOf` spec = readIntColumn n_rows spec
+  | "IPv4" `Z.isPrefixOf` spec = readIPv4 n_rows
+  | "IPv6" `Z.isPrefixOf` spec = readIPv6 n_rows
+  | "SimpleAggregateFunction" `Z.isPrefixOf` spec = readSimpleAggregateFunction server_info n_rows spec
+  | "UUID" `Z.isPrefixOf` spec = readUUID n_rows
+  | otherwise = error $ show ("Unknown Type: " <> spec)
 
 writeColumn ::
   -- | context contains client information and server information
@@ -131,30 +132,28 @@ writeColumn ::
   -- | result wrapped in a customized Writer Monad used for concatenating string builders.
   B.Builder ()
 writeColumn ctx col_name cktype items
-  | "String" `isPrefixOf` cktype = writeStringColumn col_name items
-  | "FixedString(" `isPrefixOf` cktype = writeFixedLengthString col_name cktype items
-  | "Int" `isPrefixOf` cktype = writeIntColumn col_name cktype items
-  | "UInt" `isPrefixOf` cktype = writeUIntColumn col_name cktype items
-  | "Nullable(" `isPrefixOf` cktype = writeNullable ctx col_name cktype items
-  | "Tuple" `isPrefixOf` cktype = writeTuple ctx col_name cktype items
-  | "Enum" `isPrefixOf` cktype = writeEnum col_name cktype items
-  | "Array" `isPrefixOf` cktype = writeArray ctx col_name cktype items
-  | "UUID" `isPrefixOf` cktype = writeUUID col_name items
-  | "IPv4" `isPrefixOf` cktype = writeIPv4 col_name items
-  | "IPv6" `isPrefixOf` cktype = writeIPv6 col_name items
-  | "Date" `isPrefixOf` cktype = writeDate col_name items
-  | "LowCardinality" `isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
-  | "DateTime" `isPrefixOf` cktype = writeDateTime col_name cktype items
-  | "Decimal" `isPrefixOf` cktype = writeDecimal col_name cktype items
-  | otherwise = error ("Unknown Type in the column: " Prelude.++ C8.unpack col_name)
+  | "String" `Z.isPrefixOf` cktype = writeStringColumn col_name items
+  | "FixedString(" `Z.isPrefixOf` cktype = writeFixedLengthString col_name cktype items
+  | "Int" `Z.isPrefixOf` cktype = writeIntColumn col_name cktype items
+  | "UInt" `Z.isPrefixOf` cktype = writeUIntColumn col_name cktype items
+  | "Nullable(" `Z.isPrefixOf` cktype = writeNullable ctx col_name cktype items
+  | "Tuple" `Z.isPrefixOf` cktype = writeTuple ctx col_name cktype items
+  | "Enum" `Z.isPrefixOf` cktype = writeEnum col_name cktype items
+  | "Array" `Z.isPrefixOf` cktype = writeArray ctx col_name cktype items
+  | "UUID" `Z.isPrefixOf` cktype = writeUUID col_name items
+  | "IPv4" `Z.isPrefixOf` cktype = writeIPv4 col_name items
+  | "IPv6" `Z.isPrefixOf` cktype = writeIPv6 col_name items
+  | "Date" `Z.isPrefixOf` cktype = writeDate col_name items
+  | "LowCardinality" `Z.isPrefixOf` cktype = writeLowCardinality ctx col_name cktype items
+  | "DateTime" `Z.isPrefixOf` cktype = writeDateTime col_name cktype items
+  | "Decimal" `Z.isPrefixOf` cktype = writeDecimal col_name cktype items
+  | otherwise = error $ show ("Unknown Type in the column: " <> col_name)
 ---------------------------------------------------------------------------------------------
 readFixed :: Int -> Bytes -> P.Parser [ClickhouseType]
 readFixed n_rows spec = do
   let l = Z.length spec
   let str_number = Z.take (l - 13) (Z.drop 12 spec)
-  let number = case readInt str_number of
-        Nothing -> 0 -- This can't happen
-        Just (x, _) -> x
+  let number = readInt str_number
   replicateM n_rows (readFixedLengthString number)
 
 readFixedLengthString :: Int -> P.Parser ClickhouseType
@@ -172,7 +171,7 @@ writeStringColumn col_name =
 writeFixedLengthString :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeFixedLengthString col_name spec items = do
   let l = Z.length spec
-  let Just (len, _) = readInt $ Z.take (l - 13) (Z.drop 12 spec)
+  let len= readInt $ Z.take (l - 13) (Z.drop 12 spec)
   mapM_
     ( \case
         CKString s -> writeBinaryFixedLengthStr (fromIntegral len) s
@@ -197,7 +196,7 @@ readIntColumn _ x = error ("expect an integer but got: " ++ show x)
 
 writeIntColumn :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeIntColumn col_name spec items = do
-  let Just (indicator, _) = readInt $ Z.drop 3 spec -- indicator indicates which integer type, is it Int8 or Int64 etc.
+  let indicator = readInt $ Z.drop 3 spec -- indicator indicates which integer type, is it Int8 or Int64 etc.
   writeIntColumn' indicator col_name items
   where
     writeIntColumn' :: Int -> Bytes -> [ClickhouseType] -> B.Builder ()
@@ -234,7 +233,7 @@ writeIntColumn col_name spec items = do
 
 writeUIntColumn :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeUIntColumn col_name spec items = do
-  let Just (indicator, _) = readInt $ Z.drop 4 spec
+  let indicator = readInt $ Z.drop 4 spec
   writeUIntColumn' indicator col_name items
   where
     writeUIntColumn' :: Int -> Bytes -> [ClickhouseType] -> B.Builder ()
@@ -285,97 +284,25 @@ readDateTime server_info n_rows spec = do
 
 readTimeSpec :: Bytes -> (Maybe Int, Maybe Bytes)
 readTimeSpec spec'
-  | "DateTime64" `isPrefixOf` spec' = do
+  | "DateTime64" `Z.isPrefixOf` spec' = do
     let l = Z.length spec'
     let inner_specs = Z.take (l - 12) (Z.drop 11 spec')
     let split = getSpecs inner_specs
     case split of
       [] -> (Nothing, Nothing)
-      [x] -> (Just $ fst $ fromJust $ readInt x, Nothing)
-      [x, y] -> (Just $ fst $ fromJust $ readInt x, Just y)
+      [x] -> (Just $ readInt x, Nothing)
+      [x, y] -> (Just $ readInt x, Just y)
   | otherwise = do
     let l = Z.length spec'
     let inner_specs = Z.take (l - 12) (Z.drop 10 spec')
     (Nothing, Just inner_specs)
 
 readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> Bytes -> P.Parser [ClickhouseType]
-readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows Nothing tz_name = do
-  data32 <- readIntColumn n_rows "Int32"
-  let tz_to_send =
-        if tz_name /= ""
-          then "TZ=" <> tz_name
-          else fromMaybe "" maybe_zone
-  let toDateTimeStringM =
-        mapM
-          ( \(CKInt32 x) -> do
-              c_str <-
-                unsafeUseAsCStringLen
-                  tz_to_send
-                  (uncurry (c_convert_time (fromIntegral x)))
-              unsafePackCString c_str
-          )
-          data32
-  toDateTimeString <- liftIO toDateTimeStringM
-  return $ map CKString toDateTimeString
-
-readDateTimeWithSpec ServerInfo {timezone = maybe_zone} n_rows (Just scl) tz_name = do
-  data64 <- readIntColumn n_rows "Int64"
-  let scale = 10 ^ fromIntegral scl
-  let tz_to_send =
-        if tz_name /= ""
-          then "TZ=" <> tz_name
-          else fromMaybe "" maybe_zone
-  let toDateTimeStringM = data64 .$ mapM ( \(CKInt64 x) -> do
-              c_str <-
-                unsafeUseAsCStringLen
-                  tz_to_send
-                  (uncurry (c_convert_time64 (fromIntegral x / scale)))
-              unsafePackCString c_str
-          )
-
-  toDateTimeString <- liftIO toDateTimeStringM
-  return $ map CKString toDateTimeString
+readDateTimeWithSpec = undefined 
+      
 
 writeDateTime :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
-writeDateTime col_name spec items = do
-  let (scale', spc) = readTimeSpec spec
-  case scale' of
-    Nothing -> do
-      case spc of
-        Nothing -> do
-          TimeZone {timeZoneName = tz'} <- liftIO getCurrentTimeZone
-          writeDateTimeWithSpec $ C8.pack tz'
-        Just spec -> writeDateTimeWithSpec spec
-    Just _ ->
-      undefined
-  where
-    writeDateTimeWithSpec :: Bytes -> B.Builder ()
-    writeDateTimeWithSpec tz_name = items .$ mapM_
-      ( \case
-          (CKInt32 i32) -> do
-            converted <- liftIO $ convert_time_from_int32 i32
-            writeBinaryInt32 converted
-          (CKString time_str) -> do
-            converted <-
-              liftIO $
-                unsafeUseAsCStringLen
-                  tz_name
-                  ( \(tz, l) ->
-                      unsafeUseAsCStringLen
-                        time_str
-                        (\(time_str, l2) -> c_write_time time_str tz l l2)
-                  )
-            writeBinaryInt32 converted
-          _ -> error (typeMismatchError col_name)
-      )
-
-foreign import ccall unsafe "datetime.h convert_time" c_convert_time :: Int64 -> CString -> Int -> IO CString
-
-foreign import ccall unsafe "datetime.h convert_time" c_convert_time64 :: Float -> CString -> Int -> IO CString
-
-foreign import ccall unsafe "datetime.h parse_time" c_write_time :: CString -> CString -> Int -> Int -> IO Int32
-
-foreign import ccall unsafe "datetime.h convert_time_from_int32" convert_time_from_int32 :: Int32 -> IO Int32
+writeDateTime = undefined
 
 ------------------------------------------------------------------------------------------------
 readLowCardinality :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
@@ -397,7 +324,7 @@ readLowCardinality server_info n spec = do
     1 -> map fromIntegral <$> replicateM n readBinaryUInt16
     2 -> map fromIntegral <$> replicateM n readBinaryUInt32
     3 -> map fromIntegral <$> replicateM n readBinaryUInt64
-  if "Nullable" `isPrefixOf` inner
+  if "Nullable" `Z.isPrefixOf` inner
     then do
       let nullable = keys .$ fmap \k -> if k == 0 then CKNull else index ! k
       return nullable
@@ -405,7 +332,7 @@ readLowCardinality server_info n spec = do
   where
     stripNullable :: Bytes -> Bytes
     stripNullable spec
-      | "Nullable" `isPrefixOf` spec = Z.take (l - 10) (Z.drop 9 spec)
+      | "Nullable" `Z.isPrefixOf` spec = Z.take (l - 10) (Z.drop 9 spec)
       | otherwise = spec
     l = Z.length spec
 
@@ -413,7 +340,7 @@ writeLowCardinality :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builde
 writeLowCardinality ctx col_name spec items = do
   let inner = Z.take (Z.length spec - 16) (Z.drop 15 spec)
   (keys, index) <-
-    if "Nullable" `isPrefixOf` inner
+    if "Nullable" `Z.isPrefixOf` inner
       then do
         --let null_inner_spec = Z.take (Z.length inner - 10) (Z.drop 9 spec)
         let hashedItem = hashItems True items
@@ -439,7 +366,7 @@ writeLowCardinality ctx col_name spec items = do
               .|. need_update_dictionary
               .|. int_type
       let nullsInner =
-            if "Nullable" `isPrefixOf` inner
+            if "Nullable" `Z.isPrefixOf` inner
               then Z.take (Z.length inner - 10) (Z.drop 9 spec)
               else inner
       writeBinaryUInt64 1 --state prefix
@@ -593,7 +520,7 @@ genSpecs :: Bytes -> [[Word64]] -> P.Parser (Bytes, [[Word64]])
 genSpecs spec rest@(x : _) = do
   let l = Z.length spec
   let cktype = Z.take (l - 7) (Z.drop 6 spec)
-  if "Array" `isPrefixOf` spec
+  if "Array" `Z.isPrefixOf` spec
     then do
       next <- readArraySpec x
       genSpecs cktype (next : rest)
@@ -663,15 +590,15 @@ readEnum :: Int -> Bytes -> P.Parser [ClickhouseType]
 readEnum n_rows spec = do
   let l = Z.length spec
       innerSpec =
-        if "Enum8" `isPrefixOf` spec
+        if "Enum8" `Z.isPrefixOf` spec
           then Z.take (l - 7) (Z.drop 6 spec)
           else Z.take (l - 8) (Z.drop 7 spec) -- otherwise it is `Enum16`
       pres_pecs = getSpecs innerSpec
       specs =
-        (\(name, Just (n, _)) -> (n, name))
+        (\(name, n) -> (n, name))
           <$> ((\[x, y] -> (x, readInt y)) . Z.splitWith (== 61) <$> pres_pecs) --61 means '='
       specsMap = Map.fromList specs
-  if "Enum8" `isPrefixOf` spec
+  if "Enum8" `Z.isPrefixOf` spec
     then do
       values <- replicateM n_rows readBinaryInt8
       return $ CKString . (specsMap Map.!) . fromIntegral <$> values
@@ -683,23 +610,23 @@ writeEnum :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeEnum col_name spec items = do
   let l = Z.length spec
       innerSpec =
-        if "Enum8" `isPrefixOf` spec
+        if "Enum8" `Z.isPrefixOf` spec
           then Z.take (l - 7) (Z.drop 6 spec)
           else Z.take (l - 8) (Z.drop 7 spec)
       pres_pecs = getSpecs innerSpec
       specs =
-        (\(name, Just (n, _)) -> (name, n))
+        (\(name, n) -> (name, n))
           <$> ((\[x, y] -> (x, readInt y)) . Z.splitWith (== 61) . Z.filter (/= 39) <$> pres_pecs) --61 is '='
       specsMap = Map.fromList specs
   mapM_
     ( \case
         CKString str ->
-          ( if "Enum8" `isPrefixOf` spec
+          ( if "Enum8" `Z.isPrefixOf` spec
               then writeBinaryInt8 $ fromIntegral $ specsMap Map.! str
               else writeBinaryInt16 $ fromIntegral $ specsMap Map.! str
           )
         CKNull ->
-          if "Enum8" `isPrefixOf` spec
+          if "Enum8" `Z.isPrefixOf` spec
             then writeBinaryInt8 0
             else writeBinaryInt16 0
         _ -> error $ typeMismatchError col_name
@@ -736,21 +663,21 @@ readDecimal :: Int -> Bytes -> P.Parser [ClickhouseType]
 readDecimal n_rows spec = do
   let l = Z.length spec
   let inner_spec = getSpecs $ Z.take (l - 9) (Z.drop 8 spec)
-  let (specific, Just (scale, _)) = case inner_spec of
+  let (specific, scale) = case inner_spec of
         [] -> error "No spec"
         [scale'] ->
-          if "Decimal32" `isPrefixOf` spec
+          if "Decimal32" `Z.isPrefixOf` spec
             then (readDecimal32, readInt scale')
             else
-              if "Decimal64" `isPrefixOf` spec
+              if "Decimal64" `Z.isPrefixOf` spec
                 then (readDecimal64, readInt scale')
                 else (readDecimal128, readInt scale')
         [precision', scale'] -> do
-          let Just (precision, _) = readInt precision'
-          if precision <= 9 || "Decimal32" `isPrefixOf` spec
+          let precision = readInt precision'
+          if precision <= 9 || "Decimal32" `Z.isPrefixOf` spec
             then (readDecimal32, readInt scale')
             else
-              if precision <= 18 || "Decimal64" `isPrefixOf` spec
+              if precision <= 18 || "Decimal64" `Z.isPrefixOf` spec
                 then (readDecimal64, readInt scale')
                 else (readDecimal128, readInt scale')
   raw <- specific n_rows
@@ -778,21 +705,21 @@ writeDecimal :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeDecimal col_name spec items = do
   let l = Z.length spec
   let inner_specs = getSpecs $ Z.take (l - 9) (Z.drop 8 spec)
-  let (specific, Just (pre_scale, _)) = case inner_specs of
+  let (specific, pre_scale) = case inner_specs of
         [] -> error "No spec"
         [scale'] ->
-          if "Decimal32" `isPrefixOf` spec
+          if "Decimal32" `Z.isPrefixOf` spec
             then (writeDecimal32, readInt scale')
             else
-              if "Decimal64" `isPrefixOf` spec
+              if "Decimal64" `Z.isPrefixOf` spec
                 then (writeDecimal64, readInt scale')
                 else (writeDecimal128, readInt scale')
         [precision', scale'] -> do
-          let Just (precision, _) = readInt precision'
-          if precision <= 9 || "Decimal32" `isPrefixOf` spec
+          let precision = readInt precision'
+          if precision <= 9 || "Decimal32" `Z.isPrefixOf` spec
             then (writeDecimal32, readInt scale')
             else
-              if precision <= 18 || "Decimal64" `isPrefixOf` spec
+              if precision <= 18 || "Decimal64" `Z.isPrefixOf` spec
                 then (writeDecimal64, readInt scale')
                 else (writeDecimal128, readInt scale')
   let scale = 10 ^ pre_scale
@@ -883,17 +810,17 @@ readUUID n_rows =
   w1 <- readBinaryUInt32
   w3 <- readBinaryUInt32
   w4 <- readBinaryUInt32
-  return $
-    CKString $
-      C8.pack $
-        UUID.toString $ UUID.fromWords w1 w2 w3 w4
+  let res' = UUID.toString $ UUID.fromWords w1 w2 w3 w4
+  let res = Z.pack [c2w x | x <- res']
+  return $ CKString res
+      
 
 writeUUID :: Bytes -> [ClickhouseType] -> B.Builder ()
 writeUUID col_name =
   mapM_
     ( \case
         CKString uuid_str -> do
-          case UUID.fromString $ C8.unpack uuid_str of
+          case UUID.fromString $ w2c <$> Z.unpack uuid_str of
             Nothing ->
               error $
                 "UUID parsing error in the column"
@@ -913,8 +840,10 @@ writeUUID col_name =
 
 ----------------------------------------------------------------------------------------------
 ---Helpers
-
-
+readInt :: Bytes->Int
+readInt b = 
+  let (_,Right res) = P.parse P.int b
+  in res
 
 -- | Get rid of commas and spaces
 getSpecs :: Bytes -> [Bytes]

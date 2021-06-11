@@ -7,6 +7,7 @@ module Database.ClickHouseDriver.ServerProtocol where
 
 import           Data.ByteString (ByteString)
 import           Data.Vector     (Vector, fromList, (!?))
+import qualified Z.Data.Vector as Z
 
 
 -- Name, version, revision
@@ -57,7 +58,7 @@ _LOG = 10 :: Word
 _TABLE_COLUMNS :: Word
 _TABLE_COLUMNS = 11 :: Word
 
-typeStr :: Vector ByteString
+typeStr :: Vector Z.Bytes
 typeStr =
   fromList
     [ "Hello",
@@ -74,7 +75,7 @@ typeStr =
       "TableColumns"
     ]
 
-toString :: Int -> ByteString
+toString :: Int -> Z.Bytes
 toString n = 
   case typeStr !? n of
     Nothing -> "Unknown Packet"

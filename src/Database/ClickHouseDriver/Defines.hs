@@ -5,7 +5,7 @@
 
 module Database.ClickHouseDriver.Defines where
 
-import           Data.ByteString.Internal
+import           Z.Data.Vector (Bytes)
 
 {-# INLINE _DEFAULT_PORT #-}
 _DEFAULT_PORT = "9000"
@@ -63,12 +63,12 @@ _DEFAULT_COMPRESS_BLOCK_SIZE = 1048576
 _DEFAULT_INSERT_BLOCK_SIZE :: Word
 _DEFAULT_INSERT_BLOCK_SIZE = 1048576 :: Word
 
-_DBMS_NAME :: ByteString
-_DBMS_NAME = "ClickHouse" :: ByteString
+_DBMS_NAME :: Bytes
+_DBMS_NAME = "ClickHouse" :: Bytes
 
 {-# INLINE _CLIENT_NAME #-}
-_CLIENT_NAME :: ByteString
-_CLIENT_NAME = "haskell-driver" :: ByteString
+_CLIENT_NAME :: Bytes
+_CLIENT_NAME = "haskell-driver" :: Bytes
 
 {-# INLINE _CLIENT_VERSION_MAJOR #-}
 _CLIENT_VERSION_MAJOR :: Word
@@ -86,8 +86,8 @@ _CLIENT_VERSION_PATCH = 3 :: Word
 _CLIENT_REVISION :: Word
 _CLIENT_REVISION = 54429 :: Word
 
-_STRINGS_ENCODING :: ByteString
-_STRINGS_ENCODING = "utf-8" :: ByteString
+_STRINGS_ENCODING :: Bytes
+_STRINGS_ENCODING = "utf-8" :: Bytes
 
 {-# INLINE _DEFAULT_HTTP_PORT #-}
 _DEFAULT_HTTP_PORT :: Int
@@ -106,24 +106,24 @@ _DEFAULT_PING_WAIT_TIME :: Int
 _DEFAULT_PING_WAIT_TIME = 10000 :: Int
 
 {-# INLINE _DEFAULT_USERNAME #-}
-_DEFAULT_USERNAME :: ByteString
-_DEFAULT_USERNAME = "default" :: ByteString
+_DEFAULT_USERNAME :: Bytes
+_DEFAULT_USERNAME = "default" :: Bytes
 
 {-# INLINE _DEFAULT_HOST_NAME #-}
-_DEFAULT_HOST_NAME :: ByteString
-_DEFAULT_HOST_NAME = "localhost" :: ByteString
+_DEFAULT_HOST_NAME :: Bytes
+_DEFAULT_HOST_NAME = "localhost" :: Bytes
 
 {-# INLINE _DEFAULT_PASSWORD #-}
-_DEFAULT_PASSWORD :: ByteString
-_DEFAULT_PASSWORD =  "" :: ByteString
+_DEFAULT_PASSWORD :: Bytes
+_DEFAULT_PASSWORD =  "" :: Bytes
 
 {-# INLINE _DEFAULT_PORT_NAME #-}
-_DEFAULT_PORT_NAME :: ByteString
-_DEFAULT_PORT_NAME =  "9000" :: ByteString
+_DEFAULT_PORT_NAME :: Bytes
+_DEFAULT_PORT_NAME =  "9000" :: Bytes
 
 {-# INLINE _DEFAULT_DATABASE#-}
-_DEFAULT_DATABASE :: ByteString
-_DEFAULT_DATABASE =  "default" :: ByteString
+_DEFAULT_DATABASE :: Bytes
+_DEFAULT_DATABASE =  "default" :: Bytes
 
 {-# INLINE _DEFAULT_COMPRESSION_SETTING #-}
 _DEFAULT_COMPRESSION_SETTING :: Bool

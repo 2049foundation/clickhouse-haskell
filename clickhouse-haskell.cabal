@@ -91,18 +91,9 @@ library
     unix-time                         >= 0.4.7 && < 0.5,
     uri-encode                        >= 1.5.0 && < 1.6,
     uuid                              >= 1.3.13 && < 1.4,
-    Z-Data                            >= 0.8.0
+    Z-Data                            >= 0.8.0,
+    Z-IO
   default-language: Haskell2010
-  c-sources: ./src/Database/ClickHouseDriver/CBits/varuint.c
-           , ./src/Database/ClickHouseDriver/CBits/datetime.c
-           , ./src/Database/ClickHouseDriver/CBits/bigint.c
-  include-dirs: ./src/Database/ClickHouseDriver/Include 
-  includes: varuint.h
-          , datetime.h
-          , bigint.h
-  install-includes: varuint.h
-                  , datetime.h
-                  , bigint.h
   ghc-options:
     -funbox-strict-fields -threaded -rtsopts
 
