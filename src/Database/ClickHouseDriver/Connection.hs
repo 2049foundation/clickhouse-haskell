@@ -15,7 +15,11 @@
 --   Most of functions are for internal use.
 --   User should just use Database.ClickHouseDriver.
 module Database.ClickHouseDriver.Connection
-  ( receiveData,
+  (
+    withConnect,
+    sendQuery,
+    sendData,
+    receiveData,
     receiveResult,
     processInsertQuery,
     ping',
@@ -89,7 +93,7 @@ import Database.ClickHouseDriver.Types
     readBlockStreamProfileInfo,
     readProgress,
     storeProfile,
-    storeProgress,
+    storeProgress, ConnParams (..)
   )
 import System.Timeout (timeout)
 import qualified Z.Data.Builder as B
@@ -116,17 +120,16 @@ resolveDNS (h, p) = head <$> ZIO.getAddrInfo Nothing h (buildCBytes . B.int $ p)
 
 -- | internal implementation for ping test.
 ping' ::
-  TCPConnection ->
+  ConnParams ->
   -- | Time limit
   Int ->
   -- | host name, port number, and socket are needed
   (ZB.BufferedInput, ZB.BufferedOutput) ->
   -- | response `ping`, or nothing indicating server is not properly connected.
   IO (Maybe String)
-ping' TCPConnection {tcpHost = host, tcpPort = port} timeLimit (i, o) =
+ping' ConnParams{host' = host, port' = port} timeLimit (i, o) =
   timeout timeLimit $ do
     let r = B.build $ writeVarUInt Client._PING
-    addr <- resolveDNS (host, port)
     ZB.writeBuffer' o r
     packet_type <- ZB.readParser (iterateWhile (== Server._PROGRESS) readVarInt) i
     if packet_type /= Server._PONG
@@ -222,8 +225,8 @@ receiveHello buf = do
               return $ Left ("exception" <> e <> " " <> e2 <> " " <> e3)
             else return $ Left "Error"
 
-withConnect :: TCPConnection -> (ServerInfo -> (ZB.BufferedInput, ZB.BufferedOutput) -> IO ()) -> IO ()
-withConnect (TCPConnection host port username password database comp) f = do
+withConnect :: ConnParams -> ( (ZB.BufferedInput, ZB.BufferedOutput, Context) -> IO ()) -> IO ()
+withConnect (ConnParams host port username password database comp) f = do
   addr <- resolveDNS (host, port)
   let tcpconf =
         ZIO.defaultTCPClientConfig
@@ -234,50 +237,48 @@ withConnect (TCPConnection host port username password database comp) f = do
     (i, o) <- ZB.newBufferedIO tcp
     sendHello (database, username, password) o
     let isCompressed =
-          if comp > 0
+          if comp
             then Client._COMPRESSION_ENABLE
             else Client._COMPRESSION_DISABLE
     hello <- receiveHello i
     case hello of
-      Left "Exception" -> return $ Left "exception"
+      Left "Exception" -> error "exception"
       Left x -> do
         print ("error is " <> x)
-        return $ Left "Connection error"
+        error "Connection error"
       Right x -> do
         let client_setting =
-              ClientSetting
+              Just $ ClientSetting
                 { insert_block_size = _DEFAULT_INSERT_BLOCK_SIZE,
                   strings_as_bytes = False,
                   strings_encoding = _STRINGS_ENCODING
                 }
         let client_info = Nothing
-            server_info = Just x
-        undefined 
+            server_info = x
+            ctx = Context client_info server_info client_setting
+        f (i, o, ctx)
     undefined
-
 sendQuery ::
-  Maybe ServerInfo ->
-  -- | To get socket and server info
   ZB.BufferedOutput ->
+    -- | To get socket and server info
+  ServerInfo ->
   -- | SQL statement
   Bytes ->
   -- | query_id if any
   Maybe Bytes ->
   IO ()
 sendQuery
-  info
   output
+  info
   query
-  query_id = case info of
-    Nothing -> error "Empty Server info"
-    Just inf -> do
-      let revision' = revision inf
+  query_id = do 
+      let revision' = revision info
           r = B.build $ do
             writeVarUInt Client._QUERY
             writeBinaryStr $ fromMaybe "" query_id
             when (revision' >= _DBMS_MIN_REVISION_WITH_CLIENT_INFO) $ do
               let client_info = getDefaultClientInfo (_DBMS_NAME <> " " <> _CLIENT_NAME)
-              writeInfo client_info inf
+              writeInfo client_info info
             writeVarUInt 0 -- TODO add write settings
             writeVarUInt Stage._COMPLETE
             writeVarUInt 0
@@ -285,14 +286,14 @@ sendQuery
       ZB.writeBuffer' output r
 
 sendData ::
-  Context -> 
   ZB.BufferedOutput ->
+  Context -> 
   -- | table name
   Bytes ->
   -- | a block data if any
   Maybe Block ->
   IO ()
-sendData ctx output table_name maybe_block = do
+sendData output ctx table_name maybe_block = do
   -- TODO: ADD REVISION
   let info = Block.defaultBlockInfo
       r = B.build $ do
@@ -316,6 +317,7 @@ sendCancel out = do
 processInsertQuery ::
   -- | source
   (ZB.BufferedInput, ZB.BufferedOutput) ->
+  Context ->
   -- | query without data
   Bytes ->
   -- | query id
@@ -326,17 +328,14 @@ processInsertQuery ::
   IO Bytes
 processInsertQuery
   (i, o)
+  ctx@Context{client_setting=client_setting, server_info=info}
   query_without_data
   query_id
   items = do
-    sendQuery o query_without_data query_id
-    sendData o "" Nothing
-    buf <- createBuffer 2048 tcp
-    let info = case getServerInfo tcp of
-          Nothing -> error "empty server info"
-          Just s -> s
-    (sample_block, _) <-
-      runStateT
+    sendQuery o info query_without_data query_id
+    sendData o ctx "" Nothing
+    sample_block <-
+      ZB.readParser
         ( iterateWhile
             ( \case
                 Block {..} -> False
@@ -346,7 +345,7 @@ processInsertQuery
             )
             $ receivePacket info
         )
-        buf
+        i
     case client_setting of
       Nothing -> error "empty client settings"
       Just ClientSetting {insert_block_size = siz} -> do
@@ -363,12 +362,11 @@ processInsertQuery
                           { cdata = vectorized
                           }
                     x -> error ("unexpected packet type: " ++ show x)
-              sendData tcp "" (Just dataBlock)
+              sendData o ctx "" (Just dataBlock)
           )
           chunks
-        sendData tcp "" Nothing
-        buf2 <- refill buf
-        runStateT (receivePacket info) buf2
+        sendData o ctx "" Nothing
+        ZB.readParseChunk (P.parseChunk $ receivePacket info) i
         return "1"
 
 -- | Read data from stream.

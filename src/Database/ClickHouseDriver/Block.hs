@@ -130,10 +130,7 @@ writeBlockOutputStream :: Context->Block->B.Builder ()
 writeBlockOutputStream ctx@(Context _ server_info _)
   (ColumnOrientedBlock columns_with_type cdata info) = do
   let revis = fromIntegral $
-        revision $
-        (case server_info of
-        Nothing   -> error ""
-        Just info -> info)
+        revision server_info
   when (revis >= Defines._DBMS_MIN_REVISION_WITH_BLOCK_INFO) $ writeBlockInfo info
   let n_rows = fromIntegral $ length cdata
       n_columns = fromIntegral $ length $ head cdata

@@ -192,7 +192,7 @@ data QueryKind = NO_QUERY | INITIAL_QUERY | SECOND_QUERY
 
 data Context = Context
   { client_info :: Maybe ClientInfo,
-    server_info :: Maybe ServerInfo,
+    server_info :: ServerInfo,
     client_setting :: Maybe ClientSetting
   }
   deriving Show
@@ -306,11 +306,11 @@ data CKResult = CKResult
  deriving Show
 -------------------------------------------------------------------------
 data ConnParams = ConnParams{
+      host'        :: !HostName,
+      port'        :: !PortNumber,
       username'    :: !Bytes,
-      host'        :: !Bytes,
-      port'        :: !Bytes,
       password'    :: !Bytes,
-      compression' :: !Bool,
-      database'    :: !Bytes
+      database'    :: !Bytes,
+      compression' :: !Bool
     }
   deriving (Show, Generic)

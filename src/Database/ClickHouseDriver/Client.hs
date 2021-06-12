@@ -31,39 +31,35 @@ module Database.ClickHouseDriver.Client
     insertMany,
     insertOneRow,
     ping,
-    withQuery,
     Database.ClickHouseDriver.Client.fetch,
     fetchWithInfo,
     execute,
-    -- * Communication
-    createClient,
-    defaultClient,
-    closeClient,
-    -- * Connection pool
-    defaultClientPool,
-    createClientPool,
-    -- * retrieve settings
-    client
+    withCKConnected
   )
 where
 
 import Database.ClickHouseDriver.Connection
     ( ping',
-      connect,
       sendQuery,
       sendData,
       processInsertQuery,
-      receiveResult )
-import Database.ClickHouseDriver.Pool ( createConnectionPool )
-import Database.ClickHouseDriver.Defines ( _BUFFER_SIZE )
+      receiveResult, withConnect )
+import Database.ClickHouseDriver.Defines
+    ( _DEFAULT_COMPRESSION_SETTING,
+      _DEFAULT_DATABASE,
+      _DEFAULT_HOST_NAME,
+      _DEFAULT_PASSWORD,
+      _DEFAULT_PORT_NAME,
+      _DEFAULT_USERNAME )
 import qualified Database.ClickHouseDriver.Defines      as Defines
 import Database.ClickHouseDriver.Types
     ( ConnParams(..),
       CKResult(CKResult, query_result),
-      TCPConnection(TCPConnection, tcpSocket),
-      getServerInfo,
+      TCPConnection(TCPConnection),
       defaultQueryInfo,
-      ClickhouseType(..) )
+      ClickhouseType(..),
+      ServerInfo(..),
+      Context(..) )
 
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
@@ -89,46 +85,27 @@ import Haxl.Core
       Env(states),
       GenHaxl,
       ShowP(..),
-      StateKey(State) )                        
+      StateKey(State) )
 import qualified Network.Simple.TCP                 as TCP
 import Text.Printf ( printf )
 import           Data.Pool                          (Pool(..), withResource, destroyAllResources)
 import Data.Time.Clock ( NominalDiffTime )
-import           Data.Default.Class                 (def)
+import Data.Default.Class ( def, Default )
+import Z.IO.UV.UVStream (UVStream)
+import qualified Z.IO.Buffered as ZB
+import qualified Z.Data.Vector as Z
+import qualified Z.Data.ASCII as Z
+import qualified Z.Data.Parser as P
+import Z.Data.CBytes (fromBytes)
+import Z.IO.Network.SocketAddr (PortNumber(..))
 
-{-# INLINE _DEFAULT_PING_WAIT_TIME #-}
-_DEFAULT_PING_WAIT_TIME :: Integer
-_DEFAULT_PING_WAIT_TIME = 10000
 
-{-# INLINE _DEFAULT_USERNAME #-}
-_DEFAULT_USERNAME :: [Char]
-_DEFAULT_USERNAME = "default"
-
-{-# INLINE _DEFAULT_HOST_NAME #-}
-_DEFAULT_HOST_NAME :: [Char]
-_DEFAULT_HOST_NAME = "localhost"
-
-{-# INLINE _DEFAULT_PASSWORD #-}
-_DEFAULT_PASSWORD :: [Char]
-_DEFAULT_PASSWORD =  ""
-
-{-# INLINE _DEFAULT_PORT_NAME #-}
-_DEFAULT_PORT_NAME :: [Char]
-_DEFAULT_PORT_NAME =  "9000"
-
-{-# INLINE _DEFAULT_DATABASE#-}
-_DEFAULT_DATABASE :: [Char]
-_DEFAULT_DATABASE =  "default"
-
-{-# INLINE _DEFAULT_COMPRESSION_SETTING #-}
-_DEFAULT_COMPRESSION_SETTING :: Bool
-_DEFAULT_COMPRESSION_SETTING =  False
 
 -- | GADT 
 data Query a where
   FetchData :: String
                -- ^ SQL statement such as "SELECT * FROM table"
-             ->Query (Either String CKResult)
+             -> Query (Either String CKResult)
                -- ^ result data in Haskell type and additional information
 
 deriving instance Show (Query a)
@@ -152,111 +129,51 @@ instance DataSource u Query where
     return ()
 
 instance StateKey Query where
-  data State Query = CKResource TCPConnection
-                   | CKPool (Pool TCPConnection)
+  data State Query = CKResource (ZB.BufferedInput,ZB.BufferedOutput,Context)
 
-class Resource a where
-  client :: Either String a
-             -- ^ Either wrong message of resource with type a
-           ->IO(Env () w)
-            
+instance Default ConnParams where
+    def = ConnParams{
+       username'    = _DEFAULT_USERNAME
+      ,host'        = fromBytes _DEFAULT_HOST_NAME
+      ,port'        = PortNumber _DEFAULT_PORT_NAME
+      ,password'    = _DEFAULT_PASSWORD
+      ,compression' = _DEFAULT_COMPRESSION_SETTING
+      ,database'    = _DEFAULT_DATABASE
+    }
 
 -- | fetch data
 fetchData :: State Query->BlockedFetch Query->IO ()
-fetchData (CKResource tcpconn)  fetch = do
+fetchData (CKResource (inBuffer, outBuffer, ctx@(Context c_info s_info c_setting)))  fetch = do
   let (queryStr, var) = case fetch of
-        BlockedFetch (FetchData q) var' -> (C8.pack q, var')
+        BlockedFetch (FetchData q) var' -> (Z.pack $ Z.c2w <$> q, var')
   e <- Control.Exception.try $ do
-    sendQuery tcpconn queryStr Nothing
-    sendData tcpconn "" Nothing
-    let serverInfo = case getServerInfo tcpconn of
+    sendQuery outBuffer s_info queryStr Nothing
+    sendData outBuffer ctx "" Nothing
+    let serverInfo = case info of
           Just info -> info
           Nothing   -> error "Empty server information"
-    let sock = tcpSocket tcpconn
-    buf <- createBuffer _BUFFER_SIZE sock
-    (res, _) <- runStateT (receiveResult serverInfo defaultQueryInfo) buf
-    return res
-  either
-    (putFailure var)
-    (putSuccess var)
-    (e :: Either SomeException (Either String CKResult))
-fetchData (CKPool pool) fetch = do
-  let (queryStr, var) = case fetch of
-        BlockedFetch (FetchData q) var' -> (C8.pack q, var')
-  e <- Control.Exception.try $ do
-    withResource pool $ \conn->do
-      sendQuery conn queryStr Nothing
-      sendData conn "" Nothing
-      let serverInfo = case getServerInfo conn of
-            Just info -> info
-            Nothing -> error "Empty server information"
-      let sock = tcpSocket conn
-      buf <- createBuffer _BUFFER_SIZE sock
-      (res, _) <- runStateT (receiveResult serverInfo defaultQueryInfo) buf
-      return res
+    ZB.readParseChunk (P.parseChunk $ receiveResult serverInfo defaultQueryInfo) inBuffer
   either
     (putFailure var)
     (putSuccess var)
     (e :: Either SomeException (Either String CKResult))
 
-deploySettings :: TCPConnection -> IO (Env () w)
-deploySettings tcp =
-  initEnv (stateSet (CKResource tcp) stateEmpty) ()
+info :: Maybe p
+info = error "not implemented"
 
-defaultClient :: IO (Env () w)
-defaultClient = createClient def 
+deploySettings :: ZB.BufferedInput
+   -> ZB.BufferedOutput
+   -> Context
+   -> IO (Env () w)
+deploySettings i o ctx =
+  initEnv (stateSet (CKResource (i, o, ctx)) stateEmpty) ()
 
 -- | create client with given information such as username, host name and password etc. 
-createClient :: ConnParams->IO(Env () w)
-createClient ConnParams{
-                 username'   
-                ,host'       
-                ,port'       
-                ,password'   
-                ,compression'
-                ,database'   
-             } = do
-          tcp <- connect  
-                  host'       
-                  port'
-                  username'       
-                  password'   
-                  database'
-                  compression'
-          case tcp of
-            Left e -> client ((Left e) :: Either String (Pool TCPConnection))
-            Right conn -> client $ Right conn
-  
-defaultClientPool :: Int
-                    -- ^ number of stripes
-                   ->NominalDiffTime
-                    -- ^ idle time for each stripe
-                   ->Int
-                    -- ^ maximum resources for reach stripe
-                   ->IO (Env () w)
-                    -- ^ Haxl env wrapped in IO monad.
-defaultClientPool = createClientPool def
-
-createClientPool :: ConnParams
-                  -- ^ parameters for connection settings
-                  ->Int
-                  -- ^ number of stripes
-                  ->NominalDiffTime
-                  -- ^ idle time for each stripe
-                  ->Int
-                  -- ^ maximum resources for reach stripe
-                  ->IO(Env () w)
-createClientPool params numberStripes idleTime maxResources = do 
-  pool <- createConnectionPool params numberStripes idleTime maxResources
-  client $ Right pool
-
-instance Resource TCPConnection where
-  client (Left e) = error e
-  client (Right src) = initEnv (stateSet (CKResource src) stateEmpty) ()
-
-instance Resource (Pool TCPConnection) where
-  client (Left e) = error e
-  client (Right src) = initEnv (stateSet (CKPool src) stateEmpty) ()
+withCKConnected ::ConnParams -> (Env () w -> IO ()) -> IO ()
+withCKConnected params f
+  = withConnect params \(i, o, ctx) -> do
+      env <- deploySettings i o ctx
+      f env
 
 -- | fetch data alone with query information
 fetchWithInfo :: String->GenHaxl u w (Either String CKResult)
@@ -297,55 +214,31 @@ query source cmd = do
 execute :: Env u w -> GenHaxl u w a -> IO a
 execute = runHaxl
 
-withQuery :: Env () w
-            -- ^ enviroment i.e. the database resource
-           ->String
-           -- ^ sql statement
-           ->(Either String [[ClickhouseType]]->IO a)
-           -- ^ callback function that returns type a
-           ->IO a
-           -- ^ type a wrapped in IO monad.
-withQuery source cmd f = query source cmd >>= f
-
-insertMany :: Env () w->String->[[ClickhouseType]]->IO(BS.ByteString)
+insertMany :: Env () w->String->[[ClickhouseType]]->IO Z.Bytes
 insertMany source cmd items = do
   let st :: Maybe (State Query) = stateGet $ states source
   case st of
     Nothing             -> error "No Connection."
-    Just (CKResource tcp) -> processInsertQuery tcp (C8.pack cmd) Nothing items
-    Just (CKPool pool) -> 
-      withResource pool $ \tcp->do
-        processInsertQuery tcp (C8.pack cmd) Nothing items
+    Just (CKResource (i, o, ctx)) ->
+      processInsertQuery (i, o) ctx (Z.pack $ Z.c2w <$> cmd) Nothing items
 
 insertOneRow :: Env () w
               ->String
               -- ^ SQL command
               ->[ClickhouseType]
               -- ^ a row of local clickhouse data type to be serialized and inserted. 
-              ->IO(BS.ByteString)
+              ->IO Z.Bytes
               -- ^ The resulting bytestring indicates success or failure.
 insertOneRow source cmd items = insertMany source cmd [items]
 
 -- | ping pong 
-ping :: Env () w->IO()
-ping source = do
+ping :: ConnParams->Env () w->IO()
+ping params source = do
   let get :: Maybe (State Query) = stateGet $ states source
   case get of
     Nothing -> print "empty source"
-    Just (CKResource tcp)
-     -> ping' Defines._DEFAULT_PING_WAIT_TIME tcp >>= print
-    Just (CKPool pool)
-     -> withResource pool $ \src->
-       ping' Defines._DEFAULT_PING_WAIT_TIME src >>= print 
+    Just (CKResource (i, o, ctx))
+     -> ping' params Defines._DEFAULT_PING_WAIT_TIME (i, o) >>= print
 
--- | close connection
-closeClient :: Env () w -> IO()
-closeClient source = do
-  let get :: Maybe (State Query) = stateGet $ states source
-  case get of
-    Nothing -> return ()
-    Just (CKResource TCPConnection{tcpSocket=sock})
-     -> TCP.closeSock sock
-    Just (CKPool pool)
-     -> destroyAllResources pool
+
 

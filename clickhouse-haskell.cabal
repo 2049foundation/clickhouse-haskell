@@ -30,11 +30,6 @@ source-repository head
 library
   exposed-modules:
       Database.ClickHouseDriver
-      Database.ClickHouseDriver.HTTP
-      Database.ClickHouseDriver.HTTP.Helpers
-      Database.ClickHouseDriver.HTTP.Client
-      Database.ClickHouseDriver.HTTP.Types
-      Database.ClickHouseDriver.HTTP.Connection
       Database.ClickHouseDriver.Error
       Database.ClickHouseDriver.QueryProcessingStage
       Database.ClickHouseDriver.Defines
@@ -47,7 +42,6 @@ library
       Database.ClickHouseDriver.Column
       Database.ClickHouseDriver.IO.BufferedWriter
       Database.ClickHouseDriver.IO.BufferedReader
-      Database.ClickHouseDriver.Pool
   other-modules:
       Paths_clickhouse_haskell
   hs-source-dirs:
@@ -95,7 +89,7 @@ library
     Z-IO
   default-language: Haskell2010
   ghc-options:
-    -funbox-strict-fields -threaded -rtsopts
+    -funbox-strict-fields
 
 executable clickhouse-haskell-exe
   main-is: Main.hs
@@ -112,7 +106,8 @@ executable clickhouse-haskell-exe
     base                              >= 4.12 && <5,
     QuickCheck                        >= 2.13 && <3,
     hspec                             >= 2.0 && <3,
-    HUnit                             >= 1.6 && <1.7
+    HUnit                             >= 1.6 && <1.7,
+    data-default-class   >=0.1.2 && < 0.2
 
 
 executable clickhouse-haskell-benchmark
