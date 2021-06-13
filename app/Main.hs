@@ -1,32 +1,121 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-import Database.ClickHouseDriver
+
+import Control.Monad.Random
+  ( MonadRandom (getRandom, getRandomR),
+    Rand,
+    RandomGen,
+    StdGen,
+    evalRandIO,
+    replicateM,
+  )
+import Data.Default.Class (Default (def))
+import Data.Int (Int8)
 import qualified Data.List as L
-import Data.Default.Class ( Default(def) ) 
-
-import Database.ClickHouseDriver.IO.BufferedWriter
+import Data.Maybe
+import Database.ClickHouseDriver
 import Database.ClickHouseDriver.IO.BufferedReader
-
-import Z.Data.Vector hiding (map, take, takeWhile, foldl')
-import Z.Data.Parser hiding (take, takeWhile)
+import Database.ClickHouseDriver.IO.BufferedWriter
 import Z.Data.Builder
-import Data.Maybe 
-import qualified Streaming.Prelude as S
+import Z.Data.Parser hiding (take, takeWhile)
+import Z.Data.Vector hiding (foldl', map, take, takeWhile)
+
+ckInt32 :: RandomGen g => Rand g ClickhouseType
+ckInt32 = CKInt32 <$> getRandomR (-100, 100)
+
+ckInt64 :: RandomGen g => Rand g ClickhouseType
+ckInt64 = CKInt64 <$> getRandomR (-1000, 1000)
+
+ckString :: RandomGen g => Rand g ClickhouseType
+ckString = do
+  size <- getRandomR (0, 7)
+  x <- replicateM size getRandom
+  let packed = pack x
+  return $ CKString packed
+
+ckFixedString :: RandomGen g => Rand g ClickhouseType
+ckFixedString = do
+  x <- replicateM 5 getRandom
+  let packed = pack x
+  return $ CKString packed
+
+ckArrayInt64 :: RandomGen g => Rand g ClickhouseType
+ckArrayInt64 = do
+  size <- getRandomR (0, 6)
+  arr <- replicateM size ckInt64
+  return $ CKArray arr
+
+ckInt642Array :: RandomGen g => Rand g ClickhouseType
+ckInt642Array = do
+  size <- getRandomR (0, 4)
+  arr <- replicateM size ckArrayInt64
+  return $ CKArray arr
+
+ckNullableString :: RandomGen g => Rand g ClickhouseType
+ckNullableString = do
+  isnull <- getRandom
+  if isnull
+    then ckString
+    else return CKNull
+
+ckNullableStringArray :: RandomGen g => Rand g ClickhouseType
+ckNullableStringArray = do
+  size <- getRandomR (0, 4)
+  res <- replicateM size ckNullableString
+  return $ CKArray res
+
+ckNullbleString2Array :: RandomGen g => Rand g ClickhouseType
+ckNullbleString2Array = do
+  size <- getRandomR (0, 4)
+  res <- replicateM size ckNullableStringArray
+  return $ CKArray res
+
+ckTuple :: RandomGen g => Rand g ClickhouseType
+ckTuple = do
+  str <- ckString
+  i32 <- ckInt32
+  return $ CKTuple [str, i32]
+
+ckEnum :: Rand StdGen ClickhouseType
+ckEnum = do
+  (season :: Int8) <- getRandomR (1, 4)
+  case season of
+    1 -> return $ CKString "spring"
+    2 -> return $ CKString "summer"
+    3 -> return $ CKString "autumn"
+    4 -> return $ CKString "winter"
+
+ckRow :: Rand StdGen [ClickhouseType]
+ckRow = do
+  int32 <- ckInt32
+  str <- ckString
+  nullstr <- ckNullableString
+  fixstr <- ckFixedString
+
+  int64arr <- ckInt642Array
+  nullarr <- ckNullbleString2Array
+
+  tuple <- ckTuple
+  enum <- ckEnum
+  lowcard <- ckString
+
+  return [int32, str, nullstr, fixstr, int64arr, nullarr, tuple ,enum, lowcard]
+
+ckRows :: Int -> Rand StdGen [[ClickhouseType]]
+ckRows n = replicateM n ckRow
+
+main2 :: IO ()
+main2 = do
+  row <- evalRandIO ckRow
+  print row
 
 main :: IO ()
 main = withCKConnected def $ \env -> do
-    insertOneRow env "INSERT INTO test VALUES" 
-      [CKInt32 1232,
-       CKString "world",
-       CKString "not null",
-       CKString "12345",
-       CKArray [CKArray [CKInt64 123, CKInt64 124]], CKArray [], CKArray[],
-       CKArray [CKArray [CKString "ahaha", CKNull]],
-       CKTuple [CKString "Clickhosue", CKInt32 2123],
-       CKString "summer",
-       CKString "lowcard"]
-    table <- query env "SELECT nullArray FROM test"
-    print table
-    putStrLn "done!"
-        
-    
+  --rows <- evalRandIO  $ ckRows 10
+  --insertMany
+   -- env
+   -- "INSERT INTO test VALUES"
+  --  rows
+  table <- query env "SELECT * FROM test LIMIT 10"
+  print table
+  putStrLn "done!"

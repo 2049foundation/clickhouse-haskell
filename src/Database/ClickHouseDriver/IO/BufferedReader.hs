@@ -11,7 +11,6 @@
 module Database.ClickHouseDriver.IO.BufferedReader
   ( readBinaryStr,
     readVarInt,
-    readVarUInt,
     readBinaryInt8,
     readBinaryInt16,
     readBinaryInt64,
@@ -50,7 +49,6 @@ import qualified Z.Foreign as Z
 import Control.Monad ( forM, replicateM )
 import Control.Monad.Loops (iterateM_)
 import Data.List (scanl', foldl', span)
-import qualified Streaming.Prelude as S
 
 import Debug.Trace (trace)
 
@@ -80,25 +78,6 @@ loopDecodeNum n = loopDecodeNum' n 0 0
 
 myList :: [(Int, Word)]
 myList = (0 :: Int, 0 :: Word) : ((\(x, y)->(x + 1,y + 2)) <$> myList)
-
-readVarUInt :: (S.Stream (S.Of Word) P.Parser Word)
-readVarUInt = do
-  let init = return [10..20]
-  nums <- S.mapM (\x -> fromIntegral 
-    <$> P.satisfy (const True)) init
-  let res = takeUntil (\byte -> byte .&. 0x80 > 0) nums
-  let res' = zip [0..8 :: Int] res
-      final = foldl (\ans (i, byte)
-        -> ans .|. (byte .&. 0x7F)
-        `unsafeShiftL` (7 * i) ) 0 res'
-  return final
-  where
-    takeUntil :: (a -> Bool) -> [a] -> [a]
-    takeUntil f [] = []
-    takeUntil f (x : xs)
-        | f x = x : takeUntil f xs
-        | otherwise = [x]
-
 
 readVarInt :: P.Parser Word
 readVarInt = loop 0 0
