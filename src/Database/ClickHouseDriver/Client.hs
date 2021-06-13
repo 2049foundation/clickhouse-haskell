@@ -149,17 +149,11 @@ fetchData (CKResource (inBuffer, outBuffer, ctx@(Context c_info s_info c_setting
   e <- Control.Exception.try $ do
     sendQuery outBuffer s_info queryStr Nothing
     sendData outBuffer ctx "" Nothing
-    let serverInfo = case info of
-          Just info -> info
-          Nothing   -> error "Empty server information"
-    ZB.readParseChunk (P.parseChunk $ receiveResult serverInfo defaultQueryInfo) inBuffer
+    ZB.readParseChunk (P.parseChunk $ receiveResult s_info defaultQueryInfo) inBuffer
   either
     (putFailure var)
     (putSuccess var)
     (e :: Either SomeException (Either String CKResult))
-
-info :: Maybe p
-info = error "not implemented"
 
 deploySettings :: ZB.BufferedInput
    -> ZB.BufferedOutput

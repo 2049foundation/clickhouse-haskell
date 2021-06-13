@@ -59,7 +59,8 @@ readException additional = do
           ++ if name /= "DB::Exception"
             then w2c <$> unpack name
             else "" ++ "."
-  let new_message = hasAdditional <> show messange <> ". Stack trace:\n\n" <> show stack_trace
+  let string_message = w2c <$> unpack messange
+  let new_message = hasAdditional <> string_message <> ". Stack trace:\n\n" <> show stack_trace
   if has_nested
     then do
       nested <- readException Nothing

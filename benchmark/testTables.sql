@@ -60,3 +60,20 @@ CREATE TABLE IF NOT EXISTS  supplier
         SPHONE         String
 )
 ENGINE = MergeTree ORDER BY SSUPPKEY;
+
+CREATE TABLE IF NOT EXISTS test
+(
+        INT32          Int32,
+        Name           String,
+        null_name      Nullable(String),
+        fix            FixedString(5),
+        array          Array(Array(Int64)),
+        nullArray      Array(Array(Nullable(String))),
+        tuple          Tuple(String, Int32),
+        enum           Enum8('spring' = 1, 'summer'= 2, 'autumn' = 3, 'winter' = 4),
+        lowcard        LowCardinality(String)     
+)
+ENGINE = Memory;
+
+INSERT INTO test VALUES 
+ (53341, 'Hello', null, 'abcde', [[1,2,3],[1,2],[4,5,6]], [['hel','ola', null], [null]], ('Hello', 3252), 'spring', 'lowcard');

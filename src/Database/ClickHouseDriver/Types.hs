@@ -202,7 +202,7 @@ data Packet
   | Progress {prog :: !Progress}
   | StreamProfileInfo {profile :: !BlockStreamProfileInfo}
   | MultiString !(Bytes, Bytes)
-  | ErrorMessage !String
+  | ErrorMessage String
   | Hello
   | EndOfStream
   deriving (Show)

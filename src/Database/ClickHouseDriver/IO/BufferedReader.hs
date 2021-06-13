@@ -3,16 +3,15 @@
 --
 -- This source code is distributed under the terms of a MIT license,
 -- found in the LICENSE file.
-
-{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings        #-}
-{-# LANGUAGE TypeSynonymInstances     #-}
 {-# LANGUAGE FlexibleInstances        #-}
+{-# LANGUAGE BangPatterns             #-}
 -- | Tools to analyze protocol and deserialize data sent from server. This module is for internal use only.
 
 module Database.ClickHouseDriver.IO.BufferedReader
   ( readBinaryStr,
     readVarInt,
+    readVarUInt,
     readBinaryInt8,
     readBinaryInt16,
     readBinaryInt64,
@@ -48,9 +47,12 @@ import qualified Z.Data.Vector.Base as Z
 import qualified Z.Data.Vector as Z
 import qualified Z.Data.Parser as P
 import qualified Z.Foreign as Z
-import Control.Monad ( forM )
+import Control.Monad ( forM, replicateM )
 import Control.Monad.Loops (iterateM_)
-import Data.List (scanl', foldl')
+import Data.List (scanl', foldl', span)
+import qualified Streaming.Prelude as S
+
+import Debug.Trace (trace)
 
 
 (.$) :: a -> (a -> c) -> c
@@ -74,19 +76,42 @@ loopDecodeNum n = loopDecodeNum' n 0 0
       | otherwise = do
         byte <- P.satisfy $ const True
         let ans' = ans .|. (fromIntegral byte .&. 0xFF) `unsafeShiftL` (8 * n)
-        loopDecodeNum' bit (n + 2) ans'
+        loopDecodeNum' bit (n + 1) ans'
 
 myList :: [(Int, Word)]
 myList = (0 :: Int, 0 :: Word) : ((\(x, y)->(x + 1,y + 2)) <$> myList)
 
-readVarInt :: P.Parser Word
-readVarInt = do
-  let inif = map (\x -> P.satisfy $ const True) [0..]
-  nums <- sequence inif
-  let res = takeWhile (\byte -> byte .&. 0x80 > 0) nums
-  let res' = zip [1..9 :: Int] res
-  let final = foldl' (\ans (i, byte) -> ans .|. (fromIntegral byte .&. 0x7F) `unsafeShiftL` (7 * i) ) 0 res'
+readVarUInt :: (S.Stream (S.Of Word) P.Parser Word)
+readVarUInt = do
+  let init = return [10..20]
+  nums <- S.mapM (\x -> fromIntegral 
+    <$> P.satisfy (const True)) init
+  let res = takeUntil (\byte -> byte .&. 0x80 > 0) nums
+  let res' = zip [0..8 :: Int] res
+      final = foldl (\ans (i, byte)
+        -> ans .|. (byte .&. 0x7F)
+        `unsafeShiftL` (7 * i) ) 0 res'
   return final
+  where
+    takeUntil :: (a -> Bool) -> [a] -> [a]
+    takeUntil f [] = []
+    takeUntil f (x : xs)
+        | f x = x : takeUntil f xs
+        | otherwise = [x]
+
+
+readVarInt :: P.Parser Word
+readVarInt = loop 0 0
+  where
+    loop :: Int -> Word -> P.Parser Word
+    loop !i !x
+      | i >= 9 = return x
+      | otherwise = do
+          byte <- P.satisfy $ const True
+          let x' = x .|. ((fromIntegral byte .&. 0x7F) `unsafeShiftL` (7 * i))
+          if (byte .&. 0x80) > 0
+            then loop (i + 1) x'
+            else return x'
 
 readBinaryStr :: P.Parser Bytes
 readBinaryStr = do

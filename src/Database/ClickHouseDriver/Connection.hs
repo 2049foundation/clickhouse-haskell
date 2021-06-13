@@ -105,9 +105,13 @@ import qualified Z.IO.Buffered as ZB
 import qualified Z.IO.Network as ZIO
 import Z.IO.Resource (withResource)
 import Z.IO.UV.UVStream (UVStream)
+import Z.Data.ASCII ( w2c )
 
 --Debug
---import Debug.Trace ( trace )
+import Debug.Trace ( trace )
+
+printBytes :: Bytes->String
+printBytes b = w2c <$> Z.unpack b
 
 -- | This module mainly focuses how to make connection
 -- | to clickhouse database and protocols to send and receive data
@@ -257,7 +261,6 @@ withConnect (ConnParams host port username password database comp) f = do
             server_info = x
             ctx = Context client_info server_info client_setting
         f (i, o, ctx)
-    undefined
 sendQuery ::
   ZB.BufferedOutput ->
     -- | To get socket and server info
@@ -372,7 +375,7 @@ processInsertQuery
 -- | Read data from stream.
 receiveData :: ServerInfo -> P.Parser Block.Block
 receiveData info@ServerInfo {revision = revision} = do
-  _ <-
+  s <-
     if revision >= _DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES
       then readBinaryStr
       else return ""

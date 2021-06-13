@@ -56,8 +56,13 @@ import Control.Monad ( when, zipWithM_, forM)
 import           Debug.Trace
 import Control.Monad.State.Lazy
 import qualified Z.Data.Builder as B
-import qualified Z.Data.Parser as P 
+import qualified Z.Data.Parser as P
 import Z.Data.Vector (Bytes)
+import Z.Data.ASCII (w2c)
+import qualified Z.Data.Vector as Z
+
+printBytes :: Bytes->String
+printBytes b = w2c <$> Z.unpack b
 
 defaultBlockInfo :: BlockInfo
 defaultBlockInfo =
@@ -90,7 +95,7 @@ readInfo info@Info {is_overflows = io, bucket_num = bn} = do
   case field_num of
     1 -> do
       io' <- readBinaryUInt8
-      readInfo Info {is_overflows = if io' == 0 then False else True, bucket_num = bn}
+      readInfo Info {is_overflows = io' /= 0, bucket_num = bn}
     2 -> do
       bn' <- readBinaryInt32
       readInfo Info {is_overflows = io, bucket_num = bn'}

@@ -417,7 +417,7 @@ readNullable server_info n_rows spec = do
   config <- readNullableConfig n_rows
   items' <- readColumn server_info n_rows cktype
   let items = V.fromList items'
-  let result = [if config ! i == 1 then CKNull else items ! i | i <- [1..n_rows]]
+  let result = [if config ! i == 1 then CKNull else items ! i | i <- [0..n_rows-1]]
   return result
   where
     readNullableConfig :: Int -> P.Parser (Vector Word8)
@@ -506,7 +506,7 @@ readArray server_info n_rows spec = do
       in embed
 
     intervalize :: [Int] -> [(Int, Int)]
-    intervalize vec = tail vec .$ scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1) -- drop the first tuple (-1,-1)
+    intervalize vec = tail (vec .$ scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1)) -- drop the first tuple (-1,-1)
 
 readArraySpec :: [Word64] -> P.Parser [Word64]
 readArraySpec sizeArr = do
@@ -571,8 +571,8 @@ writeTuple ctx col_name spec items = do
                   other ->
                     error
                       ( "expected type: " ++ show other
-                          ++ "in the column:"
-                          ++ show col_name
+                          ++ " in the column: "
+                          ++ (w2c <$> Z.unpack col_name)
                       )
               )
               items
