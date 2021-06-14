@@ -9,7 +9,8 @@
 -- | Tools to analyze protocol and deserialize data sent from server. This module is for internal use only.
 
 module Database.ClickHouseDriver.IO.BufferedReader
-  ( readBinaryStr,
+  ( loopDecodeNum,
+    readBinaryStr,
     readVarInt,
     readBinaryInt8,
     readBinaryInt16,
@@ -25,18 +26,12 @@ module Database.ClickHouseDriver.IO.BufferedReader
   )
 where
 
-import Control.Monad.State.Lazy ( StateT(StateT) )
 import Data.Binary
     ( Word8, Word16, Word32, Word64, Binary, decode )
-import           Data.ByteString          (ByteString)
-import qualified Data.ByteString          as BS
-import qualified Data.ByteString.Lazy     as L
-import qualified Data.ByteString.Unsafe   as UBS
 import           Data.DoubleWord          (Word128 (..))
 import Data.Int ( Int8, Int16, Int32, Int64 )
 import Data.Maybe ( fromJust, isNothing, fromMaybe )
 import Foreign.C ( CString )
-import qualified Network.Simple.TCP       as TCP
 import Network.Socket ( Socket )
 import Foreign.Ptr (Ptr, plusPtr)
 import Foreign.Storable (peek, peekElemOff)

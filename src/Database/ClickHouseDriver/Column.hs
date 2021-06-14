@@ -12,7 +12,7 @@ module Database.ClickHouseDriver.Column where
 
 import Database.ClickHouseDriver.Types (ClickhouseType (..), Context (..), ServerInfo (..))
 import Database.ClickHouseDriver.IO.BufferedReader
-  ( 
+  (
     readBinaryInt16,
     readBinaryInt32,
     readBinaryInt64,
@@ -25,7 +25,7 @@ import Database.ClickHouseDriver.IO.BufferedReader
     readBinaryUInt8,
   )
 import Database.ClickHouseDriver.IO.BufferedWriter
-  ( 
+  (
     writeBinaryFixedLengthStr,
     writeBinaryInt16,
     writeBinaryInt32,
@@ -39,7 +39,6 @@ import Database.ClickHouseDriver.IO.BufferedWriter
     writeBinaryUInt8,
     writeVarUInt,
   )
-import Control.Monad.State.Lazy (MonadIO (..), void)
 import Data.Binary (Word64, Word8)
 import Data.Bits (shift, (.&.), (.|.))
 import qualified Z.Data.Builder as B
@@ -63,8 +62,8 @@ import Data.UUID as UUID
     toString,
     toWords,
   )
-import Data.Vector (Vector, (!), generateM)
-import qualified Data.Vector as V
+import Z.Data.Vector (Vector)
+import qualified Z.Data.Vector as V
 import Foreign.C (CString)
 import Network.IP.Addr
   ( IP4 (..),
@@ -75,7 +74,7 @@ import Network.IP.Addr
     ip6ToWords,
   )
 import Data.List (foldl', scanl')
-import Control.Monad ( replicateM, forM, replicateM_, zipWithM_)
+import Control.Monad ( replicateM, forM, replicateM_, zipWithM_, join)
 import qualified Z.Data.Parser as P
 import qualified Z.Data.Vector as Z
 import qualified Z.Foreign as Z
@@ -230,6 +229,7 @@ writeIntColumn col_name spec items = do
                 CKNull -> writeBinaryInt64 0
                 _ -> error (typeMismatchError col_name)
             )
+        x -> error $ "Unknow Int type: " ++ show x
 
 writeUIntColumn :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeUIntColumn col_name spec items = do
@@ -267,6 +267,7 @@ writeUIntColumn col_name spec items = do
                 CKNull -> writeBinaryInt64 0
                 _ -> error (typeMismatchError col_name)
             )
+        x -> error $ "Unknow indicator" ++ show x
 
 ---------------------------------------------------------------------------------------------
 
@@ -298,8 +299,8 @@ readTimeSpec spec'
     (Nothing, Just inner_specs)
 
 readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> Bytes -> P.Parser [ClickhouseType]
-readDateTimeWithSpec = undefined 
-      
+readDateTimeWithSpec = undefined
+
 
 writeDateTime :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeDateTime = undefined
@@ -317,7 +318,7 @@ readLowCardinality server_info n spec = do
   index_size <- readBinaryUInt64
   -- Strip the 'Nullable' tag to avoid null map reading.
   index' <- readColumn server_info (fromIntegral index_size) (stripNullable inner)
-  let index = V.fromList index'
+  let indices :: Vector ClickhouseType = V.pack index'
   readBinaryUInt64 -- #keys
   keys <- case key_type of
     0 -> map fromIntegral <$> replicateM n readBinaryUInt8
@@ -326,9 +327,9 @@ readLowCardinality server_info n spec = do
     3 -> map fromIntegral <$> replicateM n readBinaryUInt64
   if "Nullable" `Z.isPrefixOf` inner
     then do
-      let nullable = keys .$ fmap \k -> if k == 0 then CKNull else index ! k
+      let nullable = keys .$ fmap \k -> if k == 0 then CKNull else Z.index indices k
       return nullable
-    else return $ fmap (index !) keys
+    else return $ fmap (Z.index indices) keys
   where
     stripNullable :: Bytes -> Bytes
     stripNullable spec
@@ -347,13 +348,13 @@ writeLowCardinality ctx col_name spec items = do
         let key_by_index_element = foldl' insertKeys Map.empty hashedItem
         let keys = hashedItem .$ map \k -> key_by_index_element Map.! k + 1
         -- First element is NULL if column is nullable
-        let index = V.fromList $ 0 : Map.keys key_by_index_element
+        let index :: Vector Int = V.pack $ 0 : Map.keys key_by_index_element
         return (keys, index)
       else do
         let hashedItem = hashItems False items
         let key_by_index_element = foldl' insertKeys Map.empty hashedItem
         let keys = map (key_by_index_element Map.!) hashedItem
-        let index = V.fromList $ Map.keys key_by_index_element
+        let index = V.pack $ Map.keys key_by_index_element
         return (keys, index)
   if V.length index == 0
     then return ()
@@ -416,14 +417,14 @@ readNullable server_info n_rows spec = do
   let cktype = Z.take (l - 10) (Z.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
   config <- readNullableConfig n_rows
   items' <- readColumn server_info n_rows cktype
-  let items = V.fromList items'
-  let result = [if config ! i == 1 then CKNull else items ! i | i <- [0..n_rows-1]]
+  let items :: Vector ClickhouseType = V.pack items'
+  let result = [if Z.index config i == 1 then CKNull else Z.index items i | i <- [0..n_rows-1]]
   return result
   where
     readNullableConfig :: Int -> P.Parser (Vector Word8)
     readNullableConfig n_rows = do
       config <- P.take n_rows
-      (return . V.fromList . Z.unpack) config
+      (return . V.pack . Z.unpack) config
 
 writeNullable :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeNullable ctx col_name spec items = do
@@ -488,25 +489,25 @@ For another example:
 -}
 readArray :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
 readArray server_info n_rows spec = do
-  (lastSpec, x : xs) <- genSpecs spec [[fromIntegral n_rows]]
+  (lastSpec, specs@(x : xs)) <- genSpecs spec [[fromIntegral n_rows]]
   --  lastSpec which is not `Array`
   --  x:xs is the
   let numElem = fromIntegral $ sum x -- number of elements in the nested array.
   elems <- readColumn server_info numElem lastSpec
-  let h : tail = foldl' combine elems (x : xs)
-  let CKArray arr = h
-  return arr
+  let total = foldl' combine (Z.pack elems) (Z.pack <$> specs)
+  let CKArray arr = Z.index total 0
+  return $ Z.unpack arr
   where
-    combine :: [ClickhouseType] -> [Word64] -> [ClickhouseType]
+    combine :: Vector ClickhouseType -> Vector Word64 -> Vector ClickhouseType
     combine elems config =
       let intervals = intervalize (fromIntegral <$> config)
           cut :: (Int, Int)->ClickhouseType
-          cut (!a, !b) = CKArray $ take b (drop a elems)
+          cut (!a, !b) = CKArray $ Z.take b (Z.drop a elems)
           embed = intervals .$ fmap \(l, r) -> cut (l, r - l + 1)
       in embed
 
-    intervalize :: [Int] -> [(Int, Int)]
-    intervalize vec = tail (vec .$ scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1)) -- drop the first tuple (-1,-1)
+    intervalize :: Vector Int -> Vector (Int, Int)
+    intervalize vec = Z.drop 1 (vec .$ Z.scanl' (\(_, b) v -> (b + 1, v + b)) (-1, -1)) -- drop the first tuple (-1,-1)
 
 readArraySpec :: [Word64] -> P.Parser [Word64]
 readArraySpec sizeArr = do
@@ -545,8 +546,8 @@ writeArray ctx col_name spec items = do
           items
   mapM_ (writeBinaryInt64 . fromIntegral) (tail lens)
   let innerSpec = Z.take (Z.length spec - 7) (Z.drop 6 spec)
-  let innerVector = map (\case CKArray xs -> xs) items
-  let flattenVector = innerVector >>= id
+  let innerVector = map (\case CKArray xs -> Z.unpack xs) items
+  let flattenVector = join innerVector
   writeColumn ctx col_name innerSpec flattenVector
 
 --------------------------------------------------------------------------------------
@@ -557,7 +558,7 @@ readTuple server_info n_rows spec = do
   let arr = getSpecs innerSpecString
   datas <- mapM (readColumn server_info n_rows) arr
   let transposed = List.transpose datas
-  return $ CKTuple <$> transposed
+  return $ CKTuple . Z.pack <$> transposed
 
 writeTuple :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeTuple ctx col_name spec items = do
@@ -567,7 +568,7 @@ writeTuple ctx col_name spec items = do
         List.transpose
           ( map
               ( \case
-                  CKTuple tupleVec -> tupleVec
+                  CKTuple tupleVec -> Z.unpack tupleVec
                   other ->
                     error
                       ( "expected type: " ++ show other
@@ -813,7 +814,7 @@ readUUID n_rows =
   let res' = UUID.toString $ UUID.fromWords w1 w2 w3 w4
   let res = Z.pack [c2w x | x <- res']
   return $ CKString res
-      
+
 
 writeUUID :: Bytes -> [ClickhouseType] -> B.Builder ()
 writeUUID col_name =
@@ -836,12 +837,15 @@ writeUUID col_name =
         CKNull -> do
           writeBinaryUInt64 0
           writeBinaryUInt64 0
+        other -> error $ "Column " 
+          ++ show col_name 
+          ++ " does not match the required type: UUID"
     )
 
 ----------------------------------------------------------------------------------------------
 ---Helpers
 readInt :: Bytes->Int
-readInt b = 
+readInt b =
   let (_,Right res) = P.parse P.int b
   in res
 
@@ -853,8 +857,8 @@ getIthRow :: Int -> Vector (Vector ClickhouseType) -> Maybe (Vector ClickhouseTy
 getIthRow i items
   | i < 0 = Nothing
   | V.length items == 0 = Nothing
-  | i >= V.length (items ! 0) = Nothing
-  | otherwise = Just $ V.map (! i) items
+  | i >= V.length (V.index items 0) = Nothing
+  | otherwise = Just $ V.map (`Z.index` i) items
 
 typeMismatchError :: Bytes -> String
 typeMismatchError col_name = "Type mismatch in the column " ++ show col_name

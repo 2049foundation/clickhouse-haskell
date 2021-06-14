@@ -49,17 +49,16 @@ import Database.ClickHouseDriver.IO.BufferedWriter
       writeVarUInt,
     )
 
-import Data.Vector ( Vector, (!) )
-import qualified Data.Vector                        as V
+import Z.Data.Vector ( Vector, index, Bytes )
+import qualified Z.Data.Vector                         as V
 import Control.Monad ( when, zipWithM_, forM)
 --Debug
 import           Debug.Trace
-import Control.Monad.State.Lazy
 import qualified Z.Data.Builder as B
 import qualified Z.Data.Parser as P
-import Z.Data.Vector (Bytes)
 import Z.Data.ASCII (w2c)
 import qualified Z.Data.Vector as Z
+import Control.Monad ( replicateM )
 
 printBytes :: Bytes->String
 printBytes b = w2c <$> Z.unpack b

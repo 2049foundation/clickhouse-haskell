@@ -7,6 +7,7 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE GADTs             #-}
 
 -- | Implementation of data types for internal use  Most users should
 -- import "ClickHouseDriver.Core" instead.
@@ -53,7 +54,7 @@ import Data.Word ( Word8, Word16, Word32, Word64 )
 import GHC.Generics ( Generic )
 import           Network.Socket                     (SockAddr, Socket)
 import qualified Z.Data.Parser as P
-import Z.Data.Vector (Bytes)
+import Z.Data.Vector (Bytes, Vector, pack)
 import qualified Z.Data.Builder as B
 import Z.IO.Network ( HostName, PortNumber, AddrInfo, UVStream)
 import Z.IO.UV.UVStream (UVStream)
@@ -95,8 +96,8 @@ data ClickhouseType
   | CKUInt64 !Word64
   | CKUInt128 !Word64 !Word64
   | CKString !Bytes
-  | CKTuple ![ClickhouseType]
-  | CKArray ![ClickhouseType]
+  | CKTuple (Vector ClickhouseType)
+  | CKArray (Vector ClickhouseType)
   | CKDecimal !Float
   | CKDecimal32 !Float
   | CKDecimal64 !Double

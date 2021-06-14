@@ -12,7 +12,8 @@
 -- | Tools to serialize data sent server. This module is for internal use only.
 
 module Database.ClickHouseDriver.IO.BufferedWriter
-  ( writeBinaryStr,
+  ( encodeLoop,
+    writeBinaryStr,
     writeBinaryFixedLengthStr,
     writeVarUInt,
     writeBinaryInt8,
@@ -28,7 +29,6 @@ module Database.ClickHouseDriver.IO.BufferedWriter
 where
 
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
-import           Control.Monad.Writer         (WriterT, tell)
 import qualified Data.Binary                  as Binary
 import           Data.DoubleWord              (Word128 (..))
 import Data.Int ( Int8, Int16, Int32, Int64 )

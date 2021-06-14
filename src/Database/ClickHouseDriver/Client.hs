@@ -63,12 +63,9 @@ import Database.ClickHouseDriver.Types
 
 import Control.Concurrent.Async ( mapConcurrently )
 import Control.Exception ( SomeException, try )
-import Control.Monad.State ( StateT(runStateT) )
-import qualified Data.ByteString                    as BS
-import qualified Data.ByteString.Char8              as C8
 import Data.Hashable ( Hashable(hashWithSalt) )
 import Data.Typeable ( Typeable )
-import Data.Vector ( Vector )
+import Z.Data.Vector ( Vector )
 import Haxl.Core
     ( putFailure,
       putSuccess,
@@ -86,9 +83,7 @@ import Haxl.Core
       GenHaxl,
       ShowP(..),
       StateKey(State) )
-import qualified Network.Simple.TCP                 as TCP
 import Text.Printf ( printf )
-import           Data.Pool                          (Pool(..), withResource, destroyAllResources)
 import Data.Time.Clock ( NominalDiffTime )
 import Data.Default.Class ( def, Default )
 import Z.IO.UV.UVStream (UVStream)

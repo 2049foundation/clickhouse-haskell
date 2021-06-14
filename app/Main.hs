@@ -19,6 +19,7 @@ import Database.ClickHouseDriver.IO.BufferedWriter
 import Z.Data.Builder
 import Z.Data.Parser hiding (take, takeWhile)
 import Z.Data.Vector hiding (foldl', map, take, takeWhile)
+import qualified ListT as LT
 
 ckInt32 :: RandomGen g => Rand g ClickhouseType
 ckInt32 = CKInt32 <$> getRandomR (-100, 100)
@@ -43,13 +44,13 @@ ckArrayInt64 :: RandomGen g => Rand g ClickhouseType
 ckArrayInt64 = do
   size <- getRandomR (0, 6)
   arr <- replicateM size ckInt64
-  return $ CKArray arr
+  return $ CKArray $ pack arr
 
 ckInt642Array :: RandomGen g => Rand g ClickhouseType
 ckInt642Array = do
   size <- getRandomR (0, 4)
   arr <- replicateM size ckArrayInt64
-  return $ CKArray arr
+  return $ CKArray $ pack arr
 
 ckNullableString :: RandomGen g => Rand g ClickhouseType
 ckNullableString = do
@@ -62,19 +63,19 @@ ckNullableStringArray :: RandomGen g => Rand g ClickhouseType
 ckNullableStringArray = do
   size <- getRandomR (0, 4)
   res <- replicateM size ckNullableString
-  return $ CKArray res
+  return $ CKArray $ pack res
 
 ckNullbleString2Array :: RandomGen g => Rand g ClickhouseType
 ckNullbleString2Array = do
   size <- getRandomR (0, 4)
   res <- replicateM size ckNullableStringArray
-  return $ CKArray res
+  return $ CKArray $ pack res
 
 ckTuple :: RandomGen g => Rand g ClickhouseType
 ckTuple = do
   str <- ckString
   i32 <- ckInt32
-  return $ CKTuple [str, i32]
+  return $ CKTuple $ pack [str, i32]
 
 ckEnum :: Rand StdGen ClickhouseType
 ckEnum = do
@@ -104,18 +105,24 @@ ckRow = do
 ckRows :: Int -> Rand StdGen [[ClickhouseType]]
 ckRows n = replicateM n ckRow
 
-main2 :: IO ()
-main2 = do
-  row <- evalRandIO ckRow
-  print row
-
 main :: IO ()
-main = withCKConnected def $ \env -> do
-  --rows <- evalRandIO  $ ckRows 10
-  --insertMany
-   -- env
-   -- "INSERT INTO test VALUES"
-  --  rows
+main = do
+  let inf :: (LT.ListT Maybe Int) = LT.repeat 1
+  let trans = LT.traverse Just inf
+  let take5 = LT.take 5 inf
+  let res = LT.toList take5
+
+  print res
+
+  putStrLn "done!"
+
+main2 :: IO ()
+main2 = withCKConnected def $ \env -> do
+  rows <- evalRandIO  $ ckRows 5
+  insertMany
+   env
+   "INSERT INTO test VALUES"
+   rows
   table <- query env "SELECT * FROM test LIMIT 10"
   print table
   putStrLn "done!"

@@ -5,9 +5,7 @@
 
 module Database.ClickHouseDriver.ServerProtocol where
 
-import           Data.ByteString (ByteString)
-import           Data.Vector     (Vector, fromList, (!?))
-import qualified Z.Data.Vector as Z
+import           Z.Data.Vector     (Vector, pack, index, Bytes)
 
 
 -- Name, version, revision
@@ -58,9 +56,9 @@ _LOG = 10 :: Word
 _TABLE_COLUMNS :: Word
 _TABLE_COLUMNS = 11 :: Word
 
-typeStr :: Vector Z.Bytes
+typeStr :: Vector Bytes
 typeStr =
-  fromList
+  pack
     [ "Hello",
       "Data",
       "Exception",
@@ -75,8 +73,5 @@ typeStr =
       "TableColumns"
     ]
 
-toString :: Int -> Z.Bytes
-toString n = 
-  case typeStr !? n of
-    Nothing -> "Unknown Packet"
-    Just t -> t
+toString :: Int -> Bytes
+toString = index typeStr

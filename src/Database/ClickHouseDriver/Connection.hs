@@ -106,6 +106,8 @@ import qualified Z.IO.Network as ZIO
 import Z.IO.Resource (withResource)
 import Z.IO.UV.UVStream (UVStream)
 import Z.Data.ASCII ( w2c )
+import Data.Functor ( (<&>) )
+import qualified ListT as L
 
 --Debug
 import Debug.Trace ( trace )
@@ -183,8 +185,7 @@ receiveHello ::
   ZB.BufferedInput ->
   -- | Either error message or server information will be received.
   IO (Either Bytes ServerInfo)
-receiveHello buf = do
-  ZB.readParser receiveHello' buf
+receiveHello = ZB.readParser receiveHello'
   where
     receiveHello' :: P.Parser (Either Bytes ServerInfo)
     receiveHello' = do
@@ -197,16 +198,16 @@ receiveHello buf = do
           server_revision <- readVarInt
           server_timezone <-
             if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE
-              then do Just <$> readBinaryStr
+              then Just <$> readBinaryStr
               else return Nothing
           server_display_name <-
             if server_revision >= _DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME
-              then do
+              then
                 readBinaryStr
               else return ""
           server_version_dispatch <-
             if server_revision >= _DBMS_MIN_REVISION_WITH_VERSION_PATCH
-              then do
+              then
                 readVarInt
               else return server_revision
           return $
@@ -274,7 +275,7 @@ sendQuery
   output
   info
   query
-  query_id = do 
+  query_id = do
       let revision' = revision info
           r = B.build $ do
             writeVarUInt Client._QUERY
@@ -290,7 +291,7 @@ sendQuery
 
 sendData ::
   ZB.BufferedOutput ->
-  Context -> 
+  Context ->
   -- | table name
   Bytes ->
   -- | a block data if any
@@ -307,7 +308,7 @@ sendData output ctx table_name maybe_block = do
             Block.writeInfo info
             writeVarUInt 0 -- #col
             writeVarUInt 0 -- #row
-          Just block -> do
+          Just block ->
             Block.writeBlockOutputStream ctx block
   ZB.writeBuffer' output r
 
@@ -398,7 +399,7 @@ receiveResult info query_info = do
       let dataVectors = Block.cdata . queryData <$> onlyDataPacket
       let newQueryInfo = Prelude.foldl updateQueryInfo query_info packets
       return $ Right $ CKResult (concat dataVectors) newQueryInfo
-    xs -> do
+    xs ->
       return $ Left $ Prelude.concat xs
   where
     updateQueryInfo :: QueryInfo -> Packet -> QueryInfo
@@ -436,13 +437,13 @@ receivePacket info = do
   -- The pattern matching does not support match with variable name,
   -- so here we use number instead.
   case packet_type of
-    1 -> receiveData info >>= (return . Block) -- Data
-    2 -> Error.readException Nothing >>= (return . ErrorMessage . show) -- Exception
-    3 -> readProgress (revision info) >>= (return . Progress) -- Progress
+    1 -> receiveData info <&> Block -- Data
+    2 -> Error.readException Nothing <&> ErrorMessage . show -- Exception
+    3 -> readProgress (revision info) <&> Progress -- Progress
     5 -> return EndOfStream -- End of Stream
-    6 -> readBlockStreamProfileInfo >>= (return . StreamProfileInfo) --Profile
-    7 -> receiveData info >>= (return . Block) -- Total
-    8 -> receiveData info >>= (return . Block) -- Extreme
+    6 -> readBlockStreamProfileInfo <&> StreamProfileInfo --Profile
+    7 -> receiveData info <&> Block -- Total
+    8 -> receiveData info <&> Block -- Extreme
     -- 10 -> return undefined -- Log
     11 -> do
       -- MultiStrings message
@@ -450,14 +451,14 @@ receivePacket info = do
       second <- readBinaryStr
       return $ MultiString (first, second)
     0 -> return Hello -- Hello
-    _ -> do
+    _ ->
       error $
-        show
-          Error.ServerException
-            { code = Error._UNKNOWN_PACKET_FROM_SERVER,
-              message = "Unknown packet from server",
-              nested = Nothing
-            }
+      show
+        Error.ServerException
+          { code = Error._UNKNOWN_PACKET_FROM_SERVER,
+            message = "Unknown packet from server",
+            nested = Nothing
+          }
 
 -- | write client information and server infomation to protocols
 writeInfo ::
