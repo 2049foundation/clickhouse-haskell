@@ -754,6 +754,7 @@ writeDecimal col_name spec items = do
               else do
                 writeBinaryUInt64 $ low_bits_negative_128 (- x) scale
                 writeBinaryUInt64 $ hi_bits_negative_128 (- x) scale
+          x -> error $ typeMismatchError col_name ++ " got: " ++ show x
       )
       items
 
