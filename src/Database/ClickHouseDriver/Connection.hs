@@ -396,7 +396,7 @@ receiveResult info query_info = do
   let errors = (\(ErrorMessage str) -> str) <$> filter isError packets
   case errors of
     [] -> do
-      let dataVectors = Block.cdata . queryData <$> onlyDataPacket
+      let dataVectors = List.transpose . Block.cdata . queryData <$> onlyDataPacket
       let newQueryInfo = Prelude.foldl updateQueryInfo query_info packets
       return $ Right $ CKResult (concat dataVectors) newQueryInfo
     xs ->

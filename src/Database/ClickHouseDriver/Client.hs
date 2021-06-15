@@ -10,15 +10,12 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE NamedFieldPuns             #-}
+
 
 -- | This module provides implementations of user's APIs
 --
@@ -228,6 +225,3 @@ ping params source = do
     Nothing -> print "empty source"
     Just (CKResource (i, o, ctx))
      -> ping' params Defines._DEFAULT_PING_WAIT_TIME (i, o) >>= print
-
-
-

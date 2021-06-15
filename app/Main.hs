@@ -105,8 +105,8 @@ ckRow = do
 ckRows :: Int -> Rand StdGen [[ClickhouseType]]
 ckRows n = replicateM n ckRow
 
-main :: IO ()
-main = do
+main2 :: IO ()
+main2 = do
   let inf :: (LT.ListT Maybe Int) = LT.repeat 1
   let trans = LT.traverse Just inf
   let take5 = LT.take 5 inf
@@ -116,13 +116,13 @@ main = do
 
   putStrLn "done!"
 
-main2 :: IO ()
-main2 = withCKConnected def $ \env -> do
+main :: IO ()
+main = withCKConnected def $ \env -> do
   rows <- evalRandIO  $ ckRows 5
   insertMany
    env
    "INSERT INTO test VALUES"
    rows
-  table <- query env "SELECT * FROM test LIMIT 10"
+  table <- query env "SELECT enum FROM test"
   print table
   putStrLn "done!"

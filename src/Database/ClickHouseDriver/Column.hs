@@ -42,7 +42,7 @@ import Database.ClickHouseDriver.IO.BufferedWriter
 import Data.Binary (Word64, Word8)
 import Data.Bits (shift, (.&.), (.|.))
 import qualified Z.Data.Builder as B
-import Z.Data.Vector (Bytes)
+import Z.Data.Vector ( Bytes, Vector )
 import qualified Data.HashMap.Strict as Map
 import Data.Hashable (Hashable (hash))
 import Data.Int (Int32, Int64)
@@ -62,7 +62,6 @@ import Data.UUID as UUID
     toString,
     toWords,
   )
-import Z.Data.Vector (Vector)
 import qualified Z.Data.Vector as V
 import Foreign.C (CString)
 import Network.IP.Addr
@@ -78,8 +77,8 @@ import Control.Monad ( replicateM, forM, replicateM_, zipWithM_, join)
 import qualified Z.Data.Parser as P
 import qualified Z.Data.Vector as Z
 import qualified Z.Foreign as Z
-import Z.Data.ASCII
-import Debug.Trace
+import Z.Data.ASCII ( c2w, w2c )
+--import Debug.Trace
 
 -- Auxiliary
 (.$) :: a -> (a -> c) -> c
@@ -518,6 +517,7 @@ readArraySpec sizeArr = do
   return sizes
 
 genSpecs :: Bytes -> [[Word64]] -> P.Parser (Bytes, [[Word64]])
+genSpecs _ [] = error "Buffer Error"
 genSpecs spec rest@(x : _) = do
   let l = Z.length spec
   let cktype = Z.take (l - 7) (Z.drop 6 spec)
@@ -837,8 +837,8 @@ writeUUID col_name =
         CKNull -> do
           writeBinaryUInt64 0
           writeBinaryUInt64 0
-        other -> error $ "Column " 
-          ++ show col_name 
+        other -> error $ "Column "
+          ++ show col_name
           ++ " does not match the required type: UUID"
     )
 
