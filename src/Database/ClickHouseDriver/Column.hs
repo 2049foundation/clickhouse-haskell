@@ -415,15 +415,15 @@ readNullable server_info n_rows spec = do
   let l = Z.length spec
   let cktype = Z.take (l - 10) (Z.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
   config <- readNullableConfig n_rows
-  items' <- readColumn server_info n_rows cktype
-  let items :: Vector ClickhouseType = V.pack items'
-  let result = [if Z.index config i == 1 then CKNull else Z.index items i | i <- [0..n_rows-1]]
+  items <- readColumn server_info n_rows cktype
+
+  let result = zipWith (\c i -> if c == 0 then CKNull else i) config items--[if Z.index config i == 1 then CKNull else Z.index items i | i <- [0..n_rows-1]]
   return result
   where
-    readNullableConfig :: Int -> P.Parser (Vector Word8)
-    readNullableConfig n_rows = do
-      config <- P.take n_rows
-      (return . V.pack . Z.unpack) config
+    readNullableConfig :: Int -> P.Parser [Word8]
+    readNullableConfig n_rows = do 
+      prim <- P.take n_rows
+      return $ Z.unpack prim
 
 writeNullable :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeNullable ctx col_name spec items = do
