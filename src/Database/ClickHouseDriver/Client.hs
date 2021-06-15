@@ -115,7 +115,7 @@ instance DataSourceName Query where
   dataSourceName _ = "ClickhouseServer"
 
 instance DataSource u Query where
-  fetch (resource) _flags env = SyncFetch $ \blockedFetches -> do
+  fetch resource _flags env = SyncFetch $ \blockedFetches -> do
     printf "Fetching %d queries.\n" (length blockedFetches)
     mapConcurrently (fetchData resource) blockedFetches
     return ()

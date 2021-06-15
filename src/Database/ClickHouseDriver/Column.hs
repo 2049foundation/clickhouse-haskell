@@ -73,11 +73,13 @@ import Network.IP.Addr
     ip6ToWords,
   )
 import Data.List (foldl', scanl')
-import Control.Monad ( replicateM, forM, replicateM_, zipWithM_, join)
+import Control.Monad (forM, replicateM_, zipWithM_, join)
+import qualified Control.Monad as Mon
 import qualified Z.Data.Parser as P
 import qualified Z.Data.Vector as Z
 import qualified Z.Foreign as Z
 import Z.Data.ASCII ( c2w, w2c )
+import qualified ListT as LT
 --import Debug.Trace
 
 -- Auxiliary
@@ -98,7 +100,7 @@ readColumn ::
   Int ->
   -- | data type
   Bytes ->
-  P.Parser [ClickhouseType]
+  P.Parser CKStream
 readColumn server_info n_rows spec
   | "String" `Z.isPrefixOf` spec = replicateM n_rows $! (CKString <$> readBinaryStr)
   | "Array" `Z.isPrefixOf` spec = readArray server_info n_rows spec
@@ -147,7 +149,7 @@ writeColumn ctx col_name cktype items
   | "Decimal" `Z.isPrefixOf` cktype = writeDecimal col_name cktype items
   | otherwise = error $ show ("Unknown Type in the column: " <> col_name)
 ---------------------------------------------------------------------------------------------
-readFixed :: Int -> Bytes -> P.Parser [ClickhouseType]
+readFixed :: Int -> Bytes -> P.Parser CKStream
 readFixed n_rows spec = do
   let l = Z.length spec
   let str_number = Z.take (l - 13) (Z.drop 12 spec)
@@ -173,7 +175,7 @@ writeFixedLengthString col_name spec items = do
   mapM_
     ( \case
         CKString s -> writeBinaryFixedLengthStr (fromIntegral len) s
-        CKNull -> () <$ replicateM (fromIntegral len) (writeVarUInt 0)
+        CKNull -> () <$ Mon.replicateM (fromIntegral len) (writeVarUInt 0)
         x -> error (typeMismatchError col_name ++ " got: " ++ show x)
     )
     items
@@ -181,7 +183,7 @@ writeFixedLengthString col_name spec items = do
 ---------------------------------------------------------------------------------------------
 
 -- | read data in format of Bytes into format of haskell type.
-readIntColumn :: Int -> Bytes -> P.Parser [ClickhouseType]
+readIntColumn :: Int -> Bytes -> P.Parser CKStream
 readIntColumn n_rows "Int8" = replicateM n_rows (CKInt8 <$> readBinaryInt8)
 readIntColumn n_rows "Int16" = replicateM n_rows (CKInt16 <$> readBinaryInt16)
 readIntColumn n_rows "Int32" = replicateM n_rows (CKInt32 <$> readBinaryInt32)
@@ -275,7 +277,7 @@ writeUIntColumn col_name spec items = do
   DateTime(TZ) or DateTime64(precision,TZ)
   server information is required if TZ parameter is missing.
 -}
-readDateTime :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
+readDateTime :: ServerInfo -> Int -> Bytes -> P.Parser CKStream
 readDateTime server_info n_rows spec = do
   let (scale, spc) = readTimeSpec spec
   case spc of
@@ -297,7 +299,7 @@ readTimeSpec spec'
     let inner_specs = Z.take (l - 12) (Z.drop 10 spec')
     (Nothing, Just inner_specs)
 
-readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> Bytes -> P.Parser [ClickhouseType]
+readDateTimeWithSpec :: ServerInfo -> Int -> Maybe Int -> Bytes -> P.Parser CKStream
 readDateTimeWithSpec = undefined
 
 
@@ -305,8 +307,8 @@ writeDateTime :: Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeDateTime = undefined
 
 ------------------------------------------------------------------------------------------------
-readLowCardinality :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
-readLowCardinality _ 0 _ = return []
+readLowCardinality :: ServerInfo -> Int -> Bytes -> P.Parser CKStream
+readLowCardinality _ 0 _ = return mempty
 readLowCardinality server_info n spec = do
   readBinaryUInt64 --state prefix
   let l = Z.length spec
@@ -317,13 +319,14 @@ readLowCardinality server_info n spec = do
   index_size <- readBinaryUInt64
   -- Strip the 'Nullable' tag to avoid null map reading.
   index' <- readColumn server_info (fromIntegral index_size) (stripNullable inner)
-  let indices :: Vector ClickhouseType = V.pack index'
+  index_ls <- LT.toList index'
+  let indices :: Vector ClickhouseType = V.pack index_ls
   readBinaryUInt64 -- #keys
   keys <- case key_type of
-    0 -> map fromIntegral <$> replicateM n readBinaryUInt8
-    1 -> map fromIntegral <$> replicateM n readBinaryUInt16
-    2 -> map fromIntegral <$> replicateM n readBinaryUInt32
-    3 -> map fromIntegral <$> replicateM n readBinaryUInt64
+    0 -> fmap fromIntegral <$> replicateM n readBinaryUInt8
+    1 -> fmap fromIntegral <$> replicateM n readBinaryUInt16
+    2 -> fmap fromIntegral <$> replicateM n readBinaryUInt32
+    3 -> fmap fromIntegral <$> replicateM n readBinaryUInt64
   if "Nullable" `Z.isPrefixOf` inner
     then do
       let nullable = keys .$ fmap \k -> if k == 0 then CKNull else Z.index indices k
@@ -410,20 +413,20 @@ writeLowCardinality ctx col_name spec items = do
           (\Null | \SOH)^{n_rows}
           \Null means null and \SOH which equals 1 means not null. The `|` in the middle means or.
 -}
-readNullable :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
+readNullable :: ServerInfo -> Int -> Bytes -> P.Parser CKStream
 readNullable server_info n_rows spec = do
   let l = Z.length spec
   let cktype = Z.take (l - 10) (Z.drop 9 spec) -- Read Clickhouse type inside the bracket after the 'Nullable' spec.
   config <- readNullableConfig n_rows
   items' <- readColumn server_info n_rows cktype
-  let items :: Vector ClickhouseType = V.pack items'
-  let result = [if Z.index config i == 1 then CKNull else Z.index items i | i <- [0..n_rows-1]]
-  return result
+  
+  --let result = [if Z.index config i == 1 then CKNull else Z.index items i | i <- [0..n_rows-1]]
+  return undefined
   where
-    readNullableConfig :: Int -> P.Parser (Vector Word8)
+    readNullableConfig :: Int -> P.Parser [Word8]
     readNullableConfig n_rows = do
       config <- P.take n_rows
-      (return . V.pack . Z.unpack) config
+      (return . Z.unpack) config
 
 writeNullable :: Context -> Bytes -> Bytes -> [ClickhouseType] -> B.Builder ()
 writeNullable ctx col_name spec items = do
@@ -486,7 +489,7 @@ For another example:
 ->                         | [[["Alex","Bob"],["John"]],[["Jane"],["Steven","Mike","Sarah"]],[["Hello","world"]]]
 
 -}
-readArray :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
+readArray :: ServerInfo -> Int -> Bytes -> P.Parser CKStream
 readArray server_info n_rows spec = do
   (lastSpec, specs@(x : xs)) <- genSpecs spec [[fromIntegral n_rows]]
   --  lastSpec which is not `Array`
@@ -551,7 +554,7 @@ writeArray ctx col_name spec items = do
   writeColumn ctx col_name innerSpec flattenVector
 
 --------------------------------------------------------------------------------------
-readTuple :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
+readTuple :: ServerInfo -> Int -> Bytes -> P.Parser CKStream
 readTuple server_info n_rows spec = do
   let l = Z.length spec
   let innerSpecString = Z.take (l - 7) (Z.drop 6 spec) -- Tuple(...) the dots represent innerSpecString
@@ -587,7 +590,7 @@ writeTuple ctx col_name spec items = do
       zipWithM_ (writeColumn ctx col_name) spec_arr transposed
 
 --------------------------------------------------------------------------------------
-readEnum :: Int -> Bytes -> P.Parser [ClickhouseType]
+readEnum :: Int -> Bytes -> P.Parser CKStream
 readEnum n_rows spec = do
   let l = Z.length spec
       innerSpec =
@@ -635,7 +638,7 @@ writeEnum col_name spec items = do
     items
 
 ----------------------------------------------------------------------
-readDate :: Int -> P.Parser [ClickhouseType]
+readDate :: Int -> P.Parser CKStream
 readDate n_rows = do
   let epoch_start = fromGregorian 1970 1 1
   days <- replicateM n_rows readBinaryUInt16
@@ -660,7 +663,7 @@ writeDate col_name items = do
   mapM_ (writeBinaryInt16 . fromIntegral) serialize
 
 --------------------------------------------------------------------------------------
-readDecimal :: Int -> Bytes -> P.Parser [ClickhouseType]
+readDecimal :: Int -> Bytes -> P.Parser CKStream
 readDecimal n_rows spec = do
   let l = Z.length spec
   let inner_spec = getSpecs $ Z.take (l - 9) (Z.drop 8 spec)
@@ -685,13 +688,13 @@ readDecimal n_rows spec = do
   let final = fmap (trans scale) raw
   return final
   where
-    readDecimal32 :: Int -> P.Parser [ClickhouseType]
+    readDecimal32 :: Int -> P.Parser CKStream
     readDecimal32 n_rows = readIntColumn n_rows "Int32"
 
-    readDecimal64 :: Int -> P.Parser [ClickhouseType]
+    readDecimal64 :: Int -> P.Parser CKStream
     readDecimal64 n_rows = readIntColumn n_rows "Int64"
 
-    readDecimal128 :: Int -> P.Parser [ClickhouseType]
+    readDecimal128 :: Int -> P.Parser CKStream
     readDecimal128 n_rows =
       replicateM n_rows $ do
         lo <- readBinaryUInt64
@@ -768,10 +771,10 @@ foreign import ccall unsafe "bigint.h low_bits_negative_128" low_bits_negative_1
 
 foreign import ccall unsafe "bigint.h hi_bits_negative_128" hi_bits_negative_128 :: Double -> Int -> Word64
 ----------------------------------------------------------------------------------------------
-readIPv4 :: Int -> P.Parser [ClickhouseType]
+readIPv4 :: Int -> P.Parser CKStream
 readIPv4 n_rows = replicateM n_rows (CKIPv4 . ip4ToOctets . IP4 <$> readBinaryUInt32)
 
-readIPv6 :: Int -> P.Parser [ClickhouseType]
+readIPv6 :: Int -> P.Parser CKStream
 readIPv6 n_rows = replicateM n_rows (CKIPv6 . ip6ToWords . IP6 <$> readBinaryUInt128)
 
 writeIPv4 :: Bytes -> [ClickhouseType] -> B.Builder ()
@@ -799,13 +802,13 @@ writeIPv6 col_name =
     )
 
 ----------------------------------------------------------------------------------------------
-readSimpleAggregateFunction :: ServerInfo -> Int -> Bytes -> P.Parser [ClickhouseType]
+readSimpleAggregateFunction :: ServerInfo -> Int -> Bytes -> P.Parser CKStream
 readSimpleAggregateFunction server_info n_rows spec = do
   let l = Z.length spec
   let [func, cktype] = getSpecs $ Z.take (l - 25) (Z.drop 24 spec)
   readColumn server_info n_rows cktype
 ----------------------------------------------------------------------------------------------
-readUUID :: Int -> P.Parser [ClickhouseType]
+readUUID :: Int -> P.Parser CKStream
 readUUID n_rows =
   replicateM n_rows $ do
   w2 <- readBinaryUInt32
@@ -863,3 +866,11 @@ getIthRow i items
 
 typeMismatchError :: Bytes -> String
 typeMismatchError col_name = "Type mismatch in the column " ++ show col_name
+
+type CKStream = LT.ListT P.Parser ClickhouseType 
+
+replicateM :: Int -> P.Parser a -> P.Parser (LT.ListT P.Parser a)
+replicateM n ma = do
+  let taken = LT.take n $ LT.repeat n
+      act = LT.traverse (const ma) taken
+  return act
